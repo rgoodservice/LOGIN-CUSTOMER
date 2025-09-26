@@ -786,72 +786,89 @@ document.addEventListener('DOMContentLoaded', () => {
 <script type="module">
   import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-  // 👉 ตั้งค่าของโปรเจกต์เธอ
-  const SUPABASE_URL = "https://qgksyolnrlqquotdanui.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFna3N5b2xucmxxcXVvdGRhbnVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4MTE3NjQsImV4cCI6MjA3NDM4Nzc2NH0.F5sontmKNO7C7U4X0EM9f6Mkg1rXaxjoDUYsk9V8dxI";
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+ <script>
+  const SUPABASE_URL = 'https://qgksyolnrlqquotdanui.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFna3N5b2xucmxxcXVvdGRhbnVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4MTE3NjQsImV4cCI6MjA3NDM4Nzc2NH0.F5sontmKNO7C7U4X0EM9f6Mkg1rXaxjoDUYsk9V8dxI';
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // ลำดับสเต็ปคงที่
-  const STEP_KEYS   = ['receive','precheck','request_more','submit','waiting_gov','got_license','close'];
+  // ลำดับสเต็ปตามที่ตกลง (A)
+  const STEP_KEYS   = ['receive','precheck','request_more','submit','waiting_gov','approved','close'];
   const STEP_LABELS = ['รับเรื่อง','ตรวจเอกสารเบื้องต้น','ขอเอกสารเพิ่ม','ยื่นคำขอ','รอผลหน่วยงานรัฐ','ได้ใบทะเบียนแล้ว','ปิดเคส'];
 
-  // helper คำนวณ %
-  function calcPct(idx){
-    const total = STEP_KEYS.length;
-    const i = Math.max(0, Math.min(total-1, Number(idx || 0)));
-    return Math.round(((i + 0.5) / total) * 100);
+  function computePct(idx) {
+    const total = STEP_LABELS.length;
+    return Math.round(((idx + 1) / total) * 100);
   }
 
-  // สี badge ของการ์ด “รับเรื่อง”
-  function paintStageBadge(label){
+  function applyCaseData(row) {
+    // hard reset: ไม่ใช้ค่าค้างใน localStorage
+    CASE_DATA = {
+      id: row.id,
+      publicToken: 'pk_from_db_or_static',
+      caseNo: row.case_no || `CASE-${row.id}`,
+      title: row.title || '-',
+      status: '', // จะเซ็ตด้านล่าง
+      progressPct: 0,
+      dueDate: row.due_date || '—',
+      product: {
+        tradeName:  row.trade_name  || '-',
+        commonName: row.common_name || '-'
+      },
+      steps: STEP_LABELS.map((label, i) => ({ key: STEP_KEYS[i], label, state: 'pending', date: '—' })),
+      timeline: [],
+      reminders: [],
+      chatMessages: []
+    };
+
+    // ทำ index ให้ถูก (DB เก็บ 1..7)
+    const stepIdx = Math.max(1, Math.min(STEP_LABELS.length, row.current_step || 1)) - 1;
+
+    // เซ็ตสถานะ + % ให้สัมพันธ์กัน
+    CASE_DATA.status = STEP_LABELS[stepIdx];
+    CASE_DATA.progressPct = computePct(stepIdx);
+
+    // ปรับสถานะของแต่ละ step
+    CASE_DATA.steps.forEach((s, i) => {
+      if (i < stepIdx) { s.state = 'completed'; s.date = s.date === '—' ? new Date().toISOString().slice(0,10) : s.date; }
+      else if (i === stepIdx) { s.state = 'active'; }
+      else { s.state = 'pending'; }
+    });
+
+    // เขียนทับ localStorage เพื่อกันค่าค้าง
+    try { localStorage.setItem('rgood_case_data_v2', JSON.stringify(CASE_DATA)); } catch {}
+
+    // วาด UI
+    hydrate();
+
+    // อัปเดต badge กล่อง “รับเรื่อง” ให้ตรงข้อความ/สี
     const badge = document.getElementById('stageStatus');
-    if(!badge) return;
-    badge.textContent = label || 'กำลังดำเนินการ';
-    badge.classList.remove('success','pending');
-    if (/ได้ใบทะเบียน|ปิดเคส/.test(label))      badge.classList.add('success');
-    else if (/รอผล|ขอเอกสาร|ตรวจเอกสาร|ยื่นคำขอ|รับเรื่อง/.test(label)) badge.classList.add('pending');
+    if (badge) {
+      badge.textContent = CASE_DATA.status;
+      badge.classList.remove('success','pending');
+      if (/ใบทะเบียน|ปิดเคส/.test(CASE_DATA.status)) badge.classList.add('success');
+      else if (/ขอเอกสาร|รอผล/.test(CASE_DATA.status)) badge.classList.add('pending');
+    }
   }
 
-  async function loadCase(){
-    const params = new URLSearchParams(location.search);
-    const id = params.get('id') || 1; // ไม่มี id จะลอง 1 ให้ก่อน
+  async function loadCaseFromSupabase() {
+    const id = new URLSearchParams(location.search).get('id');
+    if (!id) { showNotification('URL ไม่มี ?id=', 'error'); return; }
 
-    // ตาราง cases ควรมีอย่างน้อย: id, title, current_step, case_no, receive_date
     const { data, error } = await supabase
-      .from('cases')
-      .select('id, title, current_step, case_no, receive_date')
+      .from('cases') // ถ้าตารางชื่อ public.cases ใช้ 'cases' ได้เลย
+      .select('id, title, current_step, case_no, trade_name, common_name, due_date')
       .eq('id', id)
       .single();
 
-    if (error) throw error;
-    return data;
+    if (error) { console.error(error); showNotification('โหลดข้อมูลไม่สำเร็จ', 'error'); return; }
+
+    console.log('case row', data);
+    applyCaseData(data);
   }
 
-  (async () => {
-    try{
-      const row = await loadCase();
-
-      // อัปเดต CASE_DATA ของหน้าเก่า แล้วเรียก hydrate()
-      CASE_DATA.caseNo      = row.case_no || CASE_DATA.caseNo;
-      CASE_DATA.status      = STEP_LABELS[row.current_step] ?? CASE_DATA.status;
-      CASE_DATA.progressPct = calcPct(row.current_step);
-
-      // อัปเดต UI เฉพาะของการ์ด “รับเรื่อง” ด้วย
-      const d = row.receive_date || null;
-      const stageDate = document.getElementById('stageDate');
-      if (stageDate && d) stageDate.textContent = (''+d).slice(0,10);
-      const stageNo = document.getElementById('stageCaseNo');
-      if (stageNo) stageNo.textContent = CASE_DATA.caseNo;
-
-      if (typeof hydrate === 'function') hydrate(); // ใช้ renderer เดิมของเธอ
-      paintStageBadge(CASE_DATA.status);
-
-    }catch(e){
-      console.error(e);
-      showNotification?.('โหลดเคสไม่สำเร็จ หรือไม่มีสิทธิ์เข้าถึง', 'error');
-    }
-  })();
+  document.addEventListener('DOMContentLoaded', loadCaseFromSupabase);
 </script>
+
 
 </body>
 </html>
