@@ -42,6 +42,12 @@
   <input id="password" type="password" placeholder="รหัสผ่าน" style="padding:8px;border-radius:8px;border:1px solid #334155;background:#0b1220;color:#f1f5f9">
   <button class="btn primary" id="btnDoLogin">ล็อกอิน</button>
 </div>
+<div>
+  <p>เลขที่เคส: <span id="caseNo">-</span></p>
+  <p>สถานะ: <span id="caseStatus">-</span></p>
+  <p>ชื่อการค้า: <span id="tradeName">-</span></p>
+  <p>ชื่อสามัญ: <span id="commonName">-</span></p>
+</div>
 
 <script type="module">
   import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
