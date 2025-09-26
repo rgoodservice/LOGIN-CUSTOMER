@@ -255,8 +255,9 @@ function navActive(page){
 <div class="case-overview">
 <div class="main-case-info">
 <div class="case-header">
-<div class="case-title" id="caseTitle">ภาพรวมเคส: ต่ออายุทะเบียนสารกำจัดวัชพืช</div>
+<div class="case-title" id="caseTitle">ภาพรวมเคส: ต่ออายุทะเบียน</div>
 <div style="display:flex; gap:8px; align-items:center;">
+
 </div>
 </div>
 <div class="case-pills">
@@ -784,190 +785,103 @@ document.addEventListener('DOMContentLoaded', () => {
 <script type="module">
   import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-  // 👉 ตั้งค่าของโปรเจกต์เธอ
   const SUPABASE_URL = "https://qgksyolnrlqquotdanui.supabase.co";
-  const SUPABASE_ANON_KEY = "PUT_YOUR_ANON_KEY_HERE";
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFna3N5b2xucmxxcXVvdGRhbnVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4MTE3NjQsImV4cCI6MjA3NDM4Nzc2NH0.F5sontmKNO7C7U4X0EM9f6Mkg1rXaxjoDUYsk9V8dxI";
 
-  // ลำดับสเต็ปคงที่
-  const STEP_KEYS   = ['receive','precheck','request_more','submit','waiting_gov','got_license','close'];
-  const STEP_LABELS = ['รับเรื่อง','ตรวจเอกสารเบื้องต้น','ขอเอกสารเพิ่ม','ยื่นคำขอ','รอผลหน่วยงานรัฐ','ได้ใบทะเบียนแล้ว','ปิดเคส'];
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: false } });
 
-  // helper คำนวณ %
-  function calcPct(idx){
-    const total = STEP_KEYS.length;
-    const i = Math.max(0, Math.min(total-1, Number(idx || 0)));
-    return Math.round(((i + 0.5) / total) * 100);
+  // แผนที่ index -> ชื่อสถานะ
+  const STEP_NAMES = [
+    "รับเรื่อง",
+    "ตรวจเอกสารเบื้องต้น",
+    "ขอเอกสารเพิ่ม",
+    "ยื่นคำขอ",
+    "รอผลหน่วยงานรัฐ",
+    "ได้ใบทะเบียนแล้ว",
+    "ปิดเคส"
+  ];
+
+  function mapSteps(current) {
+    const total = 7; // จำนวนสเต็ป
+    const steps = [
+      { key:"receive",       label:STEP_NAMES[0] },
+      { key:"precheck",      label:STEP_NAMES[1] },
+      { key:"request_more",  label:STEP_NAMES[2] },
+      { key:"submit",        label:STEP_NAMES[3] },
+      { key:"waiting_gov",   label:STEP_NAMES[4] },
+      { key:"approved",      label:STEP_NAMES[5] },
+      { key:"close",         label:STEP_NAMES[6] },
+    ].map((s, i) => ({
+      ...s,
+      state: i < current ? "completed" : i === current ? "active" : "pending",
+      date: "—"
+    }));
+
+    // % แบบง่าย: (current+1)/7 * 100 ถ้ายังไม่ปิดเคส
+    const pct = Math.round(((Math.min(current, total - 1) + 1) / total) * 100);
+    return { steps, pct };
   }
 
-  // สี badge ของการ์ด “รับเรื่อง”
-  function paintStageBadge(label){
-    const badge = document.getElementById('stageStatus');
-    if(!badge) return;
-    badge.textContent = label || 'กำลังดำเนินการ';
-    badge.classList.remove('success','pending');
-    if (/ได้ใบทะเบียน|ปิดเคส/.test(label))      badge.classList.add('success');
-    else if (/รอผล|ขอเอกสาร|ตรวจเอกสาร|ยื่นคำขอ|รับเรื่อง/.test(label)) badge.classList.add('pending');
-  }
-
-  async function loadCase(){
-    const params = new URLSearchParams(location.search);
-    const id = params.get('id') || 1; // ไม่มี id จะลอง 1 ให้ก่อน
-
-    // ตาราง cases ควรมีอย่างน้อย: id, title, current_step, case_no, receive_date
-    const { data, error } = await supabase
-      .from('cases')
-      .select('id, title, current_step, case_no, receive_date')
-      .eq('id', id)
-      .single();
-
-    if (error) throw error;
-    return data;
-  }
-
-  (async () => {
-    try{
-      const row = await loadCase();
-
-      // อัปเดต CASE_DATA ของหน้าเก่า แล้วเรียก hydrate()
-      CASE_DATA.caseNo      = row.case_no || CASE_DATA.caseNo;
-      CASE_DATA.status      = STEP_LABELS[row.current_step] ?? CASE_DATA.status;
-      CASE_DATA.progressPct = calcPct(row.current_step);
-
-      // อัปเดต UI เฉพาะของการ์ด “รับเรื่อง” ด้วย
-      const d = row.receive_date || null;
-      const stageDate = document.getElementById('stageDate');
-      if (stageDate && d) stageDate.textContent = (''+d).slice(0,10);
-      const stageNo = document.getElementById('stageCaseNo');
-      if (stageNo) stageNo.textContent = CASE_DATA.caseNo;
-
-      if (typeof hydrate === 'function') hydrate(); // ใช้ renderer เดิมของเธอ
-      paintStageBadge(CASE_DATA.status);
-
-    }catch(e){
-      console.error(e);
-      showNotification?.('โหลดเคสไม่สำเร็จ หรือไม่มีสิทธิ์เข้าถึง', 'error');
+  async function boot() {
+    // 1) ดึง id จาก URL
+    const caseId = new URLSearchParams(location.search).get("id");
+    console.log("[boot] caseId =", caseId);
+    if (!caseId) {
+      showNotification("ไม่มีพารามิเตอร์ id ใน URL", "error");
+      return;
     }
-  })();
-</script>
 
-<!-- Supabase SDK -->
-<script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script>
-// ====== ตั้งค่า Supabase ======
-const SUPABASE_URL = "https://qgksyolnrlqquotdanui.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFna3N5b2xucmxxcXVvdGRhbnVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4MTE3NjQsImV4cCI6MjA3NDM4Nzc2NH0.F5sontmKNO7C7U4X0EM9f6Mkg1rXaxjoDUYsk9V8dxI";
-const supabase = supabasejs.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // 2) โหลดข้อมูลจาก Supabase
+    const { data, error } = await supabase
+      .from("cases")
+      .select("id, case_no, title, current_step, due_date, trade_name, common_name, public_token, status_text")
+      .eq("id", caseId)
+      .maybeSingle();
 
-// ====== ลำดับขั้นตอนคงเดิม (7 ขั้น) ======
-const STEPS = [
-  "รับเรื่อง",
-  "ตรวจเอกสารเบื้องต้น",
-  "ขอเอกสารเพิ่ม",
-  "ยื่นคำขอ",
-  "รอผลหน่วยงานรัฐ",
-  "ได้ใบทะเบียนแล้ว",
-  "ปิดเคส"
-];
+    console.log("[supabase] data =", data, "error =", error);
 
-// map key ให้ตรงกับของเดิม (เพื่อให้ปุ่ม/สูตร % ยังทำงาน)
-const STEP_KEYS = ["receive","precheck","request_more","submit","waiting_gov","approved","close"];
+    if (error) {
+      showNotification("โหลดข้อมูลจากเซิร์ฟเวอร์ไม่สำเร็จ: " + error.message, "error");
+      return;
+    }
+    if (!data) {
+      showNotification("ไม่พบเคสตาม id นี้", "error");
+      return;
+    }
 
-// คำนวน % จาก current_step (index เริ่มที่ 0)
-function percentFromStep(stepIndex){
-  const total = STEPS.length;
-  const idx = Math.max(0, Math.min(stepIndex ?? 0, total - 1));
-  return Math.round(((idx + 1) / total) * 100);
-}
+    // 3) เคลียร์ localStorage เดิม (กันค่าทับ)
+    try { localStorage.removeItem("rgood_case_data_v2"); } catch {}
 
-// อัปเดต badge "กล่องยาวรับเรื่อง" ให้เข้ากับ CASE_DATA ปัจจุบัน
-function updateStageCardFromCASE(){
-  const caseNoEl = document.getElementById('stageCaseNo');
-  const stageDateEl = document.getElementById('stageDate');
-  const badge = document.getElementById('stageStatus');
+    // 4) ใส่ค่าลง CASE_DATA
+    CASE_DATA.caseNo = data.case_no ?? CASE_DATA.caseNo;
+    CASE_DATA.title = data.title ?? CASE_DATA.title;
+    CASE_DATA.publicToken = data.public_token ?? CASE_DATA.publicToken;
+    CASE_DATA.dueDate = data.due_date ?? CASE_DATA.dueDate;
+    CASE_DATA.product = {
+      tradeName: data.trade_name ?? "-",
+      commonName: data.common_name ?? "-"
+    };
 
-  if(caseNoEl) caseNoEl.textContent = CASE_DATA.caseNo || "-";
+    const current = Number(data.current_step ?? 0);
+    const { steps, pct } = mapSteps(current);
+    CASE_DATA.steps = steps;
+    CASE_DATA.status = data.status_text || STEP_NAMES[current] || "กำลังดำเนินการ";
+    CASE_DATA.progressPct = CASE_DATA.status === "ปิดเคส" ? 100 : pct;
 
-  // ใช้วันที่จาก step 'receive' ถ้ามี ไม่งั้นปล่อย "—"
-  const receive = (CASE_DATA.steps||[]).find(s => s.key === 'receive');
-  if(stageDateEl) stageDateEl.textContent = receive?.date || "—";
-
-  if(badge){
-    const st = CASE_DATA.status || "กำลังดำเนินการ";
-    badge.textContent = st;
-    badge.classList.remove('success','pending');
-    if (/อนุมัติ|ปิดเคส|ได้ใบทะเบียนแล้ว/.test(st))      badge.classList.add('success');
-    else if (/ขอเอกสาร|รอผล/.test(st))                     badge.classList.add('pending');
-  }
-}
-
-// ดึง id จาก URL
-function getCaseIdFromURL(){
-  const url = new URL(window.location.href);
-  const id = url.searchParams.get("id");
-  return id ? Number(id) : 1;
-}
-
-// ดึงข้อมูลจาก Supabase -> ยัดลง CASE_DATA -> hydrate UI เดิม
-async function loadFromSupabaseAndHydrate(){
-  const id = getCaseIdFromURL();
-
-  // ดึงฟิลด์สำคัญจากตาราง cases
-  const { data, error } = await supabase
-    .from("cases")
-    .select("id, case_no, title, trade_name, common_name, due_date, current_step")
-    .eq("id", id)
-    .single();
-
-  if(error || !data){
-    console.warn("ไม่พบเคสหรือดึงข้อมูลผิดพลาด:", error);
-    // ไม่มีข้อมูล -> ให้ใช้ CASE_DATA เดิมในเครื่องต่อไป
+    // 5) วาด UI
     hydrate();
-    updateStageCardFromCASE();
-    return;
+
+    // 6) อัปเดต badge ใต้การ์ด "รับเรื่อง"
+    const badge = document.getElementById("stageStatus");
+    if (badge) {
+      badge.textContent = CASE_DATA.status;
+      badge.classList.remove("success", "pending");
+      if (/อนุมัติ|ปิดเคส|ได้ใบทะเบียน/.test(CASE_DATA.status)) badge.classList.add("success");
+      else if (/ขอเอกสาร|รอผล/.test(CASE_DATA.status))       badge.classList.add("pending");
+    }
   }
 
-  // สร้าง steps ให้ตรงกับ current_step
-  const cur = Math.max(0, Math.min(data.current_step ?? 0, STEPS.length - 1));
-  const today = new Date().toISOString().slice(0,10);
-  const steps = STEPS.map((label, i) => ({
-    key: STEP_KEYS[i],
-    label,
-    state: i < cur ? "completed" : (i === cur ? "active" : "pending"),
-    // ใส่วันที่ให้ step ก่อนหน้าเป็น today (ถ้าอยากเก็บจริงค่อยบันทึกใน DB)
-    date: i < cur ? today : (i === cur ? "—" : "—")
-  }));
-
-  // เขียนทับ CASE_DATA (เก็บหน้าตา/โครงเดิม)
-  CASE_DATA = {
-    ...CASE_DATA,
-    id: `case_${data.id}`,
-    caseNo: data.case_no || "-",
-    title: data.title || CASE_DATA.title,
-    status: STEPS[cur] || "กำลังดำเนินการ",
-    dueDate: data.due_date || CASE_DATA.dueDate,
-    product: {
-      tradeName: data.trade_name || CASE_DATA.product?.tradeName || "-",
-      commonName: data.common_name || CASE_DATA.product?.commonName || "-"
-    },
-    steps,
-    progressPct: percentFromStep(cur)
-  };
-
-  // วาด UI เดิม
-  hydrate();
-  updateStageCardFromCASE();
-
-  // ปรับ progress bar/ตัวเลขให้ชัด ๆ อีกครั้ง (กัน style overwrite)
-  const pct = CASE_DATA.progressPct ?? percentFromStep(cur);
-  const pctEl = document.getElementById("progressPct");
-  const fillEl = document.getElementById("progressFill");
-  if(pctEl) pctEl.textContent = pct + "%";
-  if(fillEl) fillEl.style.width = pct + "%";
-}
-
-// เริ่มทำงานเมื่อ DOM พร้อม
-document.addEventListener("DOMContentLoaded", loadFromSupabaseAndHydrate);
+  boot();
 </script>
 
 </body>
