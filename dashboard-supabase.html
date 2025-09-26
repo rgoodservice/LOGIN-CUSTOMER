@@ -42,12 +42,26 @@
   <input id="password" type="password" placeholder="รหัสผ่าน" style="padding:8px;border-radius:8px;border:1px solid #334155;background:#0b1220;color:#f1f5f9">
   <button class="btn primary" id="btnDoLogin">ล็อกอิน</button>
 </div>
-<div>
-  <p>เลขที่เคส: <span id="caseNo">-</span></p>
-  <p>สถานะ: <span id="caseStatus">-</span></p>
-  <p>ชื่อการค้า: <span id="tradeName">-</span></p>
-  <p>ชื่อสามัญ: <span id="commonName">-</span></p>
-</div>
+<section class="card" style="margin-bottom:16px;">
+  <h3 style="margin-bottom:10px;">เคสของฉัน</h3>
+  <div id="myCasesEmpty" style="color:#94a3b8;">กำลังโหลดรายการเคส…</div>
+  <div class="table-container" id="myCasesTableWrap" style="display:none;">
+    <table>
+      <thead>
+        <tr>
+          <th>เลขเคส</th>
+          <th>ชื่อการค้า</th>
+          <th>ชื่อสามัญ</th>
+          <th>สถานะ</th>
+          <th>ความคืบหน้า</th>
+          <th>ครบกำหนด</th>
+          <th>โน้ต</th> <!-- ✅ เพิ่ม -->
+        </tr>
+      </thead>
+      <tbody id="myCasesTbody"></tbody>
+    </table>
+  </div>
+</section>
 
 <script type="module">
   import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
