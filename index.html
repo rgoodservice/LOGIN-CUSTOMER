@@ -1,101 +1,211 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>เข้าสู่ระบบลูกค้า - R.Good Service</title>
+  <title>R.Good Service — Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:#0f172a;color:#f1f5f9;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
-    .box{background:#1e293b;border:1px solid rgba(148,163,184,.2);border-radius:14px;padding:28px;width:100%;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,.35)}
-    h1{font-size:22px;margin:0 0 6px;text-align:center}
-    .row{display:grid;gap:10px;margin-top:14px}
-    input,select{width:100%;padding:12px;border-radius:10px;border:1px solid #334155;background:#0b1220;color:#f1f5f9}
-    button{width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;font-weight:700;cursor:pointer}
-    .muted{font-size:12px;color:#94a3b8;text-align:center;margin-top:8px}
-    .msg{margin-top:10px;color:#f87171;min-height:20px;text-align:center}
-    .hidden{display:none}
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f172a;
+      color: #f1f5f9;
+      margin: 0;
+      padding: 20px;
+    }
+    h1, h2, h3 { margin: 0 0 10px; }
+    .card {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #334155;
+      text-align: left;
+    }
+    th {
+      background: rgba(59,130,246,0.1);
+      color: #60a5fa;
+    }
+    tr:hover td { background: rgba(59,130,246,0.05); }
+    .progress-bar {
+      height: 12px;
+      background: rgba(148,163,184,0.2);
+      border-radius: 50px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #10b981);
+      width: 0%;
+      transition: width 0.6s ease;
+    }
+    .btn {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      color: white;
+      background: linear-gradient(135deg,#3b82f6,#8b5cf6);
+    }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h1>R.Good Service</h1>
+  <h1>📊 Dashboard ลูกค้า</h1>
 
-    <!-- Step 1: Login -->
-    <div id="stepLogin" class="row">
-      <input id="email" placeholder="อีเมลลูกค้า" />
-      <input id="password" type="password" placeholder="รหัสผ่าน" />
-      <button id="btnLogin">ล็อกอิน</button>
-      <div class="msg" id="msg"></div>
-      <div class="muted">ลืมรหัส? ให้แอดมินช่วยรีเซ็ตได้</div>
+  <!-- ตารางแสดงทุกเคสของฉัน -->
+  <section class="card">
+    <h3>เคสของฉัน</h3>
+    <div id="myCasesEmpty" style="color:#94a3b8;">กำลังโหลดรายการเคส…</div>
+    <div class="table-container" id="myCasesTableWrap" style="display:none;">
+      <table>
+        <thead>
+          <tr>
+            <th>เลขเคส</th>
+            <th>ชื่อการค้า</th>
+            <th>ชื่อสามัญ</th>
+            <th>สถานะ</th>
+            <th>ความคืบหน้า</th>
+            <th>ครบกำหนด</th>
+            <th>โน้ต</th>
+          </tr>
+        </thead>
+        <tbody id="myCasesTbody"></tbody>
+      </table>
     </div>
+  </section>
 
-    <!-- Step 2: เคสของฉัน (RLS จะกรองให้เอง) -->
-    <div id="stepCases" class="row hidden">
-      <select id="caseSelect"></select>
-      <button id="btnGo">เข้า Dashboard ของเคสนี้</button>
-      <button id="btnLogout" style="background:#334155">ออกจากระบบ</button>
-      <div class="muted"><span id="hello"></span></div>
+  <!-- รายละเอียดเคสเดียว -->
+  <section class="card">
+    <h3>รายละเอียดเคส</h3>
+    <p>เลขที่เคส: <span id="caseNo">-</span></p>
+    <p>สถานะ: <span id="caseStatus">-</span></p>
+    <p>ชื่อการค้า: <span id="tradeName">-</span></p>
+    <p>ชื่อสามัญ: <span id="commonName">-</span></p>
+    <p>โน้ต: <span id="notes">-</span></p>
+
+    <div style="margin-top:10px;">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <p style="margin-top:5px;">ความคืบหน้า: <span id="progressPct">0%</span></p>
     </div>
-  </div>
+  </section>
 
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js";
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const $ = (s)=>document.querySelector(s);
+    const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const $id = (s)=>document.querySelector(s);
 
-    $('#btnLogin').addEventListener('click', doLogin);
-    $('#btnGo').addEventListener('click', goDashboard);
-    $('#btnLogout').addEventListener('click', async ()=>{
-      await supabase.auth.signOut();
-      location.reload();
-    });
+    // ===== My Cases List =====
+    async function renderMyCasesList(userId){
+      const tbody = document.getElementById("myCasesTbody");
+      const empty = document.getElementById("myCasesEmpty");
+      const wrap  = document.getElementById("myCasesTableWrap");
 
-    // ถ้ามี session ค้างอยู่แล้ว ให้ข้ามไป Step 2
-    (async function resume(){
-      const { data: { session } } = await supabase.auth.getSession();
-      if(session){ await showMyCases(); }
-    })();
+      tbody.innerHTML = "<tr><td colspan='7'>⏳ กำลังโหลด...</td></tr>";
 
-    async function doLogin(){
-      $('#msg').textContent = '';
-      const email = $('#email').value.trim();
-      const password = $('#password').value.trim();
-      if(!email || !password){ $('#msg').textContent = 'กรอกอีเมล/รหัสผ่านก่อนค่ะ'; return; }
+      const { data, error } = await supa
+        .from("cases")
+        .select("id, case_number, trade_name, common_name, status, progress, due_date, notes")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
 
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if(error){ $('#msg').textContent = 'ล็อกอินไม่สำเร็จ: '+error.message; return; }
-      await showMyCases();
+      if(error){
+        console.error(error);
+        tbody.innerHTML = "<tr><td colspan='7'>❌ โหลดข้อมูลผิดพลาด</td></tr>";
+        return;
+      }
+
+      if(!data || data.length === 0){
+        tbody.innerHTML = "<tr><td colspan='7'>ยังไม่มีเคส</td></tr>";
+        wrap.style.display = "none";
+        return;
+      }
+
+      empty.style.display = "none";
+      wrap.style.display = "block";
+
+      tbody.innerHTML = data.map(c => {
+        const due = c.due_date ? new Date(c.due_date).toLocaleDateString('th-TH') : '-';
+        const pct = (c.progress ?? 0) + '%';
+        return `
+          <tr>
+            <td>${c.case_number}</td>
+            <td>${c.trade_name || '-'}</td>
+            <td>${c.common_name || '-'}</td>
+            <td>${c.status || '-'}</td>
+            <td>${pct}</td>
+            <td>${due}</td>
+            <td>${c.notes || '-'}</td>
+          </tr>
+        `;
+      }).join("");
+
+      // real-time
+      supa.channel('rt:mycases')
+        .on('postgres_changes', { event:'*', schema:'public', table:'cases', filter:`user_id=eq.${userId}` }, () => {
+          renderMyCasesList(userId);
+        })
+        .subscribe();
     }
 
-    async function showMyCases(){
-      // โชว์อีเมล
-      const { data: { user } } = await supabase.auth.getUser();
-      $('#hello').textContent = user?.email ? ('เข้าสู่ระบบ: '+user.email) : '';
-
-      // ดึงเคสของ "ฉัน" (RLS: user จะเห็นเฉพาะ user_id = auth.uid())
-      const { data, error } = await supabase
+    // ===== Dashboard รายเคสเดียว =====
+    async function mountDashboard(caseCode){
+      const { data: cs, error } = await supa
         .from('cases')
-        .select('id, case_number, status')
-        .order('created_at', { ascending: false });
+        .select('*')
+        .eq('case_number', caseCode)
+        .maybeSingle();
 
-      if(error){ $('#msg').textContent = 'โหลดเคสไม่สำเร็จ: '+error.message; return; }
-      if(!data || !data.length){ $('#msg').textContent = 'บัญชีนี้ยังไม่มีเคส'; return; }
+      if (error) { console.error(error); return; }
+      if (!cs) { console.warn('Case not found'); return; }
 
-      // เติมรายการใน select
-      const sel = $('#caseSelect');
-      sel.innerHTML = data.map(r => `<option value="${encodeURIComponent(r.case_number)}">${r.case_number} — ${r.status||'-'}</option>`).join('');
+      $id('#caseNo').textContent     = cs.case_number;
+      $id('#caseStatus').textContent = cs.status || '-';
+      $id('#tradeName').textContent  = cs.trade_name || '-';
+      $id('#commonName').textContent = cs.common_name || '-';
+      $id('#notes').textContent      = cs.notes || '-';
 
-      // แสดง step 2
-      $('#stepLogin').classList.add('hidden');
-      $('#stepCases').classList.remove('hidden');
+      renderProgress(cs.progress ?? 0);
+
+      function renderProgress(pct){
+        const p = Math.max(0, Math.min(100, Number(pct) || 0));
+        $id('#progressFill').style.width = p + '%';
+        $id('#progressPct').textContent  = p + '%';
+      }
+
+      supa.channel('rt:cases')
+        .on('postgres_changes', { event:'*', schema:'public', table:'cases', filter:`id=eq.${cs.id}` }, (p)=>{
+          const row = p.new || p.old;
+          $id('#caseStatus').textContent = row.status || '-';
+          $id('#notes').textContent      = row.notes || '-';
+          renderProgress(row.progress ?? 0);
+        })
+        .subscribe();
     }
 
-    function goDashboard(){
-      const code = $('#caseSelect').value;
-      if(!code) return;
-      location.href = 'dashboard-supabase.html?case=' + code;
+    // ===== Main =====
+    const { data: { user } } = await supa.auth.getUser();
+    if (!user) { location.href = "index.html"; }
+
+    // โหลดทุกเคสของฉัน
+    renderMyCasesList(user.id);
+
+    // ถ้ามี query string ?case=... ให้โหลดรายละเอียด
+    const params   = new URLSearchParams(location.search);
+    const caseCode = params.get('case');
+    if (caseCode) {
+      mountDashboard(caseCode);
     }
   </script>
 </body>
