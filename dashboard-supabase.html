@@ -44,6 +44,17 @@
 </div>
 
 <script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js";
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ถ้าไม่มี session → เด้งกลับหน้า index
+const { data: { session } } = await supabase.auth.getSession();
+if(!session){
+  location.href = "index.html";
+}
+
   import { supa, setAdminUI, login, logout, mountDashboard } from './supabase-adapter.js';
   const params = new URLSearchParams(location.search);
   const caseCode = params.get('case') || 'RG-AG-0002/2025';
