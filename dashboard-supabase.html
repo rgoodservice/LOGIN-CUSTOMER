@@ -59,6 +59,23 @@ if(!session){
   const params = new URLSearchParams(location.search);
   const caseCode = params.get('case') || 'RG-AG-0002/2025';
   document.getElementById('caseCodeText').textContent = caseCode;
+  // ตรวจสิทธิ์ก่อนว่าผู้ใช้คนนี้เข้าถึงเคสนี้ได้จริง (RLS จะช่วยกรองอีกชั้น)
+const { data: caseRow, error: caseErr } = await supabase
+  .from('cases')
+  .select('id, case_number')      // <-- ใช้คอลัมน์ชื่ออะไร ดูข้อ 2 ด้านล่าง
+  .eq('case_number', caseCode)    // <-- ถ้าตารางใช้ 'code' ให้แก้เป็น .eq('code', caseCode)
+  .maybeSingle();
+
+if (caseErr) {
+  alert('โหลดข้อมูลผิดพลาด: ' + caseErr.message);
+  location.href = 'index.html';
+}
+if (!caseRow) {
+  alert('ไม่พบเคสนี้ หรือคุณไม่มีสิทธิ์เข้าถึง');
+  location.href = 'index.html';
+  throw new Error('Forbidden'); // กันโค้ดด้านล่างรันต่อ
+}
+
   mountDashboard(caseCode);
 
   document.getElementById('btnLogin').addEventListener('click', ()=>{
