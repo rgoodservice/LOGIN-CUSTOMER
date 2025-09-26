@@ -868,6 +868,124 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('DOMContentLoaded', loadCaseFromSupabase);
 </script>
+<!-- Supabase SDK -->
+<script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+// ====== ตั้งค่า Supabase ======
+const SUPABASE_URL = "https://qgksyolnrlqquotdanui.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFna3N5b2xucmxxcXVvdGRhbnVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4MTE3NjQsImV4cCI6MjA3NDM4Nzc2NH0.F5sontmKNO7C7U4X0EM9f6Mkg1rXaxjoDUYsk9V8dxI";
+const supabase = supabasejs.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ====== ลำดับขั้นตอนคงเดิม (7 ขั้น) ======
+const STEPS = [
+  "รับเรื่อง",
+  "ตรวจเอกสารเบื้องต้น",
+  "ขอเอกสารเพิ่ม",
+  "ยื่นคำขอ",
+  "รอผลหน่วยงานรัฐ",
+  "ได้ใบทะเบียนแล้ว",
+  "ปิดเคส"
+];
+
+// map key ให้ตรงกับของเดิม (เพื่อให้ปุ่ม/สูตร % ยังทำงาน)
+const STEP_KEYS = ["receive","precheck","request_more","submit","waiting_gov","approved","close"];
+
+// คำนวน % จาก current_step (index เริ่มที่ 0)
+function percentFromStep(stepIndex){
+  const total = STEPS.length;
+  const idx = Math.max(0, Math.min(stepIndex ?? 0, total - 1));
+  return Math.round(((idx + 1) / total) * 100);
+}
+
+// อัปเดต badge "กล่องยาวรับเรื่อง" ให้เข้ากับ CASE_DATA ปัจจุบัน
+function updateStageCardFromCASE(){
+  const caseNoEl = document.getElementById('stageCaseNo');
+  const stageDateEl = document.getElementById('stageDate');
+  const badge = document.getElementById('stageStatus');
+
+  if(caseNoEl) caseNoEl.textContent = CASE_DATA.caseNo || "-";
+
+  // ใช้วันที่จาก step 'receive' ถ้ามี ไม่งั้นปล่อย "—"
+  const receive = (CASE_DATA.steps||[]).find(s => s.key === 'receive');
+  if(stageDateEl) stageDateEl.textContent = receive?.date || "—";
+
+  if(badge){
+    const st = CASE_DATA.status || "กำลังดำเนินการ";
+    badge.textContent = st;
+    badge.classList.remove('success','pending');
+    if (/อนุมัติ|ปิดเคส|ได้ใบทะเบียนแล้ว/.test(st))      badge.classList.add('success');
+    else if (/ขอเอกสาร|รอผล/.test(st))                     badge.classList.add('pending');
+  }
+}
+
+// ดึง id จาก URL
+function getCaseIdFromURL(){
+  const url = new URL(window.location.href);
+  const id = url.searchParams.get("id");
+  return id ? Number(id) : 1;
+}
+
+// ดึงข้อมูลจาก Supabase -> ยัดลง CASE_DATA -> hydrate UI เดิม
+async function loadFromSupabaseAndHydrate(){
+  const id = getCaseIdFromURL();
+
+  // ดึงฟิลด์สำคัญจากตาราง cases
+  const { data, error } = await supabase
+    .from("cases")
+    .select("id, case_no, title, trade_name, common_name, due_date, current_step")
+    .eq("id", id)
+    .single();
+
+  if(error || !data){
+    console.warn("ไม่พบเคสหรือดึงข้อมูลผิดพลาด:", error);
+    // ไม่มีข้อมูล -> ให้ใช้ CASE_DATA เดิมในเครื่องต่อไป
+    hydrate();
+    updateStageCardFromCASE();
+    return;
+  }
+
+  // สร้าง steps ให้ตรงกับ current_step
+  const cur = Math.max(0, Math.min(data.current_step ?? 0, STEPS.length - 1));
+  const today = new Date().toISOString().slice(0,10);
+  const steps = STEPS.map((label, i) => ({
+    key: STEP_KEYS[i],
+    label,
+    state: i < cur ? "completed" : (i === cur ? "active" : "pending"),
+    // ใส่วันที่ให้ step ก่อนหน้าเป็น today (ถ้าอยากเก็บจริงค่อยบันทึกใน DB)
+    date: i < cur ? today : (i === cur ? "—" : "—")
+  }));
+
+  // เขียนทับ CASE_DATA (เก็บหน้าตา/โครงเดิม)
+  CASE_DATA = {
+    ...CASE_DATA,
+    id: `case_${data.id}`,
+    caseNo: data.case_no || "-",
+    title: data.title || CASE_DATA.title,
+    status: STEPS[cur] || "กำลังดำเนินการ",
+    dueDate: data.due_date || CASE_DATA.dueDate,
+    product: {
+      tradeName: data.trade_name || CASE_DATA.product?.tradeName || "-",
+      commonName: data.common_name || CASE_DATA.product?.commonName || "-"
+    },
+    steps,
+    progressPct: percentFromStep(cur)
+  };
+
+  // วาด UI เดิม
+  hydrate();
+  updateStageCardFromCASE();
+
+  // ปรับ progress bar/ตัวเลขให้ชัด ๆ อีกครั้ง (กัน style overwrite)
+  const pct = CASE_DATA.progressPct ?? percentFromStep(cur);
+  const pctEl = document.getElementById("progressPct");
+  const fillEl = document.getElementById("progressFill");
+  if(pctEl) pctEl.textContent = pct + "%";
+  if(fillEl) fillEl.style.width = pct + "%";
+}
+
+// เริ่มทำงานเมื่อ DOM พร้อม
+document.addEventListener("DOMContentLoaded", loadFromSupabaseAndHydrate);
+</script>
 
 
 </body>
