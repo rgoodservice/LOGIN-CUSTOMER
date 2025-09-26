@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="th"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dashboard (Supabase)</title>
+<style>
+  body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:#0f172a;color:#f1f5f9;margin:0;padding:24px}
+  .btn{display:inline-flex;gap:6px;align-items:center;padding:8px 12px;border-radius:10px;border:1px solid #334155;background:#1f2937;color:#e2e8f0;cursor:pointer}
+  .btn.primary{background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-color:transparent}
+  .pill{display:inline-block;padding:6px 10px;border:1px solid #334155;border-radius:999px;margin-right:8px;color:#94a3b8}
+  .progress{height:12px;border:1px solid #334155;border-radius:999px;overflow:hidden;background:#111827}
+  .fill{height:100%;width:0;background:linear-gradient(90deg,#3b82f6,#10b981);transition:width .4s}
+  .stepper{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:12px}
+  .step{padding:12px;border:1px solid #334155;border-radius:12px;text-align:center;background:#111827}
+  .step.completed{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.4)}
+  .step.active{background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.4)}
+  .admin-only{display:none}
+</style>
+</head><body>
+<h2>Dashboard (Supabase)</h2>
+<div style="margin-bottom:12px">
+  <button class="btn" id="btnLogin">เข้าสู่ระบบ (แอดมิน)</button>
+  <button class="btn admin-only" id="btnLogout">ออกจากระบบ</button>
+</div>
+<div style="margin-bottom:12px">
+  CASE: <b id="caseCodeText"></b>
+</div>
+<div style="margin-bottom:12px">
+  <span class="pill">เลขเคส: <span id="caseNo">—</span></span>
+  <span class="pill">สถานะ: <span id="caseStatus">—</span></span>
+  <span class="pill">ครบกำหนด: <span id="dueDate">—</span></span>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0;">
+  <div><div style="color:#94a3b8;font-size:12px">ชื่อการค้า</div><div id="tradeName" style="font-weight:700">—</div></div>
+  <div><div style="color:#94a3b8;font-size:12px">ชื่อสามัญ</div><div id="commonName" style="font-weight:700">—</div></div>
+</div>
+<div style="color:#94a3b8">ความคืบหน้า <b id="progressPct">0%</b></div>
+<div class="progress"><div class="fill" id="progressFill"></div></div>
+<div class="stepper" id="stepper"></div>
+
+<div id="authBox" style="margin-top:16px;display:none;">
+  <input id="email" placeholder="อีเมล" style="padding:8px;border-radius:8px;border:1px solid #334155;background:#0b1220;color:#f1f5f9">
+  <input id="password" type="password" placeholder="รหัสผ่าน" style="padding:8px;border-radius:8px;border:1px solid #334155;background:#0b1220;color:#f1f5f9">
+  <button class="btn primary" id="btnDoLogin">ล็อกอิน</button>
+</div>
+
+<script type="module">
+  import { supa, setAdminUI, login, logout, mountDashboard } from './supabase-adapter.js';
+  const params = new URLSearchParams(location.search);
+  const caseCode = params.get('case') || 'RG-AG-0002/2025';
+  document.getElementById('caseCodeText').textContent = caseCode;
+  mountDashboard(caseCode);
+
+  document.getElementById('btnLogin').addEventListener('click', ()=>{
+    document.getElementById('authBox').style.display='block';
+  });
+  document.getElementById('btnDoLogin').addEventListener('click', async()=>{
+    const email = document.getElementById('email').value;
+    const pw = document.getElementById('password').value;
+    try{ await login(email,pw); setAdminUI(true); alert('เข้าสู่ระบบแล้ว'); }
+    catch(e){ alert('ผิดพลาด: '+e.message); }
+  });
+  document.getElementById('btnLogout').addEventListener('click', async()=>{
+    await logout(); setAdminUI(false);
+  });
+</script>
+</body></html>
