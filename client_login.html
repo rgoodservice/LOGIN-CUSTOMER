@@ -127,7 +127,9 @@
     <div class="msg" id="msg"></div>
     
     <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 14px; color: #6b7280;">
-      ยังไม่มีบัญชี? <a href="/signup.html" style="color: #0ea5e9; text-decoration: none; font-weight: 600;">สมัครสมาชิก</a>
+      ยังไม่มีบัญชี? <a href="client_signup.html" style="color: #0ea5e9; text-decoration: none; font-weight: 600;">สมัครสมาชิก</a>
+      <br>
+      <a href="index.html" style="color: #6b7280; text-decoration: none; margin-top: 8px; display: inline-block;">← กลับหน้าหลัก</a>
     </div>
   </div>
 
@@ -177,7 +179,7 @@ async function loginMagic() {
     const { error } = await client.auth.signInWithOtp({
       email: email,
       options: { 
-        emailRedirectTo: window.location.origin + "/customer.html" 
+        emailRedirectTo: window.location.origin + "/client_portal.html" 
       }
     });
     
@@ -222,9 +224,8 @@ async function loginPassword() {
     msgBox.textContent = "✅ เข้าสู่ระบบสำเร็จ! กำลังเปลี่ยนหน้า...";
     msgBox.className = "msg success";
     
-    // Redirect ไปหน้า customer portal
     setTimeout(() => {
-      window.location.href = "/customer.html";
+      window.location.href = "client_portal.html";
     }, 1000);
     
   } catch (err) {
@@ -235,23 +236,20 @@ async function loginPassword() {
   }
 }
 
-// ตรวจสอบว่ามี session อยู่แล้วหรือไม่
 async function checkExistingSession() {
   const { data: { session } } = await client.auth.getSession();
   if (session) {
     console.log("Already logged in, redirecting...");
-    window.location.href = "/customer.html";
+    window.location.href = "client_portal.html";
   }
 }
 
-// เช็คตอนโหลดหน้า
 document.addEventListener('DOMContentLoaded', checkExistingSession);
 
-// รับ callback จาก Magic Link
 client.auth.onAuthStateChange((event, session) => {
   console.log("Auth state changed:", event, session);
   if (event === 'SIGNED_IN' && session) {
-    window.location.href = "/customer.html";
+    window.location.href = "client_portal.html";
   }
 });
 </script>
