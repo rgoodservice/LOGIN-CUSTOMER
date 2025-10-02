@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Admin — ทะเบียน/ใบอนุญาต ต่อบริษัท</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--text:#e5eef7;--muted:#9fb0c6;--border:#2b3a4f;--accent:#3b82f6;--good:#10b981;--danger:#ef4444}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,'Inter',Arial;
+       background:linear-gradient(135deg,#0f172a 0%,#182235 100%); color:var(--text); padding:24px}
+  .wrap{max-width:1200px;margin:0 auto}
+  .card{background:rgba(30,41,59,.92); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:14px}
+  h1{font-size:24px; font-weight:800; margin-bottom:6px}
+  h3{margin-bottom:8px}
+  .muted{color:var(--muted)}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+  input,button,textarea{background:#0f172a; color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px 12px}
+  input:focus,textarea:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(59,130,246,.2)}
+  button{cursor:pointer}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),#8b5cf6); border-color:transparent}
+  .btn-good{background:linear-gradient(135deg,var(--good),#059669); border-color:transparent}
+  .btn-danger{background:linear-gradient(135deg,var(--danger),#dc2626); border-color:transparent}
+  table{width:100%; border-collapse:collapse}
+  th,td{padding:12px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top}
+  th{color:#b7cdfb; background:rgba(59,130,246,.08); font-weight:700}
+  td.mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace}
+  .pill{padding:6px 10px; border:1px solid var(--border); border-radius:999px}
+  .right{margin-left:auto}
+  .grid{display:grid; grid-template-columns:repeat(6,1fr); gap:10px}
+  .grid > div{display:flex; flex-direction:column; gap:6px}
+  .grid label{font-size:12px; color:var(--muted)}
+  @media (max-width: 860px){ .grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>🛠️ Admin — ทะเบียน/ใบอนุญาต</h1>
+      <div class="muted">วิธี A: โปรเจ็กต์เดียว + RLS — แก้ไขได้เฉพาะ owner/staff ของบริษัท</div>
+    </div>
+
+    <!-- Auth -->
+    <div class="card">
+      <h3>🔐 เข้าสู่ระบบ</h3>
+      <div class="row">
+        <input id="email" type="email" placeholder="you@example.com" style="width:260px">
+        <button id="btnSendMagic" class="btn-primary">ส่ง Magic Link</button>
+        <button id="btnSignOut">ออกจากระบบ</button>
+        <span id="sessionInfo" class="muted right">กำลังตรวจสอบ…</span>
+      </div>
+    </div>
+
+    <!-- Company -->
+    <div class="card">
+      <h3>🏭 บริษัทปัจจุบัน</h3>
+      <div class="row">
+        <input id="companyCode" placeholder="เช่น ABC" style="width:160px; text-transform:uppercase">
+        <button id="btnSetCompany" class="btn-primary">ตั้งค่า</button>
+        <span class="muted">กรอก company_code ที่ผู้ใช้เป็นสมาชิก (owner/staff)</span>
+      </div>
+    </div>
+
+    <!-- Form -->
+    <div class="card">
+      <div class="row" style="margin-bottom:8px;">
+        <h3 id="formTitle">➕ เพิ่มรายการใหม่</h3>
+        <span class="pill muted right">บริษัท: <span id="labelCompany">—</span></span>
+      </div>
+
+      <div class="grid">
+        <div>
+          <label>ชื่อตรา</label>
+          <input id="brand_name" placeholder="เช่น ซีนามี">
+        </div>
+        <div>
+          <label>ชื่อสามัญ/สูตร (เช่น validamycin 30% W/V SL)</label>
+          <input id="common_label" placeholder="validamycin 30% W/V SL">
+        </div>
+        <div>
+          <label>เลขที่ทะเบียน</label>
+          <input id="registration_no" placeholder="930-2568">
+        </div>
+        <div>
+          <label>เลขที่ใบอนุญาต</label>
+          <input id="license_no" placeholder="305xxxxxxxxx">
+        </div>
+        <div>
+          <label>วันหมดอายุ</label>
+          <input id="expiry_date" type="date">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <div class="row">
+            <button id="btnSave" class="btn-good">บันทึก</button>
+            <button id="btnReset">ล้างฟอร์ม</button>
+          </div>
+        </div>
+      </div>
+      <input type="hidden" id="row_id">
+    </div>
+
+    <!-- Filters -->
+    <div class="card">
+      <div class="row">
+        <strong>ค้นหา:</strong>
+        <input id="search" placeholder="ชื่อตรา / ชื่อสามัญ / เลขที่" style="flex:1 1 260px">
+        <button id="btnRefresh">รีเฟรช</button>
+        <span id="count" class="muted right"></span>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+      <div style="overflow:auto">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:72px;">ลำดับ</th>
+              <th>ชื่อตรา</th>
+              <th>ชื่อสามัญ/สูตร</th>
+              <th>เลขที่ทะเบียน</th>
+              <th>เลขที่ใบอนุญาต</th>
+              <th>วันหมดอายุ</th>
+              <th style="width:160px;">การกระทำ</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="7" class="muted">ยังไม่มีข้อมูล</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ========= 1) Supabase Config (แก้ 2 บรรทัดนี้) ========= */
+const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co'; // ← ใส่ของจริง
+const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';               // ← ใส่ของจริง
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ========= 2) State & helpers ========= */
+const $ = id => document.getElementById(id);
+const fields = ['brand_name','common_label','registration_no','license_no','expiry_date'];
+let CURRENT_COMPANY = (new URLSearchParams(location.search).get('company')
+  || localStorage.getItem('company_code') || '').toUpperCase();
+
+function fmtDate(d){
+  if (!d) return '—';
+  const t = new Date(d);
+  return isNaN(t) ? d : t.toLocaleDateString('th-TH', { year:'numeric', month:'2-digit', day:'2-digit' });
+}
+function clearForm(){ $('row_id').value=''; fields.forEach(k=>$(k).value=''); $('formTitle').textContent='➕ เพิ่มรายการใหม่'; }
+function fillForm(row){ $('row_id').value=row.id; $('brand_name').value=row.brand_name||''; $('common_label').value=row.common_label||''; $('registration_no').value=row.registration_no||''; $('license_no').value=row.license_no||''; $('expiry_date').value=(row.expiry_date||'').split('T')[0]||''; $('formTitle').textContent='✏️ แก้ไขรายการ'; }
+
+/* ========= 3) Auth (Magic Link) ========= */
+async function showSession(){
+  const { data } = await sb.auth.getSession();
+  $('sessionInfo').textContent = data.session ? ('ล็อกอิน: ' + (data.session.user.email || data.session.user.id)) : 'ยังไม่เข้าสู่ระบบ';
+}
+$('btnSendMagic').addEventListener('click', async ()=>{
+  const email = ($('email').value||'').trim();
+  if (!email) return alert('กรอกอีเมลก่อนค่ะ');
+  const { error } = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.href }});
+  if (error) return alert('ส่งลิงก์ไม่สำเร็จ: '+error.message);
+  alert('ส่งลิงก์เข้าสู่ระบบไปที่อีเมลแล้วค่ะ');
+});
+$('btnSignOut').addEventListener('click', async ()=>{ await sb.auth.signOut(); showSession(); });
+
+/* ========= 4) Company ========= */
+$('btnSetCompany').addEventListener('click', ()=>{
+  const c = ($('companyCode').value||'').toUpperCase();
+  if (!c) return alert('กรุณาใส่รหัสบริษัท');
+  CURRENT_COMPANY = c; localStorage.setItem('company_code', c);
+  $('labelCompany').textContent = c;
+  loadRows();
+});
+
+/* ========= 5) Load table ========= */
+async function loadRows(){
+  $('labelCompany').textContent = CURRENT_COMPANY || '—';
+  if (!CURRENT_COMPANY){
+    $('tbody').innerHTML = `<tr><td colspan="7" class="muted">กรุณาตั้งค่า "รหัสบริษัท"</td></tr>`;
+    $('count').textContent = ''; return;
+  }
+  let query = sb.from('product_registrations')
+    .select('id, brand_name, common_label, registration_no, license_no, expiry_date, created_at')
+    .eq('company_code', CURRENT_COMPANY)
+    .order('created_at', { ascending:true });
+
+  const { data, error } = await query;
+  if (error) {
+    $('tbody').innerHTML = `<tr><td colspan="7" class="muted">โหลดไม่สำเร็จ: ${error.message}</td></tr>`;
+    $('count').textContent = ''; return;
+  }
+
+  const q = ($('search').value||'').trim().toLowerCase();
+  let rows = data||[];
+  if (q){
+    rows = rows.filter(r =>
+      (r.brand_name||'').toLowerCase().includes(q) ||
+      (r.common_label||'').toLowerCase().includes(q) ||
+      (r.registration_no||'').toLowerCase().includes(q) ||
+      (r.license_no||'').toLowerCase().includes(q));
+  }
+
+  $('count').textContent = rows.length ? `ทั้งหมด ${rows.length} รายการ` : '';
+  if (!rows.length){ $('tbody').innerHTML = `<tr><td colspan="7" class="muted">ไม่พบข้อมูล</td></tr>`; return; }
+
+  $('tbody').innerHTML = rows.map((r,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td>${r.brand_name||'-'}</td>
+      <td class="mono">${r.common_label||'-'}</td>
+      <td class="mono">${r.registration_no||'-'}</td>
+      <td class="mono">${r.license_no||'-'}</td>
+      <td>${fmtDate(r.expiry_date)}</td>
+      <td>
+        <div class="row">
+          <button class="btn-primary btnEdit" data-id="${r.id}">แก้ไข</button>
+          <button class="btn-danger btnDel" data-id="${r.id}">ลบ</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  // bind actions
+  document.querySelectorAll('.btnEdit').forEach(b=>b.addEventListener('click', ()=> editRow(b.dataset.id)));
+  document.querySelectorAll('.btnDel').forEach(b=>b.addEventListener('click', ()=> deleteRow(b.dataset.id)));
+}
+
+/* ========= 6) CRUD ========= */
+$('btnSave').addEventListener('click', saveRow);
+$('btnReset').addEventListener('click', clearForm);
+$('btnRefresh').addEventListener('click', loadRows);
+$('search').addEventListener('input', loadRows);
+
+async function saveRow(){
+  if (!CURRENT_COMPANY) return alert('ตั้งค่า "รหัสบริษัท" ก่อน');
+  const payload = {
+    company_code: CURRENT_COMPANY,
+    brand_name: $('brand_name').value.trim(),
+    common_label: $('common_label').value.trim(),
+    registration_no: $('registration_no').value.trim(),
+    license_no: $('license_no').value.trim() || null,
+    expiry_date: $('expiry_date').value || null
+  };
+
+  if (!payload.brand_name || !payload.common_label || !payload.registration_no)
+    return alert('กรอก ชื่อตรา / ชื่อสามัญ/สูตร / เลขที่ทะเบียน ให้ครบค่ะ');
+
+  const id = $('row_id').value;
+  if (id){
+    // update
+    const { error } = await sb.from('product_registrations').update(payload).eq('id', id);
+    if (error) return alert('อัปเดตไม่สำเร็จ: ' + error.message);
+    alert('อัปเดตสำเร็จ');
+  } else {
+    // insert
+    const { error } = await sb.from('product_registrations').insert(payload);
+    if (error) return alert('เพิ่มรายการไม่สำเร็จ: ' + error.message);
+    alert('บันทึกสำเร็จ');
+  }
+  clearForm(); loadRows();
+}
+
+async function editRow(id){
+  const { data, error } = await sb.from('product_registrations')
+    .select('id, brand_name, common_label, registration_no, license_no, expiry_date')
+    .eq('id', id).single();
+  if (error) return alert('ดึงข้อมูลไม่สำเร็จ: ' + error.message);
+  fillForm(data);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function deleteRow(id){
+  if (!confirm('ลบรายการนี้ใช่ไหม?')) return;
+  const { error } = await sb.from('product_registrations').delete().eq('id', id);
+  if (error) return alert('ลบไม่สำเร็จ: ' + error.message);
+  loadRows();
+}
+
+/* ========= 7) Init ========= */
+document.addEventListener('DOMContentLoaded', ()=>{
+  $('companyCode').value = CURRENT_COMPANY;
+  $('labelCompany').textContent = CURRENT_COMPANY || '—';
+  showSession(); loadRows();
+});
+</script>
+</body>
+</html>
