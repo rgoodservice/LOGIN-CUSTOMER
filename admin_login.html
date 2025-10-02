@@ -1,73 +1,39 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Admin Login</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
-  <style>
-    body{margin:0;font-family:"Prompt",sans-serif;background:linear-gradient(135deg,#e0f7fa,#e8f5e9);
-      display:flex;align-items:center;justify-content:center;height:100vh;color:#0f172a;}
-    .card{background:#fff;padding:36px 28px;border-radius:16px;box-shadow:0 6px 30px rgba(0,0,0,.08);
-      max-width:420px;width:100%;text-align:center;}
-    h1{margin:0 0 16px;font-size:22px;font-weight:700;color:#0284c7;}
-    input{width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:10px;font-size:15px;margin-bottom:12px}
-    button{width:100%;padding:12px;background:linear-gradient(135deg,#06b6d4,#10b981);
-      color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer}
-    button:hover{opacity:.9}
-    .switch{margin-top:16px;font-size:13px;color:#64748b;cursor:pointer}
-  </style>
-</head>
+<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
+<title>เข้าสู่ระบบแอดมิน</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>body{font-family:"Prompt",sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:linear-gradient(135deg,#06b6d4,#10b981)}
+.box{background:#fff;padding:32px 24px;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.1);width:100%;max-width:400px;text-align:center}
+input,button{width:100%;padding:12px;margin:8px 0;border-radius:10px;border:1px solid #e2e8f0;font-size:15px}
+button{border:none;color:#fff;font-weight:700;background:linear-gradient(135deg,#0ea5e9,#10b981);cursor:pointer}
+.msg{min-height:20px;font-size:14px;color:#065f46;margin-top:8px}</style></head>
 <body>
-  <div class="card">
-    <h1>เข้าสู่ระบบแอดมิน</h1>
-    <form id="loginForm">
-      <input type="email" id="email" placeholder="อีเมล" required>
-      <div id="passwordBox" style="display:none">
-        <input type="password" id="password" placeholder="รหัสผ่าน">
-      </div>
-      <button type="submit" id="btnSubmit">ส่ง Magic Link</button>
-    </form>
-    <div class="switch" id="toggleMode">👉 ใช้รหัสผ่านแทน</div>
+  <div class="box">
+    <h2>🔐 เข้าสู่ระบบแอดมิน</h2>
+    <input id="email" type="email" placeholder="อีเมลแอดมิน">
+    <input id="password" type="password" placeholder="รหัสผ่าน (ถ้าจะใช้ Password)">
+    <button id="btnLoginPw">เข้าสู่ระบบ</button>
+    <button id="btnSendMagic">ส่ง Magic Link</button>
+    <div class="msg" id="msg"></div>
   </div>
-
 <script>
-const SUPABASE_URL="https://qmugpalgcktfwixqepti.supabase.co";
-const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const {SUPABASE_URL,SUPABASE_ANON_KEY,REDIRECT_ADMIN}=window.APP_CONFIG;
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const toUrl=p=>new URL(p,location.href).href; const msg=document.getElementById('msg');
 
-let mode="magic"; // เริ่มต้นใช้ Magic Link
-
-document.getElementById("toggleMode").addEventListener("click",()=>{
-  if(mode==="magic"){
-    mode="password";
-    document.getElementById("passwordBox").style.display="block";
-    document.getElementById("btnSubmit").innerText="เข้าสู่ระบบ";
-    document.getElementById("toggleMode").innerText="👉 ใช้ Magic Link แทน";
-  }else{
-    mode="magic";
-    document.getElementById("passwordBox").style.display="none";
-    document.getElementById("btnSubmit").innerText="ส่ง Magic Link";
-    document.getElementById("toggleMode").innerText="👉 ใช้รหัสผ่านแทน";
-  }
-});
-
-document.getElementById("loginForm").addEventListener("submit",async(e)=>{
-  e.preventDefault();
-  const email=document.getElementById("email").value;
-  if(mode==="magic"){
-    const {error}=await sb.auth.signInWithOtp({
-      email,
-      options:{ emailRedirectTo: window.location.origin + "/redirect.html" }
-    });
-    if(error) alert(error.message); else alert("ส่ง Magic Link ไปที่อีเมลแล้ว");
-  }else{
-    const password=document.getElementById("password").value;
-    const {error}=await sb.auth.signInWithPassword({ email,password });
-    if(error) alert(error.message); else location.href="redirect.html";
-  }
-});
-</script>
-</body>
-</html>
+document.getElementById('btnLoginPw').onclick=async ()=>{
+  const email=document.getElementById('email').value.trim();
+  const pw=document.getElementById('password').value;
+  if(!email||!pw){ msg.textContent='⚠️ กรอกอีเมล/รหัสผ่าน'; return; }
+  const {error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){ msg.textContent='❌ '+error.message; return; }
+  location.href=toUrl(REDIRECT_ADMIN);
+};
+document.getElementById('btnSendMagic').onclick=async()=>{
+  const email=document.getElementById('email').value.trim();
+  if(!email){ msg.textContent='⚠️ กรอกอีเมล'; return; }
+  const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:toUrl(REDIRECT_ADMIN)}});
+  msg.textContent=error?('❌ '+error.message):'✅ ส่งลิงก์ไปที่อีเมลแล้ว';
+};
+</script></body></html>
