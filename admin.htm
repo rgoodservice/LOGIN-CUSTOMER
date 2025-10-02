@@ -3,176 +3,179 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Admin — ทะเบียน/ใบอนุญาต ต่อบริษัท</title>
+<title>Admin Portal</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{--bg:#0f172a;--card:#1e293b;--text:#e5eef7;--muted:#9fb0c6;--border:#2b3a4f;--accent:#3b82f6;--good:#10b981;--danger:#ef4444}
-  body{font-family:ui-sans-serif,system-ui; background:linear-gradient(135deg,#0f172a 0%,#182235 100%); color:var(--text); padding:24px}
-  .wrap{max-width:1200px;margin:0 auto}
-  .card{background:rgba(30,41,59,.92); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:14px}
-  h1{font-size:24px;font-weight:800;margin-bottom:6px}
-  h3{margin-bottom:8px}
-  .muted{color:var(--muted)}
-  input,button{background:#0f172a; color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px 12px}
-  button{cursor:pointer}
-  .btn-primary{background:linear-gradient(135deg,var(--accent),#8b5cf6); border-color:transparent}
-  .btn-good{background:linear-gradient(135deg,var(--good),#059669); border-color:transparent}
-  .btn-danger{background:linear-gradient(135deg,var(--danger),#dc2626); border-color:transparent}
-  table{width:100%;border-collapse:collapse}
-  th,td{padding:12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
-  th{background:rgba(59,130,246,.1);color:#b7cdfb}
-
-  /* เตือนหมดอายุ */
-  .tr-soon{background:rgba(245,158,11,.08);}
-  .tr-expired{background:rgba(239,68,68,.10);}
-  .badge-expiry{padding:4px 8px;border-radius:999px;font-size:12px}
-  .badge-soon{color:#f59e0b;background:rgba(245,158,11,.08)}
-  .badge-expired{color:#ef4444;background:rgba(239,68,68,.10)}
-  .alert-expiry{display:none;margin-bottom:12px;padding:12px;border:1px solid rgba(245,158,11,.4);background:rgba(245,158,11,.08);color:#f59e0b;border-radius:10px}
-  .alert-expiry.show{display:block}
+  :root{
+    --bg:#f6fbff; --ink:#0f172a; --muted:#64748b; --card:#ffffff; --border:#e6eef5;
+    --accent:#0ea5a5; --accent-2:#60a5fa;
+    --warn:#b45309; --warn-bg:#fff7ed;
+    --exp:#b91c1c;  --exp-bg:#fff1f2;
+    --ok:#0f766e;   --ok-bg:#ecfdf5;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; font-family:"Prompt",ui-sans-serif,system-ui; color:var(--ink); background:
+    radial-gradient(1200px 600px at 10% -10%, #e6f7ff 0%, transparent 60%),
+    radial-gradient(900px 500px at 110% 0%, #e8fff6 0%, transparent 60%),
+    var(--bg);}
+  header{padding:20px 16px; background:linear-gradient(180deg,#f0fbff,#eaf7ff); border-bottom:1px solid var(--border);}
+  .brand{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:12px;font-weight:700;font-size:20px}
+  .logo{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));}
+  .container{max-width:1100px;margin:20px auto; padding:0 16px 28px;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:0 4px 20px rgba(10,30,60,.06); padding:18px; margin-bottom:16px;}
+  label{display:block; margin:6px 0 8px; color:var(--muted); font-size:14px;}
+  select, input, button{
+    padding:11px 12px; font-size:15px; border:1px solid var(--border); border-radius:10px; outline:none;
+  }
+  .row{display:flex; gap:10px; flex-wrap:wrap}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:white; border:none}
+  .btn-danger{background:#ef4444; color:white; border:none}
+  table{width:100%; border-collapse:collapse; background:white; border-radius:12px; overflow:hidden}
+  th,td{padding:12px 14px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top}
+  th{background:linear-gradient(180deg,#f7fbff,#f2f8ff); color:#0b3a4f; font-weight:600}
+  tr.warning{ background: var(--warn-bg); }
+  tr.expired{ background: var(--exp-bg); }
+  .badge{padding:4px 10px; border-radius:999px; font-size:12px; font-weight:600; display:inline-block}
+  .badge.warning{ color:var(--warn); background:var(--warn-bg); border:1px solid #fde68a50;}
+  .badge.expired{ color:var(--exp); background:var(--exp-bg); border:1px solid #fecaca70;}
+  .badge.ok{ color:var(--ok); background:var(--ok-bg); border:1px solid #a7f3d050;}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="card">
-    <h1>🛠️ Admin — จัดการทะเบียน/ใบอนุญาต</h1>
-    <div class="muted">สำหรับเจ้าหน้าที่ (owner/staff)</div>
-  </div>
+  <header>
+    <div class="brand">
+      <div class="logo"></div>
+      <div>Admin Portal — จัดการเอกสารบริษัท</div>
+    </div>
+  </header>
 
-  <div class="card">
-    <h3>🏭 เลือกบริษัท</h3>
-    <input id="companyCode" placeholder="รหัสบริษัท (เช่น ABC)" style="text-transform:uppercase">
-    <button id="btnSetCompany" class="btn-primary">ตั้งค่า</button>
-    <span class="muted">บริษัทปัจจุบัน: <strong id="labelCompany">—</strong></span>
-  </div>
+  <div class="container">
+    <div class="card">
+      <label><strong>เลือกบริษัท</strong></label>
+      <select id="companySelect"><option value="">— กำลังโหลดบริษัท —</option></select>
+    </div>
 
-  <div class="card">
-    <h3 id="formTitle">➕ เพิ่ม/แก้ไข</h3>
-    <input id="brand_name" placeholder="ชื่อการค้า">
-    <input id="common_label" placeholder="ชื่อสามัญ/สูตร (เช่น validamycin 30% W/V SL)">
-    <input id="registration_no" placeholder="เลขที่ทะเบียน">
-    <input id="license_no" placeholder="เลขที่ใบอนุญาต">
-    <input id="expiry_date" type="date">
-    <input type="hidden" id="row_id">
-    <button id="btnSave" class="btn-good">บันทึก</button>
-    <button id="btnReset">ล้าง</button>
-  </div>
+    <div class="card">
+      <label><strong>➕ เพิ่มเอกสารใหม่</strong></label>
+      <form id="addForm" class="row">
+        <input id="brand_name" placeholder="ชื่อการค้า" required>
+        <input id="common_label" placeholder="ชื่อสามัญ/สูตร" required style="min-width:240px">
+        <input id="registration_no" placeholder="ทะเบียน">
+        <input id="license_no" placeholder="ใบอนุญาต">
+        <input id="expiry_date" type="date" required>
+        <button class="btn-primary" type="submit">เพิ่ม</button>
+      </form>
+    </div>
 
-  <div class="card">
-    <h3>📥 นำเข้าจากไฟล์ CSV</h3>
-    <input type="file" id="csvFile" accept=".csv">
-    <button id="btnImport" class="btn-primary">นำเข้า</button>
-    <div class="muted">หัวคอลัมน์ต้องมี: <code>brand_name, common_label, registration_no, license_no, expiry_date</code></div>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>ลำดับ</th>
+            <th>ชื่อบริษัท</th>
+            <th>ชื่อการค้า</th>
+            <th>ชื่อสามัญ/สูตร</th>
+            <th>ทะเบียน</th>
+            <th>ใบอนุญาต</th>
+            <th>วันหมดอายุ</th>
+            <th>สถานะ</th>
+            <th>จัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="9" style="color:var(--muted)">กรุณาเลือกบริษัทด้านบน</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
-
-  <div class="card">
-    <input id="search" placeholder="ค้นหา (ชื่อการค้า / ชื่อสามัญ / เลขที่)" style="width:260px">
-    <button id="btnRefresh">รีเฟรช</button>
-    <span id="count" class="muted"></span>
-  </div>
-
-  <div class="card">
-    <div id="expiryAlert" class="alert-expiry"></div>
-    <table>
-      <thead>
-        <tr>
-          <th>ลำดับ</th>
-          <th>ชื่อบริษัท</th>
-          <th>ชื่อการค้า</th>
-          <th>ชื่อสามัญ/สูตร</th>
-          <th>ทะเบียน</th>
-          <th>ใบอนุญาต</th>
-          <th>วันหมดอายุ</th>
-          <th>จัดการ</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"><tr><td colspan="8" class="muted">ยังไม่มีข้อมูล</td></tr></tbody>
-    </table>
-  </div>
-</div>
 
 <script>
-const SUPABASE_URL='https://qmugpalgcktfwixqepti.supabase.co';
-const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const SUPABASE_URL="https://qmugpalgcktfwixqepti.supabase.co";
+const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const $=id=>document.getElementById(id);
-let CURRENT_COMPANY=(localStorage.getItem('company_code')||'').toUpperCase();
-const WARNING_DAYS=3;
+const WARNING_DAYS = 90;
+const $ = id => document.getElementById(id);
+let currentCompany = '';
 
-function fmtDate(d){if(!d)return'—';const t=new Date(d);return isNaN(t)?d:t.toLocaleDateString('th-TH',{year:'numeric',month:'2-digit',day:'2-digit'});}
-function daysLeft(d){if(!d)return null;const dd=new Date(d);if(isNaN(dd))return null;const today=new Date();today.setHours(0,0,0,0);return Math.ceil((dd-today)/(1000*60*60*24));}
+function fmtDate(d){ if(!d) return '-'; const t=new Date(d); return isNaN(t)?'-':t.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'}); }
 
-async function loadRows(){
-  $('labelCompany').textContent=CURRENT_COMPANY||'—';
-  if(!CURRENT_COMPANY){$('tbody').innerHTML='<tr><td colspan="8" class="muted">กรุณาตั้งค่ารหัสบริษัทก่อน</td></tr>';return;}
-  const {data,error}=await sb.from('product_registrations').select('*').eq('company_code',CURRENT_COMPANY).order('created_at');
-  if(error){$('tbody').innerHTML=`<tr><td colspan="8">${error.message}</td></tr>`;return;}
-  const q=($('search').value||'').toLowerCase();
-  let rows=(data||[]).filter(r=>!q||(r.brand_name||'').toLowerCase().includes(q)||(r.common_label||'').toLowerCase().includes(q)||(r.registration_no||'').toLowerCase().includes(q)||(r.license_no||'').toLowerCase().includes(q));
-  $('count').textContent=rows.length?`ทั้งหมด ${rows.length} รายการ`:'';
+async function loadCompanies(){
+  const sel = $('companySelect');
+  const {data, error} = await sb.from('companies').select('code,name').order('name',{ascending:true});
+  if(error){ sel.innerHTML = `<option value="">โหลดบริษัทไม่สำเร็จ</option>`; return; }
+  sel.innerHTML = `<option value="">— เลือกบริษัท —</option>`;
+  data.forEach(c=> sel.innerHTML += `<option value="${c.code}">${c.name}</option>`);
+}
 
-  let soon=0,exp=0;const alertBox=$('expiryAlert');
-  $('tbody').innerHTML=rows.map((r,i)=>{
-    const dl=daysLeft(r.expiry_date);let cls='',badge='',expCell=fmtDate(r.expiry_date);
-    if(dl!==null){ if(dl<=0){cls='tr-expired';badge='<span class="badge-expiry badge-expired">หมดอายุ</span>';exp++;}
-      else if(dl<=WARNING_DAYS){cls='tr-soon';badge=`<span class="badge-expiry badge-soon">เหลือ ${dl} วัน</span>`;soon++;} }
-    return `<tr class="${cls}">
+function classify(expiry){
+  if(!expiry) return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3};
+  const d = new Date(expiry), now = new Date();
+  const diff = Math.ceil((d - now)/(1000*60*60*24));
+  if(isNaN(d)) return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3};
+  if(diff < 0) return {cls:'expired', badge:`<span class="badge expired">หมดอายุ</span>`, order:1};
+  if(diff <= WARNING_DAYS) return {cls:'warning', badge:`<span class="badge warning">เหลือ ${diff} วัน</span>`, order:2};
+  return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3};
+}
+
+async function loadDocs(code){
+  currentCompany = code;
+  const {data, error} = await sb.from('product_registrations').select('*').eq('company_code', code);
+  if(error){ $('tbody').innerHTML=`<tr><td colspan="9">${error.message}</td></tr>`; return; }
+
+  const rows = (data||[]).map(r=>{
+    const s = classify(r.expiry_date);
+    return {...r, ...s};
+  }).sort((a,b)=> a.order - b.order || new Date(a.expiry_date) - new Date(b.expiry_date));
+
+  const tb = $('tbody');
+  tb.innerHTML = rows.length? '' : `<tr><td colspan="9" style="color:var(--muted)">ยังไม่มีข้อมูล</td></tr>`;
+  rows.forEach((r,i)=>{
+    tb.innerHTML += `<tr class="${r.cls}">
       <td>${i+1}</td>
       <td>${r.company_code||'-'}</td>
       <td>${r.brand_name||'-'}</td>
       <td>${r.common_label||'-'}</td>
       <td>${r.registration_no||'-'}</td>
       <td>${r.license_no||'-'}</td>
-      <td>${expCell} ${badge}</td>
-      <td>
-        <button onclick="editRow('${r.id}')" class="btn-primary">แก้</button>
-        <button onclick="deleteRow('${r.id}')" class="btn-danger">ลบ</button>
-      </td>
+      <td>${fmtDate(r.expiry_date)}</td>
+      <td>${r.badge}</td>
+      <td><button class="btn-danger" onclick="del('${r.id}')">ลบ</button></td>
     </tr>`;
-  }).join('');
-
-  if(soon||exp){alertBox.classList.add('show');alertBox.innerHTML=`⚠️ พบ ${exp?'หมดอายุแล้ว '+exp+' รายการ':''} ${soon?'ใกล้หมดอายุ (≤3 วัน) '+soon+' รายการ':''}`;}
-  else{alertBox.classList.remove('show');alertBox.innerHTML='';}
+  });
 }
 
-async function saveRow(){
-  if(!CURRENT_COMPANY)return alert('ตั้งค่าบริษัทก่อน');
-  const payload={company_code:CURRENT_COMPANY,brand_name:$('brand_name').value.trim(),common_label:$('common_label').value.trim(),
-    registration_no:$('registration_no').value.trim(),license_no:$('license_no').value.trim()||null,expiry_date:$('expiry_date').value||null};
-  if(!payload.brand_name||!payload.common_label||!payload.registration_no) return alert('กรอก "ชื่อการค้า / ชื่อสามัญ/สูตร / เลขที่ทะเบียน" ให้ครบค่ะ');
-  const id=$('row_id').value;
-  if(id){const {error}=await sb.from('product_registrations').update(payload).eq('id',id);if(error)return alert(error.message);}
-  else {const {error}=await sb.from('product_registrations').insert(payload);if(error)return alert(error.message);}
-  clearForm();loadRows();
-}
-function clearForm(){['brand_name','common_label','registration_no','license_no','expiry_date','row_id'].forEach(k=>$(k).value='');$('formTitle').textContent='➕ เพิ่ม/แก้ไข';}
-async function editRow(id){const {data,error}=await sb.from('product_registrations').select('*').eq('id',id).single();if(error)return alert(error.message);if(data){['brand_name','common_label','registration_no','license_no','expiry_date'].forEach(k=>$(k).value=data[k]||'');$('row_id').value=id;$('formTitle').textContent='✏️ แก้ไข';window.scrollTo({top:0,behavior:'smooth'});}}
-async function deleteRow(id){if(!confirm('ลบรายการนี้ใช่ไหม?'))return;const {error}=await sb.from('product_registrations').delete().eq('id',id);if(error)return alert(error.message);loadRows();}
+$('companySelect').addEventListener('change', e=> e.target.value && loadDocs(e.target.value));
 
-$('btnSetCompany').addEventListener('click',()=>{CURRENT_COMPANY=$('companyCode').value.toUpperCase();localStorage.setItem('company_code',CURRENT_COMPANY);loadRows();});
-$('btnSave').addEventListener('click',saveRow);
-$('btnReset').addEventListener('click',clearForm);
-$('btnRefresh').addEventListener('click',loadRows);
-$('search').addEventListener('input',loadRows);
-
-// Import CSV (UTF-8, มี header)
-$('btnImport').addEventListener('click',()=>{
-  const file=$('csvFile').files[0]; if(!file) return alert('เลือกไฟล์ .csv ก่อนค่ะ');
-  const reader=new FileReader();
-  reader.onload=async e=>{
-    const text=e.target.result.replace(/\r/g,'');
-    const lines=text.split('\n').filter(x=>x.trim().length);
-    const headers=lines[0].split(',').map(h=>h.trim());
-    const rows=lines.slice(1).map(l=>l.split(','));
-    const payloads=rows.map(r=>{const obj={company_code:CURRENT_COMPANY};headers.forEach((h,i)=>obj[h]=r[i]?r[i].trim():null);return obj;});
-    const {error}=await sb.from('product_registrations').insert(payloads);
-    if(error) alert('Import ไม่สำเร็จ: '+error.message); else {alert('Import เสร็จแล้ว');loadRows();}
+$('addForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if(!currentCompany) return alert('โปรดเลือกบริษัทก่อนเพิ่มข้อมูล');
+  const payload = {
+    company_code: currentCompany,
+    brand_name: $('brand_name').value.trim(),
+    common_label: $('common_label').value.trim(),
+    registration_no: $('registration_no').value.trim(),
+    license_no: $('license_no').value.trim(),
+    expiry_date: $('expiry_date').value || null
   };
-  reader.readAsText(file);
+  if(!payload.brand_name || !payload.common_label) return alert('กรอก "ชื่อการค้า" และ "ชื่อสามัญ/สูตร" ให้ครบ');
+  const {error} = await sb.from('product_registrations').insert(payload);
+  if(error) return alert(error.message);
+  e.target.reset();
+  loadDocs(currentCompany);
 });
 
-document.addEventListener('DOMContentLoaded',()=>{$('companyCode').value=CURRENT_COMPANY;loadRows();});
+async function del(id){
+  if(!confirm('ลบรายการนี้?')) return;
+  const {error} = await sb.from('product_registrations').delete().eq('id', id);
+  if(error) return alert(error.message);
+  loadDocs(currentCompany);
+}
+
+document.addEventListener('DOMContentLoaded', loadCompanies);
 </script>
 </body>
 </html>
