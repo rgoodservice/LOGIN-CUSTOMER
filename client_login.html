@@ -1,52 +1,39 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="utf-8">
-  <title>เข้าสู่ระบบลูกค้า</title>
+  <meta charset="utf-8" />
+  <title>Client Login</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
-    body {
-      font-family:"Prompt",sans-serif; margin:0;
-      display:flex; justify-content:center; align-items:center; min-height:100vh;
-      background:linear-gradient(135deg,#06b6d4,#10b981);
-    }
-    .box {
-      background:#fff; padding:36px 28px; border-radius:16px;
-      box-shadow:0 10px 35px rgba(0,0,0,0.1); text-align:center;
-      width:100%; max-width:400px;
-    }
-    input, button { width:100%; padding:12px; margin:8px 0; border-radius:10px; border:1px solid #e2e8f0; font-size:15px; }
-    input:focus { border-color:#06b6d4; box-shadow:0 0 0 2px #06b6d420; outline:none; }
-    button { background:linear-gradient(135deg,#0ea5e9,#10b981); color:white; border:none; font-weight:600; cursor:pointer; }
-    button:hover { background:linear-gradient(135deg,#0284c7,#059669); }
-    .msg { margin-top:10px; font-size:14px; color:#065f46; min-height:20px; }
+    body{font-family:"Prompt",sans-serif;background:#f0f9ff;display:flex;align-items:center;justify-content:center;height:100vh;}
+    .card{background:white;padding:24px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.08);width:300px;text-align:center}
+    input{width:100%;padding:10px;margin:10px 0;border:1px solid #ccc;border-radius:8px}
+    button{padding:10px 16px;background:#0ea5a5;color:white;border:none;border-radius:8px;cursor:pointer}
   </style>
 </head>
 <body>
-  <div class="box">
-    <h2>🔓 เข้าสู่ระบบลูกค้า</h2>
-    <input id="email" type="email" placeholder="อีเมลลูกค้า">
-    <button id="btnSendMagic">ส่ง Magic Link</button>
-    <p id="msg" class="msg"></p>
+  <div class="card">
+    <h2>เข้าสู่ระบบลูกค้า</h2>
+    <input id="email" type="email" placeholder="กรอกอีเมลของคุณ">
+    <button onclick="login()">ส่ง Magic Link</button>
+    <p id="msg"></p>
   </div>
 
 <script>
 const SUPABASE_URL="https://qmugpalgcktfwixqepti.supabase.co";
 const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const sb = supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-function toUrl(path){ return new URL(path,window.location.href).href; }
-
-document.getElementById("btnSendMagic").addEventListener("click", async ()=>{
-  const email=document.getElementById("email").value.trim();
-  if(!email){ document.getElementById("msg").textContent="⚠️ กรุณากรอกอีเมล"; return; }
-  const { error } = await sb.auth.signInWithOtp({
-    email,
-    options:{ emailRedirectTo: toUrl("client.html") }
+async function login(){
+  const email = document.getElementById("email").value.trim();
+  if(!email) return alert("กรอกอีเมลก่อนค่ะ");
+  let { error } = await sb.auth.signInWithOtp({
+    email: email,
+    options: { emailRedirectTo: window.location.origin + "/client.html" } // redirect กลับมาที่หน้า client
   });
-  document.getElementById("msg").textContent = error? "❌ "+error.message : "✅ ส่งลิงก์ไปที่อีเมลแล้ว";
-});
+  document.getElementById("msg").innerText = error ? error.message : "ส่ง Magic Link ไปที่อีเมลแล้วค่ะ";
+}
 </script>
 </body>
 </html>
