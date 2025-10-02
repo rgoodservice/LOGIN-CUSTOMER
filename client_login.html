@@ -1,59 +1,28 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Client Login</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
-  <style>
-    body {
-      margin:0; font-family:"Prompt", sans-serif; background:linear-gradient(135deg,#e0f2fe,#f0fdf4);
-      display:flex; align-items:center; justify-content:center; height:100vh; color:#0f172a;
-    }
-    .card {
-      background:#fff; padding:40px 32px; border-radius:16px; box-shadow:0 6px 30px rgba(0,0,0,0.08);
-      max-width:400px; width:100%; text-align:center;
-    }
-    h1 { margin:0 0 16px; font-size:22px; font-weight:700; color:#059669; }
-    p { margin:0 0 24px; font-size:14px; color:#64748b; }
-    input {
-      width:100%; padding:12px; border:1px solid #e2e8f0; border-radius:10px;
-      font-size:15px; margin-bottom:16px; outline:none;
-    }
-    button {
-      width:100%; padding:12px; background:linear-gradient(135deg,#34d399,#3b82f6);
-      color:white; border:none; border-radius:10px; font-size:16px; font-weight:600; cursor:pointer;
-    }
-    button:hover { opacity:.9; }
-    .note { margin-top:16px; font-size:13px; color:#94a3b8; }
-  </style>
-</head>
+<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
+<title>เข้าสู่ระบบลูกค้า</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>body{font-family:"Prompt",sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:linear-gradient(135deg,#06b6d4,#10b981)}
+.box{background:#fff;padding:34px;border-radius:16px;box-shadow:0 10px 35px rgba(0,0,0,.1);max-width:380px;width:100%;text-align:center}
+input,button{width:100%;padding:12px;margin:8px 0;border-radius:10px;border:1px solid #e2e8f0;font-size:15px}
+button{border:none;color:#fff;font-weight:700;background:linear-gradient(135deg,#0ea5e9,#10b981);cursor:pointer}
+.msg{min-height:20px;font-size:14px;color:#065f46;margin-top:8px}</style></head>
 <body>
-  <div class="card">
-    <h1>เข้าสู่ระบบลูกค้า</h1>
-    <p>กรอกอีเมลเพื่อรับลิงก์เข้าสู่ระบบ (Magic Link)</p>
-    <form id="loginForm">
-      <input type="email" id="email" placeholder="อีเมลลูกค้า" required />
-      <button type="submit">ส่งลิงก์เข้าสู่ระบบ</button>
-    </form>
-    <div class="note">ระบบจะส่ง Magic Link ไปยังอีเมลของคุณ</div>
+  <div class="box">
+    <h2>🔐 เข้าสู่ระบบลูกค้า</h2>
+    <input id="email" type="email" placeholder="example@company.com">
+    <button id="btnMagic">ส่ง Magic Link</button>
+    <div class="msg" id="msg"></div>
   </div>
-
 <script>
-const SUPABASE_URL="https://qmugpalgcktfwixqepti.supabase.co";
-const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
-const sb = supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-
-document.getElementById("loginForm").addEventListener("submit", async(e)=>{
-  e.preventDefault();
-  const email=document.getElementById("email").value;
-  const {error} = await sb.auth.signInWithOtp({
-    email,
-    options:{ emailRedirectTo: window.location.origin + "/redirect.html" }
-  });
-  if(error) alert(error.message); else alert("ส่ง Magic Link ไปที่อีเมลแล้ว");
-});
-</script>
-</body>
-</html>
+const {SUPABASE_URL,SUPABASE_ANON_KEY,REDIRECT_CLIENT}=window.APP_CONFIG;
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const toUrl=p=>new URL(p,location.href).href;
+document.getElementById('btnMagic').onclick=async()=>{
+  const email=document.getElementById('email').value.trim(); const msg=document.getElementById('msg');
+  if(!email){ msg.textContent='⚠️ กรอกอีเมล'; return; }
+  const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:toUrl(REDIRECT_CLIENT)}});
+  msg.textContent=error?('❌ '+error.message):'✅ ส่ง Magic Link แล้ว';
+};
+</script></body></html>
