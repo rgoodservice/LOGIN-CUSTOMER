@@ -33,6 +33,7 @@
       border-radius: 10px;
       border: 1px solid #ccc;
       font-size: 16px;
+      box-sizing: border-box;
     }
     button {
       width: 100%;
@@ -73,31 +74,25 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 async function login() {
   const email = document.getElementById("emailInput").value.trim();
   const msgBox = document.getElementById("msg");
+  
   if (!email) {
     msgBox.textContent = "⚠️ กรุณากรอกอีเมล";
     return;
   }
-
+  
+  msgBox.textContent = "⏳ กำลังส่งลิงก์...";
+  
   const { error } = await client.auth.signInWithOtp({
     email: email,
     options: { emailRedirectTo: window.location.origin + "/client.html" }
   });
-
+  
   if (error) {
     msgBox.textContent = "❌ เกิดข้อผิดพลาด: " + error.message;
   } else {
     msgBox.textContent = "✅ ส่งลิงก์เข้าสู่อีเมลแล้ว กรุณาตรวจสอบกล่องจดหมาย";
   }
 }
-  // Login ด้วย Magic Link
-document.getElementById("btnSendMagic").addEventListener("click", async ()=>{
-  const email=document.getElementById("email").value.trim();
-  if(!email){ msg.textContent="⚠️ กรอกอีเมลก่อน"; return; }
-  const { error } = await sb.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: toUrl("client.html") }
-  });
-  msg.textContent = error ? "❌ "+error.message : "✅ ส่งลิงก์ไปที่อีเมลแล้ว";
 </script>
 </body>
 </html>
