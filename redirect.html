@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>Redirecting...</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<script>
+const SUPABASE_URL="https://qmugpalgcktfwixqepti.supabase.co";
+const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
+const sb = supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+(async ()=>{
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session){ location.href="index.html"; return; }
+
+  const userId = session.user.id;
+  const { data: members, error } = await sb
+    .from("company_members")
+    .select("role")
+    .eq("user_id", userId);
+
+  if(error || !members?.length){
+    alert("ยังไม่มีสิทธิ์บริษัท กรุณาติดต่อผู้ดูแลระบบ");
+    await sb.auth.signOut();
+    location.href="index.html";
+    return;
+  }
+
+  const roles = members.map(m=>m.role);
+  if(roles.includes("admin")) location.href="admin.html";
+  else location.href="client.html";
+})();
+</script>
+</body>
+</html>
