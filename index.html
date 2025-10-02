@@ -1,2 +1,167 @@
-<a href="dashboard-supabase.html?id=1">เปิดเคส 1</a>
-<a href="dashboard-supabase.html?id=2">เปิดเคส 2</a>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ตารางทะเบียน/ใบอนุญาต — ต่อบริษัท</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--text:#e5eef7;--muted:#9fb0c6;--border:#2b3a4f;--accent:#3b82f6}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,'Inter',Arial;
+       background:linear-gradient(135deg,#0f172a 0%,#182235 100%); color:var(--text); padding:24px}
+  .wrap{max-width:1100px;margin:0 auto}
+  .card{background:rgba(30,41,59,.9); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:14px}
+  h1{font-size:24px; font-weight:800; margin-bottom:6px}
+  .muted{color:var(--muted)}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+  input,button{background:#0f172a; color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px 12px}
+  input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(59,130,246,.2)}
+  button{cursor:pointer}
+  .btn{background:linear-gradient(135deg,var(--accent),#8b5cf6); border-color:transparent}
+  table{width:100%; border-collapse:collapse; overflow:auto}
+  th,td{padding:12px; border-bottom:1px solid var(--border); text-align:left}
+  th{color:#b7cdfb; background:rgba(59,130,246,.08); font-weight:700}
+  td.mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>📋 ตารางทะเบียน/ใบอนุญาต</h1>
+      <div class="muted">แสดงข้อมูลเฉพาะบริษัทที่เลือก (อ่านอย่างเดียว)</div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <label class="muted">รหัสบริษัท:</label>
+        <input id="companyCode" placeholder="เช่น ABC" style="width:160px; text-transform:uppercase">
+        <button id="btnSetCompany" class="btn">ยืนยัน</button>
+
+        <span class="muted" style="margin-left:auto">ค้นหา:</span>
+        <input id="search" placeholder="ชื่อตรา / ชื่อสามัญ / เลขที่" style="flex:1 1 260px">
+        <button id="btnRefresh">รีเฟรช</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="margin-bottom:8px;">
+        <strong>บริษัท:</strong>&nbsp;<span id="labelCompany" class="muted">—</span>
+        <span id="count" class="muted" style="margin-left:auto"></span>
+      </div>
+      <div style="overflow:auto">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:72px;">ลำดับ</th>
+              <th>ชื่อตรา</th>
+              <th>ชื่อสามัญ/สูตร</th>
+              <th>เลขที่ทะเบียน</th>
+              <th>เลขที่ใบอนุญาต</th>
+              <th>วันหมดอายุ</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="6" class="muted">ยังไม่มีข้อมูล</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ==== 1) ตั้งค่า Supabase (แก้สองบรรทัดนี้) ==== */
+const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co'; // ← แก้เป็นของจริง
+const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';               // ← แก้เป็นของจริง
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ==== 2) ดึง company_code เริ่มต้นจาก ?company= หรือ localStorage ==== */
+function initCompany(){
+  const qs = new URLSearchParams(location.search).get('company');
+  const ls = localStorage.getItem('company_code');
+  return (qs || ls || '').toUpperCase();
+}
+let CURRENT_COMPANY = initCompany();
+
+/* ==== 3) ตัวช่วย ==== */
+const el = id => document.getElementById(id);
+const tbody = el('tbody'), labelCompany = el('labelCompany'), countEl = el('count');
+
+function fmtDate(d){
+  if (!d) return '—';
+  const t = new Date(d);
+  return isNaN(t) ? d : t.toLocaleDateString('th-TH', { year:'numeric', month:'2-digit', day:'2-digit' });
+}
+
+/* ==== 4) โหลดข้อมูลจากตาราง product_registrations ==== */
+async function loadRows(){
+  labelCompany.textContent = CURRENT_COMPANY || '—';
+  if (!CURRENT_COMPANY){
+    tbody.innerHTML = `<tr><td colspan="6" class="muted">กรุณาใส่รหัสบริษัทก่อน</td></tr>`;
+    countEl.textContent = '';
+    return;
+  }
+
+  // ดึงข้อมูล (อ่านอย่างเดียว)
+  const { data, error } = await sb
+    .from('product_registrations')
+    .select('brand_name, common_label, registration_no, license_no, expiry_date, created_at')
+    .eq('company_code', CURRENT_COMPANY)
+    .order('created_at', { ascending:true });
+
+  if (error){
+    tbody.innerHTML = `<tr><td colspan="6" class="muted">โหลดไม่สำเร็จ: ${error.message}</td></tr>`;
+    countEl.textContent = '';
+    return;
+  }
+
+  // ค้นหาข้อความฝั่ง client
+  const q = (el('search').value || '').trim().toLowerCase();
+  let rows = data || [];
+  if (q){
+    rows = rows.filter(r =>
+      (r.brand_name||'').toLowerCase().includes(q) ||
+      (r.common_label||'').toLowerCase().includes(q) ||
+      (r.registration_no||'').toLowerCase().includes(q) ||
+      (r.license_no||'').toLowerCase().includes(q)
+    );
+  }
+
+  countEl.textContent = rows.length ? `ทั้งหมด ${rows.length} รายการ` : '';
+
+  if (!rows.length){
+    tbody.innerHTML = `<tr><td colspan="6" class="muted">ไม่พบข้อมูล</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map((r,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td>${r.brand_name || '-'}</td>
+      <td class="mono">${r.common_label || '-'}</td>
+      <td class="mono">${r.registration_no || '-'}</td>
+      <td class="mono">${r.license_no || '-'}</td>
+      <td>${fmtDate(r.expiry_date)}</td>
+    </tr>
+  `).join('');
+}
+
+/* ==== 5) Event ==== */
+el('btnSetCompany').addEventListener('click', ()=>{
+  const c = (el('companyCode').value || '').toUpperCase();
+  if (!c) return alert('กรุณาใส่รหัสบริษัท');
+  CURRENT_COMPANY = c;
+  localStorage.setItem('company_code', c);
+  loadRows();
+});
+el('btnRefresh').addEventListener('click', loadRows);
+el('search').addEventListener('input', loadRows);
+
+/* ==== 6) Init ==== */
+document.addEventListener('DOMContentLoaded', ()=>{
+  el('companyCode').value = CURRENT_COMPANY;
+  loadRows();
+});
+</script>
+</body>
+</html>
