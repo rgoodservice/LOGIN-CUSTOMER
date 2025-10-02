@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Admin Portal</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- เพิ่ม lib สำหรับอ่าน Excel -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -68,6 +70,14 @@
         <input id="expiry_date" type="date" required>
         <button class="btn-primary" type="submit">เพิ่ม</button>
       </form>
+    </div>
+
+    <!-- ✅ ส่วนอัปโหลด Excel -->
+    <div class="card">
+      <label><strong>📂 อัปโหลด Excel</strong></label>
+      <input type="file" id="excelFile" accept=".xlsx,.csv" />
+      <button class="btn-primary" onclick="uploadExcel()">อัปโหลด Excel</button>
+      <p style="color:var(--muted); font-size:14px">* ไฟล์ต้องมีหัวตาราง: company_code, brand_name, common_label, registration_no, license_no, expiry_date</p>
     </div>
 
     <div class="card">
@@ -173,6 +183,35 @@ async function del(id){
   const {error} = await sb.from('product_registrations').delete().eq('id', id);
   if(error) return alert(error.message);
   loadDocs(currentCompany);
+}
+
+/* ✅ ฟังก์ชันอัปโหลด Excel */
+async function uploadExcel(){
+  if(!currentCompany) return alert('โปรดเลือกบริษัทก่อนอัปโหลด Excel');
+  const file = $('excelFile').files[0];
+  if(!file) return alert('เลือกไฟล์ก่อน');
+  
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, {type:'array'});
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(sheet);
+
+    for(const row of json){
+      await sb.from('product_registrations').insert({
+        company_code: currentCompany,
+        brand_name: row.brand_name,
+        common_label: row.common_label,
+        registration_no: row.registration_no,
+        license_no: row.license_no,
+        expiry_date: row.expiry_date
+      });
+    }
+    alert('✅ อัปโหลด Excel สำเร็จแล้ว!');
+    loadDocs(currentCompany);
+  };
+  reader.readAsArrayBuffer(file);
 }
 
 document.addEventListener('DOMContentLoaded', loadCompanies);
