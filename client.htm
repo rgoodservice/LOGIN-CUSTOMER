@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Client — ตารางทะเบียน/ใบอนุญาต</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--text:#e5eef7;--muted:#9fb0c6;--border:#2b3a4f;--accent:#3b82f6}
+  body{font-family:ui-sans-serif,system-ui; background:linear-gradient(135deg,#0f172a 0%,#182235 100%); color:var(--text); padding:24px}
+  .wrap{max-width:1100px;margin:0 auto}
+  .card{background:rgba(30,41,59,.9); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:14px}
+  h1{font-size:22px;font-weight:800;margin-bottom:8px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:12px;border-bottom:1px solid var(--border);text-align:left}
+  th{background:rgba(59,130,246,.1);color:#b7cdfb}
+  .muted{color:var(--muted)}
+  .tr-soon{background:rgba(245,158,11,.08);}
+  .tr-expired{background:rgba(239,68,68,.10);}
+  .badge-expiry{padding:4px 8px;border-radius:999px;font-size:12px}
+  .badge-soon{color:#f59e0b;background:rgba(245,158,11,.08)}
+  .badge-expired{color:#ef4444;background:rgba(239,68,68,.10)}
+  .alert-expiry{display:none;margin-bottom:12px;padding:12px;border:1px solid rgba(245,158,11,.4);background:rgba(245,158,11,.08);color:#f59e0b;border-radius:10px}
+  .alert-expiry.show{display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>📋 เอกสารทะเบียน/ใบอนุญาต</h1>
+    <div class="muted">สำหรับลูกค้า — อ่านอย่างเดียว</div>
+  </div>
+
+  <div class="card">
+    <label>รหัสบริษัท: </label>
+    <input id="companyCode" placeholder="เช่น ABC" style="text-transform:uppercase">
+    <button id="btnSet">โหลดข้อมูล</button>
+  </div>
+
+  <div class="card">
+    <div id="expiryAlert" class="alert-expiry"></div>
+    <table>
+      <thead>
+        <tr>
+          <th>ลำดับ</th>
+          <th>ชื่อบริษัท</th>
+          <th>ชื่อการค้า</th>
+          <th>ชื่อสามัญ/สูตร</th>
+          <th>ทะเบียน</th>
+          <th>ใบอนุญาต</th>
+          <th>วันหมดอายุ</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"><tr><td colspan="7" class="muted">ยังไม่มีข้อมูล</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL='https://qmugpalgcktfwixqepti.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+
+const $=id=>document.getElementById(id);
+const WARNING_DAYS=3;
+function fmtDate(d){if(!d)return'—';const t=new Date(d);return isNaN(t)?d:t.toLocaleDateString('th-TH',{year:'numeric',month:'2-digit',day:'2-digit'});}
+function daysLeft(d){if(!d)return null;const dd=new Date(d);if(isNaN(dd))return null;const today=new Date();today.setHours(0,0,0,0);return Math.ceil((dd-today)/(1000*60*60*24));}
+
+async function loadRows(c){
+  const {data,error}=await sb.from('product_registrations').select('*').eq('company_code',c).order('created_at');
+  if(error){$('tbody').innerHTML=`<tr><td colspan="7">${error.message}</td></tr>`;return;}
+  const rows=data||[];let soon=0,exp=0;const alertBox=$('expiryAlert');
+  $('tbody').innerHTML=rows.map((r,i)=>{
+    const dl=daysLeft(r.expiry_date);let cls='',badge='';
+    if(dl!==null){
+      if(dl<=0){cls='tr-expired';badge='<span class="badge-expiry badge-expired">หมดอายุ</span>';exp++;}
+      else if(dl<=WARNING_DAYS){cls='tr-soon';badge=`<span class="badge-expiry badge-soon">เหลือ ${dl} วัน</span>`;soon++;}
+    }
+    return `<tr class="${cls}">
+      <td>${i+1}</td>
+      <td>${r.company_code||'-'}</td>
+      <td>${r.brand_name||'-'}</td>
+      <td>${r.common_label||'-'}</td>
+      <td>${r.registration_no||'-'}</td>
+      <td>${r.license_no||'-'}</td>
+      <td>${fmtDate(r.expiry_date)} ${badge}</td>
+    </tr>`;
+  }).join('');
+  if(soon||exp){alertBox.classList.add('show');alertBox.innerHTML=`⚠️ พบ ${exp?'หมดอายุแล้ว '+exp+' รายการ':''} ${soon?'ใกล้หมดอายุ (≤3 วัน) '+soon+' รายการ':''}`;}
+  else{alertBox.classList.remove('show');alertBox.innerHTML='';}
+}
+
+$('btnSet').addEventListener('click',()=>{
+  const c=$('companyCode').value.toUpperCase();
+  if(!c) return alert('กรุณาใส่รหัสบริษัท');
+  loadRows(c);
+});
+
+// ถ้าแนบ ?company=ABC มากับลิงก์ จะโหลดให้อัตโนมัติ
+document.addEventListener('DOMContentLoaded', ()=>{
+  const c=new URLSearchParams(location.search).get('company');
+  if(c){$('companyCode').value=c.toUpperCase();loadRows(c.toUpperCase());}
+});
+</script>
+</body>
+</html>
