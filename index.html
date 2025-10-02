@@ -15,17 +15,27 @@
       box-shadow:0 10px 40px rgba(0,0,0,0.1);
       text-align:center; max-width:420px; width:100%;
     }
-    h1 { margin-bottom:10px; }
+    h1 { margin-bottom:10px; font-size: 28px; }
     p { margin-bottom:28px; color:#64748b; }
     .btn {
       display:block; width:100%; padding:14px; margin:10px 0;
       border:none; border-radius:12px; font-weight:600; font-size:16px;
       cursor:pointer; color:white;
       background:linear-gradient(135deg,#0ea5e9,#10b981);
-      transition: background 0.2s ease;
+      transition: all 0.2s ease;
       text-decoration:none;
     }
-    .btn:hover { background:linear-gradient(135deg,#0284c7,#059669); }
+    .btn:hover { 
+      background:linear-gradient(135deg,#0284c7,#059669); 
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .btn.admin {
+      background:linear-gradient(135deg,#8b5cf6,#ec4899);
+    }
+    .btn.admin:hover {
+      background:linear-gradient(135deg,#7c3aed,#db2777);
+    }
     footer { margin-top:24px; font-size:13px; color:#94a3b8; }
   </style>
 </head>
@@ -34,7 +44,7 @@
     <h1>🏢 Company Portal</h1>
     <p>เลือกโหมดที่คุณต้องการเข้าสู่ระบบ</p>
     <a href="client_login.html" class="btn">🔓 สำหรับลูกค้า (Client)</a>
-    <a href="admin_login.html" class="btn">🔐 สำหรับผู้ดูแล (Admin)</a>
+    <a href="admin_login.html" class="btn admin">🔐 สำหรับผู้ดูแล (Admin)</a>
     <footer>© 2025 Company Portal — Powered by Supabase</footer>
   </div>
 </body>
