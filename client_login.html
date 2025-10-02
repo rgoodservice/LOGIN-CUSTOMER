@@ -89,6 +89,15 @@ async function login() {
     msgBox.textContent = "✅ ส่งลิงก์เข้าสู่อีเมลแล้ว กรุณาตรวจสอบกล่องจดหมาย";
   }
 }
+  // Login ด้วย Magic Link
+document.getElementById("btnSendMagic").addEventListener("click", async ()=>{
+  const email=document.getElementById("email").value.trim();
+  if(!email){ msg.textContent="⚠️ กรอกอีเมลก่อน"; return; }
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: toUrl("client.html") }
+  });
+  msg.textContent = error ? "❌ "+error.message : "✅ ส่งลิงก์ไปที่อีเมลแล้ว";
 </script>
 </body>
 </html>
