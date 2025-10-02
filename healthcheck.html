@@ -1,168 +1,24 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<!DOCTYPE html><html lang="th"><head><meta charset="utf-8">
 <title>Supabase Health Check</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600&display=swap" rel="stylesheet">
-<style>
-  :root{--ink:#0f172a;--muted:#64748b;--ok:#065f46;--err:#991b1b;--bg:#f6fbff;--card:#fff;--bd:#e6eef5}
-  *{box-sizing:border-box} body{margin:0;font-family:"Prompt",system-ui;background:var(--bg);color:var(--ink)}
-  .wrap{max-width:900px;margin:24px auto;padding:0 16px}
-  .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 3px 18px rgba(10,30,60,.05)}
-  .row{display:flex;gap:8px;flex-wrap:wrap}
-  input,button,select{padding:10px 12px;border:1px solid var(--bd);border-radius:10px;font-size:14px}
-  button{background:linear-gradient(135deg,#0ea5e9,#10b981);color:#fff;border:none;font-weight:600;cursor:pointer}
-  code{background:#f1f5f9;border-radius:8px;padding:2px 6px}
-  .ok{color:var(--ok)} .err{color:var(--err)} .muted{color:var(--muted)}
-  table{width:100%;border-collapse:collapse} th,td{padding:10px 12px;border-bottom:1px solid var(--bd);text-align:left}
-  th{background:#f1f8ff}
-</style>
-</head>
+<script src="config.js"></script>
+<style>body{font-family:system-ui,Prompt,Arial;margin:0;padding:24px;line-height:1.6}
+.card{border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin:12px 0}</style></head>
 <body>
-<div class="wrap">
-  <div class="card">
-    <h2>🩺 Supabase Health Check</h2>
-    <div class="muted">เปิดผ่านเซิร์ฟเวอร์เท่านั้น (เช่น VS Code → Open with Live Server)</div>
-    <div style="margin-top:8px">Origin: <code id="origin"></code></div>
-    <div>Redirect sample (admin.html): <code id="redir"></code></div>
-  </div>
-
-  <div class="card">
-    <h3>1) ตั้งค่า</h3>
-    <div class="row">
-      <input id="url" style="min-width:320px" />
-      <input id="key" style="min-width:480px" />
-      <button id="btnApply">เชื่อมต่อ</button>
-    </div>
-    <div class="muted" style="margin-top:6px">ใช้ URL/Anon Key ของหนูที่ให้มาลงไว้ให้แล้ว</div>
-  </div>
-
-  <div class="card">
-    <h3>2) สถานะการเข้าสู่ระบบ</h3>
-    <div>Session: <span id="sess" class="muted">กำลังตรวจสอบ…</span></div>
-    <div class="row" style="margin-top:8px">
-      <input id="email" type="email" placeholder="อีเมล (ทดสอบ)" />
-      <input id="password" type="password" placeholder="รหัสผ่าน (ถ้ามี)" />
-      <button id="btnPwd">Login ด้วยรหัสผ่าน</button>
-      <button id="btnOtp">ส่ง Magic Link</button>
-      <button id="btnOut" style="background:#e11d48">ออกจากระบบ</button>
-    </div>
-    <div id="msg" class="muted" style="margin-top:8px"></div>
-  </div>
-
-  <div class="card">
-    <h3>3) ทดสอบอ่านตาราง</h3>
-    <div class="row" style="margin-bottom:8px">
-      <button id="btnPing">🔎 ping & อ่าน companies</button>
-      <select id="company" style="min-width:260px"><option value="">— เลือกบริษัท —</option></select>
-      <button id="btnLoadDocs">📄 โหลด product_registrations</button>
-    </div>
-    <div id="res1" class="muted"></div>
-    <div style="margin-top:10px;overflow:auto">
-      <table>
-        <thead>
-          <tr>
-            <th>บริษัท</th><th>ชื่อการค้า</th><th>ชื่อสามัญ/สูตร</th><th>ทะเบียน</th><th>ใบอนุญาต</th><th>หมดอายุ</th>
-          </tr>
-        </thead>
-        <tbody id="tbody"><tr><td colspan="6" class="muted">ยังไม่โหลด</td></tr></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
+<h2>🩺 Supabase Health Check</h2>
+<div class="card">Origin: <code id="origin"></code></div>
+<div id="out" class="card">กำลังทดสอบ…</div>
 <script>
-const $=id=>document.getElementById(id);
-$('origin').textContent=location.origin;
-$('redir').textContent=new URL('admin.html',location.href).href;
-
-// ใช้ของหนูที่ให้มา
-$('url').value = "https://qmugpalgcktfwixqepti.supabase.co";
-$('key').value = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
-
-let sb;
-function makeClient(){
-  const url=$('url').value.trim(), key=$('key').value.trim();
-  if(!url||!key){ alert('กรอก URL/KEY ก่อน'); return; }
-  sb = supabase.createClient(url,key);
-}
-$('btnApply').onclick = ()=>{ makeClient(); updateSession(); };
-
-async function updateSession(){
-  if(!sb) makeClient();
-  $('sess').textContent='กำลังตรวจสอบ…';
-  const { data:{session}, error } = await sb.auth.getSession();
-  $('sess').textContent = error ? ('❌ '+error.message) : (session ? ('✅ '+(session.user.email||session.user.id)) : '— ไม่มี (anonymous) —');
-}
-
-$('btnPwd').onclick = async ()=>{
-  if(!sb) makeClient();
-  const email=$('email').value.trim(), pw=$('password').value;
-  if(!email||!pw){ $('msg').textContent='กรอกอีเมล/รหัสผ่านก่อน'; return; }
-  const { error } = await sb.auth.signInWithPassword({ email, password: pw });
-  $('msg').textContent = error ? ('❌ '+error.message) : '✅ เข้าสู่ระบบแล้ว';
-  updateSession();
-};
-
-$('btnOtp').onclick = async ()=>{
-  if(!sb) makeClient();
-  const email=$('email').value.trim();
-  if(!email){ $('msg').textContent='กรอกอีเมลก่อน'; return; }
-  const { error } = await sb.auth.signInWithOtp({
-    email,
-    options:{ emailRedirectTo: new URL('admin.html', location.href).href }
-  });
-  $('msg').textContent = error ? ('❌ '+error.message) : '✅ ส่ง Magic Link แล้ว (ตรวจอีเมล)';
-};
-
-$('btnOut').onclick = async ()=>{
-  if(!sb) makeClient();
-  await sb.auth.signOut(); $('msg').textContent='ออกจากระบบแล้ว'; updateSession();
-};
-
-$('btnPing').onclick = async ()=>{
-  if(!sb) makeClient();
-  $('res1').textContent='กำลังอ่าน companies…';
-  const { data, error } = await sb.from('companies').select('code,name').order('name',{ascending:true});
-  if(error){
-    $('res1').innerHTML = `<span class="err">❌ อ่าน companies ไม่ได้: ${error.message}</span>
-    <div>→ มักเกิดจาก RLS/Policy ไม่ให้ anonymous หรือ user ปัจจุบันอ่าน</div>`;
-  }else{
-    $('res1').innerHTML = `<span class="ok">✅ ได้ ${data.length} รายการ</span>`;
-    $('company').innerHTML = `<option value="">— เลือกบริษัท —</option>`;
-    data.forEach(c=> $('company').innerHTML += `<option value="${c.code}">${c.name} (${c.code})</option>`);
-  }
-};
-
-$('btnLoadDocs').onclick = async ()=>{
-  if(!sb) makeClient();
-  const code=$('company').value;
-  if(!code){ alert('เลือกบริษัทก่อน'); return; }
-  const tb=$('tbody'); tb.innerHTML='<tr><td colspan="6" class="muted">กำลังโหลด…</td></tr>';
-  const { data, error } = await sb.from('product_registrations').select('*').eq('company_code', code);
-  if(error){
-    tb.innerHTML = `<tr><td colspan="6" class="err">❌ อ่านไม่ได้: ${error.message}</td></tr>`;
-    return;
-  }
-  if(!data.length){ tb.innerHTML='<tr><td colspan="6" class="muted">ไม่มีข้อมูล</td></tr>'; return; }
-  tb.innerHTML='';
-  data.forEach(r=>{
-    tb.innerHTML += `<tr>
-      <td>${r.company_code||'-'}</td>
-      <td>${r.brand_name||'-'}</td>
-      <td>${r.common_label||'-'}</td>
-      <td>${r.registration_no||'-'}</td>
-      <td>${r.license_no||'-'}</td>
-      <td>${r.expiry_date||'-'}</td>
-    </tr>`;
-  });
-};
-
-// สร้าง client ทันทีและอัปเดต session ตอนโหลดหน้า
-makeClient();
-updateSession();
-</script>
-</body>
-</html>
+const {SUPABASE_URL,SUPABASE_ANON_KEY}=window.APP_CONFIG;
+document.getElementById('origin').textContent=location.origin;
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+(async()=>{
+  try{
+    const box=document.getElementById('out');
+    const {data:{session}}=await sb.auth.getSession();
+    const {data, error}=await sb.from('companies').select('code,name').limit(5);
+    if(error) box.innerHTML=`❌ อ่าน companies ไม่ได้: ${error.message}`;
+    else box.innerHTML=`✅ OK · session: ${session?'มี':'ไม่มี'} · companies: ${data.length} รายการ`;
+  }catch(e){ out.textContent='❌ '+(e.message||e); }
+})();
+</script></body></html>
