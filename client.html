@@ -1,267 +1,296 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Customer Portal</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --bg:#f6fbff;
-    --ink:#0f172a;
-    --muted:#64748b;
-    --card:#ffffff;
-    --border:#e6eef5;
-    --accent:#0ea5a5;
-    --accent-2:#60a5fa;
-    --warn:#b45309;
-    --warn-bg:#fff7ed;
-    --exp:#b91c1c;
-    --exp-bg:#fff1f2;
-    --ok:#0f766e;
-    --ok-bg:#ecfdf5;
-    --radius:14px;
-  }
-  *{box-sizing:border-box}
-  body{
-    margin:0; font-family:"Prompt", ui-sans-serif, system-ui;
-    color:var(--ink); background:
-      radial-gradient(1200px 600px at 10% -10%, #e6f7ff 0%, transparent 60%),
-      radial-gradient(900px 500px at 110% 0%, #e8fff6 0%, transparent 60%),
-      var(--bg);
-  }
-  header{
-    padding:20px 16px;
-    background: linear-gradient(180deg, #f0fbff, #eaf7ff);
-    border-bottom:1px solid var(--border);
-  }
-  .brand{
-    max-width:1100px; margin:0 auto; display:flex; align-items:center; gap:12px;
-    font-weight:700; font-size:20px; justify-content: space-between;
-  }
-  .logo{
-    width:40px;height:40px;border-radius:10px;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  }
-  .user-info{
-    display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 400;
-  }
-  .btn-logout{
-    padding: 8px 16px; background: white; border: 1px solid var(--border);
-    border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;
-    color: var(--muted); transition: 0.2s;
-  }
-  .btn-logout:hover{ background: #fef2f2; color: var(--exp); border-color: var(--exp); }
-  .container{
-    max-width:1100px; margin:20px auto; padding:0 16px 28px;
-  }
-  .card{
-    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
-    box-shadow: 0 4px 20px rgba(10,30,60,.06);
-    padding:18px; margin-bottom:16px;
-  }
-  label{display:block; margin:6px 0 8px; color:var(--muted); font-size:14px;}
-  select{
-    width:100%; padding:12px 14px; font-size:15px; border:1px solid var(--border); border-radius:10px;
-    outline:none; font-family: inherit;
-  }
-  table{width:100%; border-collapse:collapse; overflow:hidden; border-radius:12px; background:white}
-  th,td{padding:12px 14px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top}
-  th{
-    background:linear-gradient(180deg, #f7fbff, #f2f8ff);
-    color:#0b3a4f; font-weight:600;
-  }
-  tr.warning{ background: var(--warn-bg); }
-  tr.expired{ background: var(--exp-bg); }
-  .badge{padding:4px 10px; border-radius:999px; font-size:12px; font-weight:600; display:inline-block}
-  .badge.warning{ color:var(--warn); background:var(--warn-bg); border:1px solid #fde68a50;}
-  .badge.expired{ color:var(--exp); background:var(--exp-bg); border:1px solid #fecaca70;}
-  .badge.ok{ color:var(--ok); background:var(--ok-bg); border:1px solid #a7f3d050;}
-  .summary{display:flex; gap:12px; flex-wrap:wrap; color:var(--muted); font-size:14px}
-  .loading{text-align: center; padding: 40px; color: var(--muted);}
-  .error{color: var(--exp); background: var(--exp-bg); padding: 12px; border-radius: 8px; margin: 10px 0;}
-</style>
+  <meta charset="utf-8">
+  <title>สมัครสมาชิก</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: "Prompt", "Inter", sans-serif;
+      margin: 0; padding: 0;
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #8b5cf6, #ec4899);
+    }
+    .signup-box {
+      background: rgba(255,255,255,0.95);
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 {
+      font-size: 22px;
+      margin-bottom: 10px;
+      color: #831843;
+    }
+    p {
+      color: #6b7280;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+      box-sizing: border-box;
+      font-family: inherit;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #8b5cf6;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      background: linear-gradient(135deg, #8b5cf6, #ec4899);
+      color: white;
+      transition: 0.2s;
+      margin-top: 8px;
+    }
+    button:hover {
+      background: linear-gradient(135deg, #7c3aed, #db2777);
+      transform: translateY(-2px);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .msg {
+      margin-top: 15px;
+      font-size: 14px;
+      padding: 12px;
+      border-radius: 8px;
+    }
+    .msg.error {
+      background: #fee;
+      color: #c00;
+    }
+    .msg.success {
+      background: #efe;
+      color: #060;
+    }
+    .msg.info {
+      background: #eff6ff;
+      color: #1e40af;
+    }
+    .link {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 14px;
+      color: #6b7280;
+    }
+    .link a {
+      color: #8b5cf6;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .link a:hover {
+      text-decoration: underline;
+    }
+    .password-strength {
+      text-align: left;
+      font-size: 12px;
+      margin-top: 5px;
+      padding-left: 4px;
+    }
+    .strength-weak { color: #ef4444; }
+    .strength-medium { color: #f59e0b; }
+    .strength-strong { color: #10b981; }
+  </style>
 </head>
 <body>
-  <header>
-    <div class="brand">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <div class="logo"></div>
-        <div>Customer Portal — เอกสารทะเบียน/ใบอนุญาต</div>
-      </div>
-      <div class="user-info">
-        <span id="userEmail"></span>
-        <button class="btn-logout" onclick="logout()">ออกจากระบบ</button>
-      </div>
+  <div class="signup-box">
+    <h1>📝 สมัครสมาชิก</h1>
+    <p>สร้างบัญชีเพื่อเข้าใช้งานระบบ</p>
+    
+    <input type="text" id="fullName" placeholder="ชื่อ-นามสกุล" />
+    <input type="email" id="email" placeholder="อีเมล" />
+    
+    <select id="companySelect">
+      <option value="">— กำลังโหลดบริษัท —</option>
+    </select>
+    
+    <input type="password" id="password" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัวอักษร)" 
+           onkeyup="checkPasswordStrength()" />
+    <div id="passwordStrength" class="password-strength"></div>
+    
+    <input type="password" id="confirmPassword" placeholder="ยืนยันรหัสผ่าน" />
+    
+    <button id="btnSignup" onclick="signup()">สมัครสมาชิก</button>
+    
+    <div class="msg" id="msg"></div>
+    
+    <div class="link">
+      มีบัญชีอยู่แล้ว? <a href="client_login.html">เข้าสู่ระบบ</a>
+      <br>
+      <a href="index.html" style="color: #6b7280; margin-top: 8px; display: inline-block;">← กลับหน้าหลัก</a>
     </div>
-  </header>
-
-  <div class="container" id="mainContent" style="display: none;">
-    <div class="card">
-      <label><strong>เลือกบริษัท</strong></label>
-      <select id="companySelect">
-        <option value="">— กำลังโหลดบริษัท —</option>
-      </select>
-      <div id="meta" class="summary" style="margin-top:10px; display:none;"></div>
-    </div>
-
-    <div class="card">
-      <table>
-        <thead>
-          <tr>
-            <th>ลำดับ</th>
-            <th>ชื่อบริษัท</th>
-            <th>ชื่อการค้า</th>
-            <th>ชื่อสามัญ/สูตร</th>
-            <th>ทะเบียน</th>
-            <th>ใบอนุญาต</th>
-            <th>วันหมดอายุ</th>
-            <th>สถานะ</th>
-          </tr>
-        </thead>
-        <tbody id="tbody">
-          <tr><td colspan="8" style="color:var(--muted)">กรุณาเลือกบริษัทด้านบน</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <div id="loadingScreen" class="loading">
-    <p>⏳ กำลังตรวจสอบการเข้าสู่ระบบ...</p>
   </div>
 
 <script>
-const SUPABASE_URL="https://qmugpalgcktfwixqepti.supabase.co";
-const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const WARNING_DAYS = 90;
-const $ = id => document.getElementById(id);
-function fmtDate(d){ 
-  if(!d) return '-'; 
-  const t=new Date(d); 
-  return isNaN(t)?'-':t.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'}); 
-}
-
-let companiesMap = {}; // เก็บ mapping ระหว่าง code กับ name
-
-async function checkAuth(){
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) {
-    // ถ้าไม่มี session ให้แสดงข้อความแทนการ redirect
-    $('loadingScreen').innerHTML = `
-      <div class="error" style="max-width: 400px; margin: 40px auto;">
-        <p><strong>⚠️ กรุณาเข้าสู่ระบบก่อน</strong></p>
-        <p>คุณยังไม่ได้เข้าสู่ระบบ กรุณากลับไปหน้าล็อกอิน</p>
-      </div>
-    `;
-    return false;
-  }
-  $('userEmail').textContent = session.user.email;
-  $('loadingScreen').style.display = 'none';
-  $('mainContent').style.display = 'block';
-  return true;
-}
-
-async function logout(){
-  const confirmed = confirm('คุณต้องการออกจากระบบใช่หรือไม่?');
-  if (!confirmed) return;
-  
-  await sb.auth.signOut();
-  alert('ออกจากระบบสำเร็จ กรุณา refresh หน้าเพื่อเข้าสู่ระบบใหม่');
-  location.reload();
-}
-
-async function loadCompanies(){
-  const sel = $('companySelect');
+async function loadCompanies() {
+  const sel = document.getElementById("companySelect");
   try {
-    const {data, error} = await sb.from('companies').select('code,name').order('name',{ascending:true});
+    const { data, error } = await client
+      .from('companies')
+      .select('code, name')
+      .order('name', { ascending: true });
     
-    if(error) throw error;
+    if (error) throw error;
     
-    if(!data || data.length === 0){
-      sel.innerHTML = `<option value="">ไม่พบบริษัทในระบบ</option>`;
-      return;
-    }
-    
-    // เก็บ mapping
-    data.forEach(c => companiesMap[c.code] = c.name);
-    
-    sel.innerHTML = `<option value="">— เลือกบริษัท —</option>`;
-    data.forEach(c=> sel.innerHTML += `<option value="${c.code}">${c.name}</option>`);
-  } catch(err) {
-    sel.innerHTML = `<option value="">โหลดบริษัทไม่สำเร็จ: ${err.message}</option>`;
+    sel.innerHTML = '<option value="">— เลือกบริษัท —</option>';
+    data.forEach(c => {
+      sel.innerHTML += `<option value="${c.code}">${c.name}</option>`;
+    });
+  } catch (err) {
+    sel.innerHTML = '<option value="">โหลดบริษัทไม่สำเร็จ</option>';
     console.error('Load companies error:', err);
   }
 }
 
-function classify(expiry){
-  if(!expiry) return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3};
-  const d = new Date(expiry), now = new Date();
-  const diff = Math.ceil((d - now)/(1000*60*60*24));
-  if(isNaN(d)) return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3};
-  if(diff < 0) return {cls:'expired', badge:`<span class="badge expired">หมดอายุ</span>`, order:1};
-  if(diff <= WARNING_DAYS) return {cls:'warning', badge:`<span class="badge warning">เหลือ ${diff} วัน</span>`, order:2};
-  return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3};
-}
-
-async function loadDocs(code){
-  $('meta').style.display = 'none';
-  const tb = $('tbody');
+function checkPasswordStrength() {
+  const password = document.getElementById("password").value;
+  const strengthDiv = document.getElementById("passwordStrength");
   
-  try {
-    tb.innerHTML = '<tr><td colspan="8" style="color:var(--muted)">⏳ กำลังโหลดข้อมูล...</td></tr>';
-    
-    const {data, error} = await sb.from('product_registrations').select('*').eq('company_code', code);
-    
-    if(error) throw error;
-
-    const rows = (data||[]).map(r=>{
-      const s = classify(r.expiry_date);
-      return {...r, ...s};
-    }).sort((a,b)=> a.order - b.order || new Date(a.expiry_date) - new Date(b.expiry_date));
-
-    const soon = rows.filter(r=>r.order===2).length;
-    const expd = rows.filter(r=>r.order===1).length;
-    
-    $('meta').innerHTML = [
-      expd?`❌ หมดอายุ: ${expd}`:'',
-      soon?`⚠️ ใกล้หมดอายุ (≤ 90 วัน): ${soon}`:'',
-      `ทั้งหมด: ${rows.length}`
-    ].filter(Boolean).join(' · ');
-    $('meta').style.display = 'flex';
-
-    tb.innerHTML = rows.length? '' : `<tr><td colspan="8" style="color:var(--muted)">ยังไม่มีข้อมูลเอกสาร</td></tr>`;
-    
-    rows.forEach((r,i)=>{
-      const companyName = companiesMap[r.company_code] || r.company_code || '-';
-      tb.innerHTML += `<tr class="${r.cls}">
-        <td>${i+1}</td>
-        <td>${companyName}</td>
-        <td>${r.brand_name||'-'}</td>
-        <td>${r.common_label||'-'}</td>
-        <td>${r.registration_no||'-'}</td>
-        <td>${r.license_no||'-'}</td>
-        <td>${fmtDate(r.expiry_date)}</td>
-        <td>${r.badge}</td>
-      </tr>`;
-    });
-  } catch(err) {
-    tb.innerHTML = `<tr><td colspan="8"><div class="error">❌ เกิดข้อผิดพลาด: ${err.message}</div></td></tr>`;
-    console.error('Load docs error:', err);
+  if (!password) {
+    strengthDiv.textContent = "";
+    return;
+  }
+  
+  let strength = 0;
+  if (password.length >= 6) strength++;
+  if (password.length >= 10) strength++;
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
+  if (/\d/.test(password)) strength++;
+  if (/[^a-zA-Z\d]/.test(password)) strength++;
+  
+  if (strength <= 2) {
+    strengthDiv.textContent = "🔴 รหัสผ่านอ่อนแอ";
+    strengthDiv.className = "password-strength strength-weak";
+  } else if (strength <= 3) {
+    strengthDiv.textContent = "🟡 รหัสผ่านปานกลาง";
+    strengthDiv.className = "password-strength strength-medium";
+  } else {
+    strengthDiv.textContent = "🟢 รหัสผ่านแข็งแรง";
+    strengthDiv.className = "password-strength strength-strong";
   }
 }
 
-$('companySelect').addEventListener('change', (e)=> {
-  if(e.target.value) loadDocs(e.target.value);
+async function signup() {
+  const fullName = document.getElementById("fullName").value.trim();
+  const email = document.getElementById("email").value.trim();
+  const companyCode = document.getElementById("companySelect").value;
+  const password = document.getElementById("password").value;
+  const confirmPassword = document.getElementById("confirmPassword").value;
+  const msgBox = document.getElementById("msg");
+  const btn = document.getElementById("btnSignup");
+  
+  if (!fullName || !email || !companyCode || !password || !confirmPassword) {
+    msgBox.textContent = "⚠️ กรุณากรอกข้อมูลให้ครบทุกช่อง";
+    msgBox.className = "msg error";
+    return;
+  }
+  
+  if (password.length < 6) {
+    msgBox.textContent = "⚠️ รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร";
+    msgBox.className = "msg error";
+    return;
+  }
+  
+  if (password !== confirmPassword) {
+    msgBox.textContent = "⚠️ รหัสผ่านไม่ตรงกัน";
+    msgBox.className = "msg error";
+    return;
+  }
+  
+  btn.disabled = true;
+  msgBox.textContent = "⏳ กำลังสมัครสมาชิก...";
+  msgBox.className = "msg info";
+  
+  try {
+    const { data: signupData, error: signupError } = await client.auth.signUp({
+      email: email,
+      password: password,
+      options: {
+        data: {
+          full_name: fullName,
+          company_code: companyCode
+        },
+        emailRedirectTo: window.location.origin + "/client.html"
+      }
+    });
+    
+    if (signupError) throw signupError;
+    
+    console.log("Signup success:", signupData);
+    
+    if (signupData.user) {
+      const { error: linkError } = await client
+        .from('user_companies')
+        .insert({
+          user_id: signupData.user.id,
+          company_code: companyCode
+        });
+      
+      if (linkError) {
+        console.error("Link company error:", linkError);
+      }
+    }
+    
+    if (signupData.user && !signupData.session) {
+      msgBox.textContent = "✅ สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชี";
+      msgBox.className = "msg success";
+    } else {
+      msgBox.textContent = "✅ สมัครสมาชิกสำเร็จ! กำลังเข้าสู่ระบบ...";
+      msgBox.className = "msg success";
+      
+      setTimeout(() => {
+        window.location.href = "client.html";
+      }, 1500);
+    }
+    
+  } catch (err) {
+    msgBox.textContent = "❌ เกิดข้อผิดพลาด: " + err.message;
+    msgBox.className = "msg error";
+    console.error("Signup error:", err);
+    btn.disabled = false;
+  }
+}
+
+document.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    signup();
+  }
 });
 
-// เริ่มต้นระบบ
-document.addEventListener('DOMContentLoaded', async ()=>{
-  const authenticated = await checkAuth();
-  if(authenticated) await loadCompanies();
+async function checkExistingSession() {
+  const { data: { session } } = await client.auth.getSession();
+  if (session) {
+    console.log("Already logged in, redirecting...");
+    window.location.href = "client.html";
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  checkExistingSession();
+  loadCompanies();
 });
 </script>
 </body>
