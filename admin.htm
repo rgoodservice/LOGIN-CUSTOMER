@@ -19,7 +19,7 @@
   .btn-good{background:linear-gradient(135deg,var(--good),#059669); border-color:transparent}
   .btn-danger{background:linear-gradient(135deg,var(--danger),#dc2626); border-color:transparent}
   table{width:100%;border-collapse:collapse}
-  th,td{padding:12px;border-bottom:1px solid var(--border);text-align:left}
+  th,td{padding:12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
   th{background:rgba(59,130,246,.1);color:#b7cdfb}
 
   /* เตือนหมดอายุ */
@@ -41,15 +41,15 @@
 
   <div class="card">
     <h3>🏭 เลือกบริษัท</h3>
-    <input id="companyCode" placeholder="รหัสบริษัท" style="text-transform:uppercase">
+    <input id="companyCode" placeholder="รหัสบริษัท (เช่น ABC)" style="text-transform:uppercase">
     <button id="btnSetCompany" class="btn-primary">ตั้งค่า</button>
-    <span class="muted">บริษัทปัจจุบัน: <span id="labelCompany">—</span></span>
+    <span class="muted">บริษัทปัจจุบัน: <strong id="labelCompany">—</strong></span>
   </div>
 
   <div class="card">
     <h3 id="formTitle">➕ เพิ่ม/แก้ไข</h3>
-    <input id="brand_name" placeholder="ชื่อตรา">
-    <input id="common_label" placeholder="ชื่อสามัญ/สูตร">
+    <input id="brand_name" placeholder="ชื่อการค้า">
+    <input id="common_label" placeholder="ชื่อสามัญ/สูตร (เช่น validamycin 30% W/V SL)">
     <input id="registration_no" placeholder="เลขที่ทะเบียน">
     <input id="license_no" placeholder="เลขที่ใบอนุญาต">
     <input id="expiry_date" type="date">
@@ -59,14 +59,14 @@
   </div>
 
   <div class="card">
-    <h3>📥 Import CSV</h3>
+    <h3>📥 นำเข้าจากไฟล์ CSV</h3>
     <input type="file" id="csvFile" accept=".csv">
     <button id="btnImport" class="btn-primary">นำเข้า</button>
-    <div class="muted">ไฟล์ต้องมีหัวตาราง: brand_name, common_label, registration_no, license_no, expiry_date</div>
+    <div class="muted">หัวคอลัมน์ต้องมี: <code>brand_name, common_label, registration_no, license_no, expiry_date</code></div>
   </div>
 
   <div class="card">
-    <input id="search" placeholder="ค้นหา..." style="width:200px">
+    <input id="search" placeholder="ค้นหา (ชื่อการค้า / ชื่อสามัญ / เลขที่)" style="width:260px">
     <button id="btnRefresh">รีเฟรช</button>
     <span id="count" class="muted"></span>
   </div>
@@ -75,9 +75,18 @@
     <div id="expiryAlert" class="alert-expiry"></div>
     <table>
       <thead>
-        <tr><th>ลำดับ</th><th>ชื่อตรา</th><th>ชื่อสามัญ/สูตร</th><th>ทะเบียน</th><th>ใบอนุญาต</th><th>หมดอายุ</th><th>จัดการ</th></tr>
+        <tr>
+          <th>ลำดับ</th>
+          <th>ชื่อบริษัท</th>
+          <th>ชื่อการค้า</th>
+          <th>ชื่อสามัญ/สูตร</th>
+          <th>ทะเบียน</th>
+          <th>ใบอนุญาต</th>
+          <th>วันหมดอายุ</th>
+          <th>จัดการ</th>
+        </tr>
       </thead>
-      <tbody id="tbody"><tr><td colspan="7" class="muted">ยังไม่มีข้อมูล</td></tr></tbody>
+      <tbody id="tbody"><tr><td colspan="8" class="muted">ยังไม่มีข้อมูล</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -90,65 +99,79 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 const $=id=>document.getElementById(id);
 let CURRENT_COMPANY=(localStorage.getItem('company_code')||'').toUpperCase();
 const WARNING_DAYS=3;
+
 function fmtDate(d){if(!d)return'—';const t=new Date(d);return isNaN(t)?d:t.toLocaleDateString('th-TH',{year:'numeric',month:'2-digit',day:'2-digit'});}
 function daysLeft(d){if(!d)return null;const dd=new Date(d);if(isNaN(dd))return null;const today=new Date();today.setHours(0,0,0,0);return Math.ceil((dd-today)/(1000*60*60*24));}
 
 async function loadRows(){
   $('labelCompany').textContent=CURRENT_COMPANY||'—';
-  if(!CURRENT_COMPANY){$('tbody').innerHTML='<tr><td colspan="7">ใส่รหัสบริษัทก่อน</td></tr>';return;}
+  if(!CURRENT_COMPANY){$('tbody').innerHTML='<tr><td colspan="8" class="muted">กรุณาตั้งค่ารหัสบริษัทก่อน</td></tr>';return;}
   const {data,error}=await sb.from('product_registrations').select('*').eq('company_code',CURRENT_COMPANY).order('created_at');
-  if(error){$('tbody').innerHTML=`<tr><td colspan="7">${error.message}</td></tr>`;return;}
+  if(error){$('tbody').innerHTML=`<tr><td colspan="8">${error.message}</td></tr>`;return;}
   const q=($('search').value||'').toLowerCase();
-  let rows=(data||[]).filter(r=>!q||(r.brand_name||'').toLowerCase().includes(q)||(r.common_label||'').toLowerCase().includes(q));
+  let rows=(data||[]).filter(r=>!q||(r.brand_name||'').toLowerCase().includes(q)||(r.common_label||'').toLowerCase().includes(q)||(r.registration_no||'').toLowerCase().includes(q)||(r.license_no||'').toLowerCase().includes(q));
   $('count').textContent=rows.length?`ทั้งหมด ${rows.length} รายการ`:'';
+
   let soon=0,exp=0;const alertBox=$('expiryAlert');
   $('tbody').innerHTML=rows.map((r,i)=>{
     const dl=daysLeft(r.expiry_date);let cls='',badge='',expCell=fmtDate(r.expiry_date);
-    if(dl!==null){if(dl<=0){cls='tr-expired';badge='<span class="badge-expiry badge-expired">หมดอายุ</span>';exp++;}
-      else if(dl<=WARNING_DAYS){cls='tr-soon';badge=`<span class="badge-expiry badge-soon">เหลือ ${dl} วัน</span>`;soon++;}}
-    return `<tr class="${cls}"><td>${i+1}</td><td>${r.brand_name||'-'}</td><td>${r.common_label||'-'}</td>
-    <td>${r.registration_no||'-'}</td><td>${r.license_no||'-'}</td><td>${expCell} ${badge}</td>
-    <td><button onclick="editRow('${r.id}')" class="btn-primary">แก้</button>
-    <button onclick="deleteRow('${r.id}')" class="btn-danger">ลบ</button></td></tr>`;
+    if(dl!==null){ if(dl<=0){cls='tr-expired';badge='<span class="badge-expiry badge-expired">หมดอายุ</span>';exp++;}
+      else if(dl<=WARNING_DAYS){cls='tr-soon';badge=`<span class="badge-expiry badge-soon">เหลือ ${dl} วัน</span>`;soon++;} }
+    return `<tr class="${cls}">
+      <td>${i+1}</td>
+      <td>${r.company_code||'-'}</td>
+      <td>${r.brand_name||'-'}</td>
+      <td>${r.common_label||'-'}</td>
+      <td>${r.registration_no||'-'}</td>
+      <td>${r.license_no||'-'}</td>
+      <td>${expCell} ${badge}</td>
+      <td>
+        <button onclick="editRow('${r.id}')" class="btn-primary">แก้</button>
+        <button onclick="deleteRow('${r.id}')" class="btn-danger">ลบ</button>
+      </td>
+    </tr>`;
   }).join('');
-  if(soon||exp){alertBox.classList.add('show');alertBox.innerHTML=`⚠️ ${exp?'หมดอายุ '+exp+' รายการ':''} ${soon?'ใกล้หมดอายุ '+soon+' รายการ':''}`;}
-  else{alertBox.classList.remove('show');}
+
+  if(soon||exp){alertBox.classList.add('show');alertBox.innerHTML=`⚠️ พบ ${exp?'หมดอายุแล้ว '+exp+' รายการ':''} ${soon?'ใกล้หมดอายุ (≤3 วัน) '+soon+' รายการ':''}`;}
+  else{alertBox.classList.remove('show');alertBox.innerHTML='';}
 }
 
 async function saveRow(){
   if(!CURRENT_COMPANY)return alert('ตั้งค่าบริษัทก่อน');
-  const payload={company_code:CURRENT_COMPANY,brand_name:$('brand_name').value,common_label:$('common_label').value,
-    registration_no:$('registration_no').value,license_no:$('license_no').value,expiry_date:$('expiry_date').value||null};
+  const payload={company_code:CURRENT_COMPANY,brand_name:$('brand_name').value.trim(),common_label:$('common_label').value.trim(),
+    registration_no:$('registration_no').value.trim(),license_no:$('license_no').value.trim()||null,expiry_date:$('expiry_date').value||null};
+  if(!payload.brand_name||!payload.common_label||!payload.registration_no) return alert('กรอก "ชื่อการค้า / ชื่อสามัญ/สูตร / เลขที่ทะเบียน" ให้ครบค่ะ');
   const id=$('row_id').value;
-  if(id)await sb.from('product_registrations').update(payload).eq('id',id);
-  else await sb.from('product_registrations').insert(payload);
+  if(id){const {error}=await sb.from('product_registrations').update(payload).eq('id',id);if(error)return alert(error.message);}
+  else {const {error}=await sb.from('product_registrations').insert(payload);if(error)return alert(error.message);}
   clearForm();loadRows();
 }
 function clearForm(){['brand_name','common_label','registration_no','license_no','expiry_date','row_id'].forEach(k=>$(k).value='');$('formTitle').textContent='➕ เพิ่ม/แก้ไข';}
-async function editRow(id){const {data}=await sb.from('product_registrations').select('*').eq('id',id).single();if(data){Object.keys(data).forEach(k=>$(k)?$(k).value=data[k]||'':'');$('row_id').value=id;$('formTitle').textContent='✏️ แก้ไข';}}
-async function deleteRow(id){if(!confirm('ลบใช่ไหม?'))return;await sb.from('product_registrations').delete().eq('id',id);loadRows();}
+async function editRow(id){const {data,error}=await sb.from('product_registrations').select('*').eq('id',id).single();if(error)return alert(error.message);if(data){['brand_name','common_label','registration_no','license_no','expiry_date'].forEach(k=>$(k).value=data[k]||'');$('row_id').value=id;$('formTitle').textContent='✏️ แก้ไข';window.scrollTo({top:0,behavior:'smooth'});}}
+async function deleteRow(id){if(!confirm('ลบรายการนี้ใช่ไหม?'))return;const {error}=await sb.from('product_registrations').delete().eq('id',id);if(error)return alert(error.message);loadRows();}
 
-// Import CSV
-$('btnImport').addEventListener('click',()=>{
-  const file=$('csvFile').files[0];if(!file)return alert('เลือกไฟล์ก่อน');
-  const reader=new FileReader();
-  reader.onload=async e=>{
-    const lines=e.target.result.split('\n').map(l=>l.split(','));
-    const headers=lines[0].map(h=>h.trim());
-    const rows=lines.slice(1).filter(r=>r.length>1);
-    const payloads=rows.map(r=>{const obj={company_code:CURRENT_COMPANY};headers.forEach((h,i)=>obj[h]=r[i]?r[i].trim():null);return obj;});
-    const {error}=await sb.from('product_registrations').insert(payloads);
-    if(error)alert('Import error: '+error.message);else{alert('Import เสร็จ');loadRows();}
-  };
-  reader.readAsText(file);
-});
-
-// Events
 $('btnSetCompany').addEventListener('click',()=>{CURRENT_COMPANY=$('companyCode').value.toUpperCase();localStorage.setItem('company_code',CURRENT_COMPANY);loadRows();});
 $('btnSave').addEventListener('click',saveRow);
 $('btnReset').addEventListener('click',clearForm);
 $('btnRefresh').addEventListener('click',loadRows);
 $('search').addEventListener('input',loadRows);
+
+// Import CSV (UTF-8, มี header)
+$('btnImport').addEventListener('click',()=>{
+  const file=$('csvFile').files[0]; if(!file) return alert('เลือกไฟล์ .csv ก่อนค่ะ');
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    const text=e.target.result.replace(/\r/g,'');
+    const lines=text.split('\n').filter(x=>x.trim().length);
+    const headers=lines[0].split(',').map(h=>h.trim());
+    const rows=lines.slice(1).map(l=>l.split(','));
+    const payloads=rows.map(r=>{const obj={company_code:CURRENT_COMPANY};headers.forEach((h,i)=>obj[h]=r[i]?r[i].trim():null);return obj;});
+    const {error}=await sb.from('product_registrations').insert(payloads);
+    if(error) alert('Import ไม่สำเร็จ: '+error.message); else {alert('Import เสร็จแล้ว');loadRows();}
+  };
+  reader.readAsText(file);
+});
+
 document.addEventListener('DOMContentLoaded',()=>{$('companyCode').value=CURRENT_COMPANY;loadRows();});
 </script>
 </body>
