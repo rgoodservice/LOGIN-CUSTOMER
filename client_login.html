@@ -55,14 +55,51 @@
       font-size: 14px;
       color: #065f46;
     }
+    .tab-btn {
+      width: 48%;
+      padding: 10px;
+      margin: 0 1%;
+      border: 2px solid #0ea5e9;
+      border-radius: 8px;
+      background: white;
+      color: #0ea5e9;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, #0ea5e9, #10b981);
+      color: white;
+      border-color: transparent;
+    }
+    .tab-btn:hover {
+      transform: translateY(-2px);
+    }
   </style>
 </head>
 <body>
   <div class="login-box">
     <h1>🔐 เข้าสู่ระบบลูกค้า</h1>
-    <p>กรอกอีเมลเพื่อรับลิงก์เข้าสู่ระบบ</p>
-    <input type="email" id="emailInput" placeholder="example@company.com" />
-    <button onclick="login()">เข้าสู่ระบบ</button>
+    
+    <div style="margin-bottom: 20px;">
+      <button class="tab-btn active" onclick="switchTab('magic')">Magic Link</button>
+      <button class="tab-btn" onclick="switchTab('password')">รหัสผ่าน</button>
+    </div>
+
+    <div id="magicTab">
+      <p>กรอกอีเมลเพื่อรับลิงก์เข้าสู่ระบบ</p>
+      <input type="email" id="emailMagic" placeholder="example@company.com" />
+      <button onclick="loginMagic()">ส่งลิงก์</button>
+    </div>
+
+    <div id="passwordTab" style="display: none;">
+      <p>เข้าสู่ระบบด้วยอีเมลและรหัสผ่าน</p>
+      <input type="email" id="emailPassword" placeholder="example@company.com" />
+      <input type="password" id="password" placeholder="รหัสผ่าน" />
+      <button onclick="loginPassword()">เข้าสู่ระบบ</button>
+    </div>
+
     <div class="msg" id="msg"></div>
   </div>
 
@@ -71,8 +108,29 @@ const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-async function login() {
-  const email = document.getElementById("emailInput").value.trim();
+function switchTab(tab) {
+  const magicTab = document.getElementById("magicTab");
+  const passwordTab = document.getElementById("passwordTab");
+  const tabs = document.querySelectorAll(".tab-btn");
+  const msgBox = document.getElementById("msg");
+  
+  msgBox.textContent = "";
+  
+  if (tab === 'magic') {
+    magicTab.style.display = "block";
+    passwordTab.style.display = "none";
+    tabs[0].classList.add("active");
+    tabs[1].classList.remove("active");
+  } else {
+    magicTab.style.display = "none";
+    passwordTab.style.display = "block";
+    tabs[0].classList.remove("active");
+    tabs[1].classList.add("active");
+  }
+}
+
+async function loginMagic() {
+  const email = document.getElementById("emailMagic").value.trim();
   const msgBox = document.getElementById("msg");
   
   if (!email) {
@@ -91,6 +149,33 @@ async function login() {
     msgBox.textContent = "❌ เกิดข้อผิดพลาด: " + error.message;
   } else {
     msgBox.textContent = "✅ ส่งลิงก์เข้าสู่อีเมลแล้ว กรุณาตรวจสอบกล่องจดหมาย";
+  }
+}
+
+async function loginPassword() {
+  const email = document.getElementById("emailPassword").value.trim();
+  const password = document.getElementById("password").value;
+  const msgBox = document.getElementById("msg");
+  
+  if (!email || !password) {
+    msgBox.textContent = "⚠️ กรุณากรอกอีเมลและรหัสผ่าน";
+    return;
+  }
+  
+  msgBox.textContent = "⏳ กำลังเข้าสู่ระบบ...";
+  
+  const { data, error } = await client.auth.signInWithPassword({
+    email: email,
+    password: password
+  });
+  
+  if (error) {
+    msgBox.textContent = "❌ เกิดข้อผิดพลาด: " + error.message;
+  } else {
+    msgBox.textContent = "✅ เข้าสู่ระบบสำเร็จ!";
+    setTimeout(() => {
+      window.location.href = "/client.html";
+    }, 1000);
   }
 }
 </script>
