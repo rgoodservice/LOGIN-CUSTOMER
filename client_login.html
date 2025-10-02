@@ -1,51 +1,58 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="utf-8">
-  <title>เข้าสู่ระบบลูกค้า</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Client Login</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     body {
-      font-family:"Prompt",sans-serif; margin:0;
-      display:flex; justify-content:center; align-items:center; min-height:100vh;
-      background:linear-gradient(135deg,#06b6d4,#10b981);
+      margin:0; font-family:"Prompt", sans-serif; background:linear-gradient(135deg,#e0f2fe,#f0fdf4);
+      display:flex; align-items:center; justify-content:center; height:100vh; color:#0f172a;
     }
-    .box {
-      background:#fff; padding:36px 28px; border-radius:16px;
-      box-shadow:0 10px 35px rgba(0,0,0,0.1); text-align:center;
-      width:100%; max-width:400px;
+    .card {
+      background:#fff; padding:40px 32px; border-radius:16px; box-shadow:0 6px 30px rgba(0,0,0,0.08);
+      max-width:400px; width:100%; text-align:center;
     }
-    input, button { width:100%; padding:12px; margin:8px 0; border-radius:10px; border:1px solid #e2e8f0; font-size:15px; }
-    input:focus { border-color:#06b6d4; box-shadow:0 0 0 2px #06b6d420; outline:none; }
-    button { background:linear-gradient(135deg,#0ea5e9,#10b981); color:white; border:none; font-weight:600; cursor:pointer; }
-    button:hover { background:linear-gradient(135deg,#0284c7,#059669); }
-    .msg { margin-top:10px; font-size:14px; color:#065f46; min-height:20px; }
+    h1 { margin:0 0 16px; font-size:22px; font-weight:700; color:#059669; }
+    p { margin:0 0 24px; font-size:14px; color:#64748b; }
+    input {
+      width:100%; padding:12px; border:1px solid #e2e8f0; border-radius:10px;
+      font-size:15px; margin-bottom:16px; outline:none;
+    }
+    button {
+      width:100%; padding:12px; background:linear-gradient(135deg,#34d399,#3b82f6);
+      color:white; border:none; border-radius:10px; font-size:16px; font-weight:600; cursor:pointer;
+    }
+    button:hover { opacity:.9; }
+    .note { margin-top:16px; font-size:13px; color:#94a3b8; }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h2>🔓 เข้าสู่ระบบลูกค้า</h2>
-    <input id="email" type="email" placeholder="อีเมลลูกค้า">
-    <button id="btnSendMagic">ส่ง Magic Link</button>
-    <p id="msg" class="msg"></p>
+  <div class="card">
+    <h1>เข้าสู่ระบบลูกค้า</h1>
+    <p>กรอกอีเมลเพื่อรับลิงก์เข้าสู่ระบบ (Magic Link)</p>
+    <form id="loginForm">
+      <input type="email" id="email" placeholder="อีเมลลูกค้า" required />
+      <button type="submit">ส่งลิงก์เข้าสู่ระบบ</button>
+    </form>
+    <div class="note">ระบบจะส่ง Magic Link ไปยังอีเมลของคุณ</div>
   </div>
 
 <script>
 const SUPABASE_URL="https://qmugpalgcktfwixqepti.supabase.co";
 const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const sb = supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-function toUrl(path){ return new URL(path,window.location.href).href; }
-
-document.getElementById("btnSendMagic").addEventListener("click", async ()=>{
-  const email=document.getElementById("email").value.trim();
-  if(!email){ document.getElementById("msg").textContent="⚠️ กรุณากรอกอีเมล"; return; }
-  const { error } = await sb.auth.signInWithOtp({
+document.getElementById("loginForm").addEventListener("submit", async(e)=>{
+  e.preventDefault();
+  const email=document.getElementById("email").value;
+  const {error} = await sb.auth.signInWithOtp({
     email,
-    options:{ emailRedirectTo: toUrl("client.html") }
+    options:{ emailRedirectTo: window.location.origin + "/redirect.html" }
   });
-  document.getElementById("msg").textContent = error? "❌ "+error.message : "✅ ส่งลิงก์ไปที่อีเมลแล้ว";
+  if(error) alert(error.message); else alert("ส่ง Magic Link ไปที่อีเมลแล้ว");
 });
 </script>
 </body>
