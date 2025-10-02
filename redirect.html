@@ -6,14 +6,20 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+กำลังตรวจสอบสิทธิ์...
 <script>
 const SUPABASE_URL="https://qmugpalgcktfwixqepti.supabase.co";
-const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
+const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
 const sb = supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 (async ()=>{
-  const { data:{ session } } = await sb.auth.getSession();
-  if(!session){ location.href="index.html"; return; }
+  const { data:{ session }, error:sesErr } = await sb.auth.getSession();
+  console.log("Session:",session,"Err:",sesErr);
+  if(!session){ 
+    alert("ไม่มี session กลับมาเลยค่ะ"); 
+    location.href="index.html"; 
+    return; 
+  }
 
   const userId = session.user.id;
   const { data: members, error } = await sb
@@ -21,8 +27,11 @@ const sb = supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
     .select("role")
     .eq("user_id", userId);
 
-  if(error || !members?.length){
-    alert("ยังไม่มีสิทธิ์บริษัท กรุณาติดต่อผู้ดูแลระบบ");
+  console.log("Members:",members,"Error:",error);
+
+  if(error){ alert("DB Error: "+error.message); return; }
+  if(!members?.length){
+    alert("ยังไม่ได้ผูก user กับบริษัทใน company_members"); 
     await sb.auth.signOut();
     location.href="index.html";
     return;
