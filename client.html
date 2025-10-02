@@ -14,14 +14,14 @@
     --muted:#64748b;
     --card:#ffffff;
     --border:#e6eef5;
-    --accent:#0ea5a5; /* teal อ่อน */
-    --accent-2:#60a5fa; /* ฟ้าอ่อน */
-    --warn:#b45309;        /* เหลืองน้ำตาลนุ่ม */
-    --warn-bg:#fff7ed;     /* ครีมอุ่น */
-    --exp:#b91c1c;         /* แดงอมน้ำตาลนุ่ม */
-    --exp-bg:#fff1f2;      /* ชมพูซีด */
-    --ok:#0f766e;          /* teal เข้ม */
-    --ok-bg:#ecfdf5;       /* เขียวซีด */
+    --accent:#0ea5a5;
+    --accent-2:#60a5fa;
+    --warn:#b45309;
+    --warn-bg:#fff7ed;
+    --exp:#b91c1c;
+    --exp-bg:#fff1f2;
+    --ok:#0f766e;
+    --ok-bg:#ecfdf5;
     --radius:14px;
   }
   *{box-sizing:border-box}
@@ -39,12 +39,21 @@
   }
   .brand{
     max-width:1100px; margin:0 auto; display:flex; align-items:center; gap:12px;
-    font-weight:700; font-size:20px;
+    font-weight:700; font-size:20px; justify-content: space-between;
   }
   .logo{
     width:40px;height:40px;border-radius:10px;
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
   }
+  .user-info{
+    display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 400;
+  }
+  .btn-logout{
+    padding: 8px 16px; background: white; border: 1px solid var(--border);
+    border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;
+    color: var(--muted); transition: 0.2s;
+  }
+  .btn-logout:hover{ background: #fef2f2; color: var(--exp); border-color: var(--exp); }
   .container{
     max-width:1100px; margin:20px auto; padding:0 16px 28px;
   }
@@ -56,7 +65,7 @@
   label{display:block; margin:6px 0 8px; color:var(--muted); font-size:14px;}
   select{
     width:100%; padding:12px 14px; font-size:15px; border:1px solid var(--border); border-radius:10px;
-    outline:none;
+    outline:none; font-family: inherit;
   }
   table{width:100%; border-collapse:collapse; overflow:hidden; border-radius:12px; background:white}
   th,td{padding:12px 14px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top}
@@ -71,17 +80,25 @@
   .badge.expired{ color:var(--exp); background:var(--exp-bg); border:1px solid #fecaca70;}
   .badge.ok{ color:var(--ok); background:var(--ok-bg); border:1px solid #a7f3d050;}
   .summary{display:flex; gap:12px; flex-wrap:wrap; color:var(--muted); font-size:14px}
+  .loading{text-align: center; padding: 40px; color: var(--muted);}
+  .error{color: var(--exp); background: var(--exp-bg); padding: 12px; border-radius: 8px; margin: 10px 0;}
 </style>
 </head>
 <body>
   <header>
     <div class="brand">
-      <div class="logo"></div>
-      <div>Customer Portal — เอกสารทะเบียน/ใบอนุญาต</div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div class="logo"></div>
+        <div>Customer Portal — เอกสารทะเบียน/ใบอนุญาต</div>
+      </div>
+      <div class="user-info">
+        <span id="userEmail"></span>
+        <button class="btn-logout" onclick="logout()">ออกจากระบบ</button>
+      </div>
     </div>
   </header>
 
-  <div class="container">
+  <div class="container" id="mainContent" style="display: none;">
     <div class="card">
       <label><strong>เลือกบริษัท</strong></label>
       <select id="companySelect">
@@ -111,6 +128,10 @@
     </div>
   </div>
 
+  <div id="loadingScreen" class="loading">
+    <p>⏳ กำลังตรวจสอบการเข้าสู่ระบบ...</p>
+  </div>
+
 <script>
 const SUPABASE_URL="https://qmugpalgcktfwixqepti.supabase.co";
 const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
@@ -118,14 +139,62 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const WARNING_DAYS = 90;
 const $ = id => document.getElementById(id);
-function fmtDate(d){ if(!d) return '-'; const t=new Date(d); return isNaN(t)?'-':t.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'}); }
+function fmtDate(d){ 
+  if(!d) return '-'; 
+  const t=new Date(d); 
+  return isNaN(t)?'-':t.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'}); 
+}
+
+let companiesMap = {}; // เก็บ mapping ระหว่าง code กับ name
+
+async function checkAuth(){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    // ถ้าไม่มี session ให้แสดงข้อความแทนการ redirect
+    $('loadingScreen').innerHTML = `
+      <div class="error" style="max-width: 400px; margin: 40px auto;">
+        <p><strong>⚠️ กรุณาเข้าสู่ระบบก่อน</strong></p>
+        <p>คุณยังไม่ได้เข้าสู่ระบบ กรุณากลับไปหน้าล็อกอิน</p>
+      </div>
+    `;
+    return false;
+  }
+  $('userEmail').textContent = session.user.email;
+  $('loadingScreen').style.display = 'none';
+  $('mainContent').style.display = 'block';
+  return true;
+}
+
+async function logout(){
+  const confirmed = confirm('คุณต้องการออกจากระบบใช่หรือไม่?');
+  if (!confirmed) return;
+  
+  await sb.auth.signOut();
+  alert('ออกจากระบบสำเร็จ กรุณา refresh หน้าเพื่อเข้าสู่ระบบใหม่');
+  location.reload();
+}
 
 async function loadCompanies(){
   const sel = $('companySelect');
-  const {data, error} = await sb.from('companies').select('code,name').order('name',{ascending:true});
-  if(error){ sel.innerHTML = `<option value="">โหลดบริษัทไม่สำเร็จ</option>`; return; }
-  sel.innerHTML = `<option value="">— เลือกบริษัท —</option>`;
-  data.forEach(c=> sel.innerHTML += `<option value="${c.code}">${c.name}</option>`);
+  try {
+    const {data, error} = await sb.from('companies').select('code,name').order('name',{ascending:true});
+    
+    if(error) throw error;
+    
+    if(!data || data.length === 0){
+      sel.innerHTML = `<option value="">ไม่พบบริษัทในระบบ</option>`;
+      return;
+    }
+    
+    // เก็บ mapping
+    data.forEach(c => companiesMap[c.code] = c.name);
+    
+    sel.innerHTML = `<option value="">— เลือกบริษัท —</option>`;
+    data.forEach(c=> sel.innerHTML += `<option value="${c.code}">${c.name}</option>`);
+  } catch(err) {
+    sel.innerHTML = `<option value="">โหลดบริษัทไม่สำเร็จ: ${err.message}</option>`;
+    console.error('Load companies error:', err);
+  }
 }
 
 function classify(expiry){
@@ -140,41 +209,60 @@ function classify(expiry){
 
 async function loadDocs(code){
   $('meta').style.display = 'none';
-  const {data, error} = await sb.from('product_registrations').select('*').eq('company_code', code);
-  if(error){ $('tbody').innerHTML=`<tr><td colspan="8">${error.message}</td></tr>`; return; }
-
-  const rows = (data||[]).map(r=>{
-    const s = classify(r.expiry_date);
-    return {...r, ...s};
-  }).sort((a,b)=> a.order - b.order || new Date(a.expiry_date) - new Date(b.expiry_date));
-
-  const soon = rows.filter(r=>r.order===2).length;
-  const expd = rows.filter(r=>r.order===1).length;
-  $('meta').innerHTML = [
-    expd?`❌ หมดอายุ: ${expd}`:'',
-    soon?`⚠️ ใกล้หมดอายุ (≤ 90 วัน): ${soon}`:'',
-    `ทั้งหมด: ${rows.length}`
-  ].filter(Boolean).join(' · ');
-  $('meta').style.display = 'flex';
-
   const tb = $('tbody');
-  tb.innerHTML = rows.length? '' : `<tr><td colspan="8" style="color:var(--muted)">ยังไม่มีข้อมูล</td></tr>`;
-  rows.forEach((r,i)=>{
-    tb.innerHTML += `<tr class="${r.cls}">
-      <td>${i+1}</td>
-      <td>${r.company_code||'-'}</td>
-      <td>${r.brand_name||'-'}</td>
-      <td>${r.common_label||'-'}</td>
-      <td>${r.registration_no||'-'}</td>
-      <td>${r.license_no||'-'}</td>
-      <td>${fmtDate(r.expiry_date)}</td>
-      <td>${r.badge}</td>
-    </tr>`;
-  });
+  
+  try {
+    tb.innerHTML = '<tr><td colspan="8" style="color:var(--muted)">⏳ กำลังโหลดข้อมูล...</td></tr>';
+    
+    const {data, error} = await sb.from('product_registrations').select('*').eq('company_code', code);
+    
+    if(error) throw error;
+
+    const rows = (data||[]).map(r=>{
+      const s = classify(r.expiry_date);
+      return {...r, ...s};
+    }).sort((a,b)=> a.order - b.order || new Date(a.expiry_date) - new Date(b.expiry_date));
+
+    const soon = rows.filter(r=>r.order===2).length;
+    const expd = rows.filter(r=>r.order===1).length;
+    
+    $('meta').innerHTML = [
+      expd?`❌ หมดอายุ: ${expd}`:'',
+      soon?`⚠️ ใกล้หมดอายุ (≤ 90 วัน): ${soon}`:'',
+      `ทั้งหมด: ${rows.length}`
+    ].filter(Boolean).join(' · ');
+    $('meta').style.display = 'flex';
+
+    tb.innerHTML = rows.length? '' : `<tr><td colspan="8" style="color:var(--muted)">ยังไม่มีข้อมูลเอกสาร</td></tr>`;
+    
+    rows.forEach((r,i)=>{
+      const companyName = companiesMap[r.company_code] || r.company_code || '-';
+      tb.innerHTML += `<tr class="${r.cls}">
+        <td>${i+1}</td>
+        <td>${companyName}</td>
+        <td>${r.brand_name||'-'}</td>
+        <td>${r.common_label||'-'}</td>
+        <td>${r.registration_no||'-'}</td>
+        <td>${r.license_no||'-'}</td>
+        <td>${fmtDate(r.expiry_date)}</td>
+        <td>${r.badge}</td>
+      </tr>`;
+    });
+  } catch(err) {
+    tb.innerHTML = `<tr><td colspan="8"><div class="error">❌ เกิดข้อผิดพลาด: ${err.message}</div></td></tr>`;
+    console.error('Load docs error:', err);
+  }
 }
 
-$('companySelect').addEventListener('change', (e)=> e.target.value && loadDocs(e.target.value));
-document.addEventListener('DOMContentLoaded', loadCompanies);
+$('companySelect').addEventListener('change', (e)=> {
+  if(e.target.value) loadDocs(e.target.value);
+});
+
+// เริ่มต้นระบบ
+document.addEventListener('DOMContentLoaded', async ()=>{
+  const authenticated = await checkAuth();
+  if(authenticated) await loadCompanies();
+});
 </script>
 </body>
 </html>
