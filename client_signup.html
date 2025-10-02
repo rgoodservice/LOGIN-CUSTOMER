@@ -31,7 +31,7 @@
       font-size: 14px;
       margin-bottom: 20px;
     }
-    input {
+    input, select {
       width: 100%;
       padding: 12px;
       margin: 10px 0;
@@ -39,8 +39,9 @@
       border: 1px solid #ccc;
       font-size: 16px;
       box-sizing: border-box;
+      font-family: inherit;
     }
-    input:focus {
+    input:focus, select:focus {
       outline: none;
       border-color: #8b5cf6;
     }
@@ -117,6 +118,11 @@
     
     <input type="text" id="fullName" placeholder="ชื่อ-นามสกุล" />
     <input type="email" id="email" placeholder="อีเมล" />
+    
+    <select id="companySelect">
+      <option value="">— กำลังโหลดบริษัท —</option>
+    </select>
+    
     <input type="password" id="password" placeholder="รหัสผ่าน (อย่างน้อย 6 ตัวอักษร)" 
            onkeyup="checkPasswordStrength()" />
     <div id="passwordStrength" class="password-strength"></div>
@@ -128,7 +134,9 @@
     <div class="msg" id="msg"></div>
     
     <div class="link">
-      มีบัญชีอยู่แล้ว? <a href="/client_login.html">เข้าสู่ระบบ</a>
+      มีบัญชีอยู่แล้ว? <a href="client_login.html">เข้าสู่ระบบ</a>
+      <br>
+      <a href="index.html" style="color: #6b7280; margin-top: 8px; display: inline-block;">← กลับหน้าหลัก</a>
     </div>
   </div>
 
@@ -136,6 +144,26 @@
 const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function loadCompanies() {
+  const sel = document.getElementById("companySelect");
+  try {
+    const { data, error } = await client
+      .from('companies')
+      .select('code, name')
+      .order('name', { ascending: true });
+    
+    if (error) throw error;
+    
+    sel.innerHTML = '<option value="">— เลือกบริษัท —</option>';
+    data.forEach(c => {
+      sel.innerHTML += `<option value="${c.code}">${c.name}</option>`;
+    });
+  } catch (err) {
+    sel.innerHTML = '<option value="">โหลดบริษัทไม่สำเร็จ</option>';
+    console.error('Load companies error:', err);
+  }
+}
 
 function checkPasswordStrength() {
   const password = document.getElementById("password").value;
@@ -168,13 +196,13 @@ function checkPasswordStrength() {
 async function signup() {
   const fullName = document.getElementById("fullName").value.trim();
   const email = document.getElementById("email").value.trim();
+  const companyCode = document.getElementById("companySelect").value;
   const password = document.getElementById("password").value;
   const confirmPassword = document.getElementById("confirmPassword").value;
   const msgBox = document.getElementById("msg");
   const btn = document.getElementById("btnSignup");
   
-  // ตรวจสอบข้อมูล
-  if (!fullName || !email || !password || !confirmPassword) {
+  if (!fullName || !email || !companyCode || !password || !confirmPassword) {
     msgBox.textContent = "⚠️ กรุณากรอกข้อมูลให้ครบทุกช่อง";
     msgBox.className = "msg error";
     return;
@@ -197,23 +225,36 @@ async function signup() {
   msgBox.className = "msg info";
   
   try {
-    const { data, error } = await client.auth.signUp({
+    const { data: signupData, error: signupError } = await client.auth.signUp({
       email: email,
       password: password,
       options: {
         data: {
-          full_name: fullName
+          full_name: fullName,
+          company_code: companyCode
         },
-        emailRedirectTo: window.location.origin + "/customer.html"
+        emailRedirectTo: window.location.origin + "/client_portal.html"
       }
     });
     
-    if (error) throw error;
+    if (signupError) throw signupError;
     
-    console.log("Signup success:", data);
+    console.log("Signup success:", signupData);
     
-    // ตรวจสอบว่าต้องยืนยันอีเมลหรือไม่
-    if (data.user && !data.session) {
+    if (signupData.user) {
+      const { error: linkError } = await client
+        .from('user_companies')
+        .insert({
+          user_id: signupData.user.id,
+          company_code: companyCode
+        });
+      
+      if (linkError) {
+        console.error("Link company error:", linkError);
+      }
+    }
+    
+    if (signupData.user && !signupData.session) {
       msgBox.textContent = "✅ สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชี";
       msgBox.className = "msg success";
     } else {
@@ -221,7 +262,7 @@ async function signup() {
       msgBox.className = "msg success";
       
       setTimeout(() => {
-        window.location.href = "/customer.html";
+        window.location.href = "client_portal.html";
       }, 1500);
     }
     
@@ -233,23 +274,24 @@ async function signup() {
   }
 }
 
-// กด Enter เพื่อสมัคร
 document.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
     signup();
   }
 });
 
-// เช็คว่า login อยู่แล้วหรือไม่
 async function checkExistingSession() {
   const { data: { session } } = await client.auth.getSession();
   if (session) {
     console.log("Already logged in, redirecting...");
-    window.location.href = "/customer.html";
+    window.location.href = "client_portal.html";
   }
 }
 
-document.addEventListener('DOMContentLoaded', checkExistingSession);
+document.addEventListener('DOMContentLoaded', () => {
+  checkExistingSession();
+  loadCompanies();
+});
 </script>
 </body>
 </html>
