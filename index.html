@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>Company Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin:0; font-family:"Prompt",sans-serif; color:#0f172a;
+      background:linear-gradient(135deg,#06b6d4,#10b981);
+      display:flex; justify-content:center; align-items:center; min-height:100vh;
+    }
+    .container {
+      background:#fff; border-radius:20px; padding:40px 32px;
+      box-shadow:0 10px 40px rgba(0,0,0,0.1);
+      text-align:center; max-width:420px; width:100%;
+    }
+    h1 { margin-bottom:10px; }
+    p { margin-bottom:28px; color:#64748b; }
+    .btn {
+      display:block; width:100%; padding:14px; margin:10px 0;
+      border:none; border-radius:12px; font-weight:600; font-size:16px;
+      cursor:pointer; color:white;
+      background:linear-gradient(135deg,#0ea5e9,#10b981);
+      transition: background 0.2s ease;
+      text-decoration:none;
+    }
+    .btn:hover { background:linear-gradient(135deg,#0284c7,#059669); }
+    footer { margin-top:24px; font-size:13px; color:#94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏢 Company Portal</h1>
+    <p>เลือกโหมดที่คุณต้องการเข้าสู่ระบบ</p>
+    <a href="client_login.html" class="btn">🔓 สำหรับลูกค้า (Client)</a>
+    <a href="admin_login.html" class="btn">🔐 สำหรับผู้ดูแล (Admin)</a>
+    <footer>© 2025 Company Portal — Powered by Supabase</footer>
+  </div>
+</body>
+</html>
