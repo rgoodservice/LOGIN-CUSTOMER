@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Admin Portal — จัดการเอกสาร & รหัสลูกค้า</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script
+  /* ======== ตั้งค่า Supabase ======== */
+const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";   // <- Project URL ของคุณ
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";       // <- ใช้เฉพาะ anon key
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);</script>
+
 <!-- เพิ่ม SheetJS สำหรับ Excel -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
