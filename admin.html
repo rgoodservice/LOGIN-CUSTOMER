@@ -31,8 +31,9 @@
     padding:11px 12px; font-size:15px; border:1px solid var(--border); border-radius:10px; outline:none;
   }
   .row{display:flex; gap:10px; flex-wrap:wrap}
-  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:white; border:none}
-  .btn-danger{background:#ef4444; color:white; border:none}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:white; border:none; cursor:pointer}
+  .btn-danger{background:#ef4444; color:white; border:none; cursor:pointer}
+  .btn{cursor:pointer}
   table{width:100%; border-collapse:collapse; background:white; border-radius:12px; overflow:hidden}
   th,td{padding:12px 14px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top}
   th{background:linear-gradient(180deg,#f7fbff,#f2f8ff); color:#0b3a4f; font-weight:600}
@@ -42,6 +43,7 @@
   .badge.warning{ color:var(--warn); background:var(--warn-bg); border:1px solid #fde68a50;}
   .badge.expired{ color:var(--exp); background:var(--exp-bg); border:1px solid #fecaca70;}
   .badge.ok{ color:var(--ok); background:var(--ok-bg); border:1px solid #a7f3d050;}
+  .tools{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -55,7 +57,16 @@
   <div class="container">
     <div class="card">
       <label><strong>เลือกบริษัท</strong></label>
-      <select id="companySelect"><option value="">— กำลังโหลดบริษัท —</option></select>
+      <div class="tools">
+        <select id="companySelect"><option value="">— กำลังโหลดบริษัท —</option></select>
+        <select id="filterSelect" title="ตัวกรองสถานะ">
+          <option value="all">แสดงทั้งหมด</option>
+          <option value="expired">เฉพาะหมดอายุ (รวมที่ยังไม่ต่อ)</option>
+          <option value="renewed">เฉพาะที่ต่อแล้ว</option>
+          <option value="warning">ใกล้หมดอายุ (90 วัน)</option>
+        </select>
+        <button id="refreshBtn" class="btn-primary">รีเฟรช</button>
+      </div>
     </div>
 
     <div class="card">
@@ -80,29 +91,80 @@
             <th>ชื่อสามัญ/สูตร</th>
             <th>ทะเบียน</th>
             <th>ใบอนุญาต</th>
-            <th>วันหมดอายุ</th>
+            <th>หมดอายุเดิม</th>
+            <th>ต่อถึง</th>
+            <th>ต่อเมื่อ</th>
             <th>สถานะ</th>
             <th>จัดการ</th>
           </tr>
         </thead>
         <tbody id="tbody">
-          <tr><td colspan="9" style="color:var(--muted)">กรุณาเลือกบริษัทด้านบน</td></tr>
+          <tr><td colspan="11" style="color:var(--muted)">กรุณาเลือกบริษัทด้านบน</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 
 <script>
+/** ===== Supabase Init ===== */
 const SUPABASE_URL="https://qmugpalgcktfwixqepti.supabase.co";
 const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+/** ===== Config ===== */
 const WARNING_DAYS = 90;
 const $ = id => document.getElementById(id);
 let currentCompany = '';
+let currentRows = []; // เก็บผลลัพธ์ดิบไว้ใช้กับตัวกรอง
 
-function fmtDate(d){ if(!d) return '-'; const t=new Date(d); return isNaN(t)?'-':t.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'}); }
+/** ===== Helpers ===== */
+function fmtDate(d){
+  if(!d) return '-';
+  const t=new Date(d);
+  return isNaN(t)?'-':t.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+}
+function ymdInputPrompt(defaultYmd=''){
+  const v = prompt('กรอกวันที่สิ้นสุดการต่ออายุ (รูปแบบ YYYY-MM-DD)\nเช่น 2026-12-31\nปล่อยว่างเพื่อล้างการต่ออายุ', defaultYmd || '');
+  if(v===null) return null; // กดยกเลิก
+  const trimmed = v.trim();
+  if(trimmed==='') return ''; // เคลียร์
+  // ตรวจรูปแบบง่าย ๆ
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)){ alert('รูปแบบไม่ถูกต้อง ต้องเป็น YYYY-MM-DD'); return null; }
+  const dt = new Date(trimmed);
+  if(isNaN(dt)){ alert('วันที่ไม่ถูกต้อง'); return null; }
+  return trimmed;
+}
 
+/** สถานะคำนวณจากวันหมดอายุ “ที่มีผลจริง” = renewed_until ถ้ามี มิฉะนั้น expiry_date */
+function classify(expiry, renewedUntil){
+  const base = expiry ? new Date(expiry) : null;
+  const renew = renewedUntil ? new Date(renewedUntil) : null;
+  const effective = renew || base; // ใช้ renewedUntil ถ้ามี
+  if(!effective || isNaN(effective)) return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3, effectiveDate:null, isRenewed: !!renew};
+
+  const now = new Date();
+  const diff = Math.ceil((effective - now)/(1000*60*60*24));
+
+  // กรณีพิเศษ: ต่อแล้วแต่ยังเลยกำหนด (ข้อมูลผิด/วันที่ตั้งผิด)
+  if(diff < 0){
+    const text = renew ? 'ต่อแล้วแต่หมดอายุ' : 'หมดอายุ';
+    return {cls:'expired', badge:`<span class="badge expired">${text}</span>`, order:1, effectiveDate:effective, isRenewed: !!renew};
+  }
+
+  // ใกล้หมดอายุ
+  if(diff <= WARNING_DAYS){
+    const tail = renew ? ` (ถึง ${fmtDate(effective)})` : '';
+    const head = renew ? 'ต่อแล้ว เหลือ ' : 'เหลือ ';
+    return {cls:'warning', badge:`<span class="badge warning">${head}${diff} วัน${tail}</span>`, order:2, effectiveDate:effective, isRenewed: !!renew};
+  }
+
+  // ปกติ
+  const tail = renew ? ` (ถึง ${fmtDate(effective)})` : '';
+  const head = renew ? 'ต่อแล้ว ' : 'ปกติ';
+  return {cls:'', badge:`<span class="badge ok">${head}${tail}</span>`, order:3, effectiveDate:effective, isRenewed: !!renew};
+}
+
+/** ===== Data Loaders ===== */
 async function loadCompanies(){
   const sel = $('companySelect');
   const {data, error} = await sb.from('companies').select('code,name').order('name',{ascending:true});
@@ -111,28 +173,42 @@ async function loadCompanies(){
   data.forEach(c=> sel.innerHTML += `<option value="${c.code}">${c.name}</option>`);
 }
 
-function classify(expiry){
-  if(!expiry) return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3};
-  const d = new Date(expiry), now = new Date();
-  const diff = Math.ceil((d - now)/(1000*60*60*24));
-  if(isNaN(d)) return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3};
-  if(diff < 0) return {cls:'expired', badge:`<span class="badge expired">หมดอายุ</span>`, order:1};
-  if(diff <= WARNING_DAYS) return {cls:'warning', badge:`<span class="badge warning">เหลือ ${diff} วัน</span>`, order:2};
-  return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3};
-}
-
 async function loadDocs(code){
   currentCompany = code;
-  const {data, error} = await sb.from('product_registrations').select('*').eq('company_code', code);
-  if(error){ $('tbody').innerHTML=`<tr><td colspan="9">${error.message}</td></tr>`; return; }
+  const {data, error} = await sb.from('product_registrations')
+    .select('*')
+    .eq('company_code', code);
+  if(error){ $('tbody').innerHTML=`<tr><td colspan="11">${error.message}</td></tr>`; return; }
 
-  const rows = (data||[]).map(r=>{
-    const s = classify(r.expiry_date);
+  // enrich + sort โดยวันมีผลจริง (effectiveDate) และลำดับสถานะ
+  currentRows = (data||[]).map(r=>{
+    const s = classify(r.expiry_date, r.renewed_until);
     return {...r, ...s};
-  }).sort((a,b)=> a.order - b.order || new Date(a.expiry_date) - new Date(b.expiry_date));
+  }).sort((a,b)=>{
+    if(a.order !== b.order) return a.order - b.order;
+    const aTime = a.effectiveDate ? new Date(a.effectiveDate).getTime() : Number.MAX_SAFE_INTEGER;
+    const bTime = b.effectiveDate ? new Date(b.effectiveDate).getTime() : Number.MAX_SAFE_INTEGER;
+    return aTime - bTime;
+  });
 
+  paintTable(); // วาดตามตัวกรองปัจจุบัน
+}
+
+/** วาดตารางจาก currentRows + filter */
+function paintTable(){
   const tb = $('tbody');
-  tb.innerHTML = rows.length? '' : `<tr><td colspan="9" style="color:var(--muted)">ยังไม่มีข้อมูล</td></tr>`;
+  const filter = $('filterSelect').value;
+
+  let rows = currentRows;
+  if(filter === 'expired'){
+    rows = rows.filter(r => r.cls === 'expired' || (!r.effectiveDate)); // รวมเคสไม่มีวันที่ด้วยถ้าต้องการ
+  }else if(filter === 'renewed'){
+    rows = rows.filter(r => r.isRenewed);
+  }else if(filter === 'warning'){
+    rows = rows.filter(r => r.cls === 'warning');
+  }
+
+  tb.innerHTML = rows.length? '' : `<tr><td colspan="11" style="color:var(--muted)">ไม่พบข้อมูลตามตัวกรอง</td></tr>`;
   rows.forEach((r,i)=>{
     tb.innerHTML += `<tr class="${r.cls}">
       <td>${i+1}</td>
@@ -142,13 +218,23 @@ async function loadDocs(code){
       <td>${r.registration_no||'-'}</td>
       <td>${r.license_no||'-'}</td>
       <td>${fmtDate(r.expiry_date)}</td>
+      <td>${fmtDate(r.renewed_until)}</td>
+      <td>${fmtDate(r.renewed_on)}</td>
       <td>${r.badge}</td>
-      <td><button class="btn-danger" onclick="del('${r.id}')">ลบ</button></td>
+      <td>
+        <button class="btn" onclick="renew('${r.id}','${r.renewed_until||''}')">ต่ออายุ</button>
+        <button class="btn-danger" onclick="delRec('${r.id}')">ลบ</button>
+      </td>
     </tr>`;
   });
 }
 
-$('companySelect').addEventListener('change', e=> e.target.value && loadDocs(e.target.value));
+/** ===== Actions ===== */
+$('companySelect').addEventListener('change', e=> {
+  if(e.target.value) loadDocs(e.target.value)
+});
+$('filterSelect').addEventListener('change', paintTable);
+$('refreshBtn').addEventListener('click', ()=> currentCompany && loadDocs(currentCompany));
 
 $('addForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
@@ -168,13 +254,30 @@ $('addForm').addEventListener('submit', async (e)=>{
   loadDocs(currentCompany);
 });
 
-async function del(id){
+/** ปุ่ม “ต่ออายุ” — อัปเดต renewed_until + renewed_on */
+async function renew(id, currentYmd){
+  const ymd = ymdInputPrompt(currentYmd);
+  if(ymd === null) return; // ยกเลิก
+  let update = {};
+  if(ymd === ''){
+    // เคลียร์การต่ออายุ
+    update = { renewed_until: null, renewed_on: null };
+  }else{
+    update = { renewed_until: ymd, renewed_on: new Date().toISOString() };
+  }
+  const {error} = await sb.from('product_registrations').update(update).eq('id', id);
+  if(error) return alert(error.message);
+  loadDocs(currentCompany);
+}
+
+async function delRec(id){
   if(!confirm('ลบรายการนี้?')) return;
   const {error} = await sb.from('product_registrations').delete().eq('id', id);
   if(error) return alert(error.message);
   loadDocs(currentCompany);
 }
 
+/** ===== Init ===== */
 document.addEventListener('DOMContentLoaded', loadCompanies);
 </script>
 </body>
