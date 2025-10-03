@@ -1,51 +1,135 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="utf-8">
-  <title>Company Portal</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Company Portal — Smart Entry</title>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    body {
-      margin:0; font-family:"Prompt",sans-serif; color:#0f172a;
-      background:linear-gradient(135deg,#06b6d4,#10b981);
-      display:flex; justify-content:center; align-items:center; min-height:100vh;
+    :root{
+      --bg1:#06b6d4; --bg2:#10b981; --ink:#0f172a; --mut:#64748b;
+      --card:#ffffff; --radius:20px;
     }
-    .container {
-      background:#fff; border-radius:20px; padding:40px 32px;
-      box-shadow:0 10px 40px rgba(0,0,0,0.1);
-      text-align:center; max-width:420px; width:100%;
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:"Prompt",sans-serif; color:var(--ink);
+      background:linear-gradient(135deg,var(--bg1),var(--bg2));
+      min-height:100vh; display:flex; align-items:center; justify-content:center;
     }
-    h1 { margin-bottom:10px; font-size: 28px; }
-    p { margin-bottom:28px; color:#64748b; }
-    .btn {
-      display:block; width:100%; padding:14px; margin:10px 0;
-      border:none; border-radius:12px; font-weight:600; font-size:16px;
-      cursor:pointer; color:white;
-      background:linear-gradient(135deg,#0ea5e9,#10b981);
-      transition: all 0.2s ease;
-      text-decoration:none;
+    .container{
+      width:100%; max-width:460px; background:var(--card); border-radius:var(--radius);
+      padding:36px 28px; box-shadow:0 10px 40px rgba(0,0,0,.12); text-align:center;
     }
-    .btn:hover { 
-      background:linear-gradient(135deg,#0284c7,#059669); 
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    h1{margin:0 0 8px; font-size:28px}
+    p{margin:0 0 22px; color:var(--mut)}
+    .btn{
+      display:block; width:100%; padding:14px; margin:10px 0; border:none; border-radius:12px;
+      font-weight:700; font-size:16px; color:#fff; cursor:pointer; text-decoration:none;
+      background:linear-gradient(135deg,#0ea5e9,#10b981); transition:.2s;
     }
-    .btn.admin {
-      background:linear-gradient(135deg,#8b5cf6,#ec4899);
-    }
-    .btn.admin:hover {
-      background:linear-gradient(135deg,#7c3aed,#db2777);
-    }
-    footer { margin-top:24px; font-size:13px; color:#94a3b8; }
+    .btn:hover{transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,.15)}
+    .btn.admin{background:linear-gradient(135deg,#8b5cf6,#ec4899)}
+    .btn.admin:hover{box-shadow:0 4px 12px rgba(0,0,0,.2)}
+    footer{margin-top:18px; font-size:12px; color:#94a3b8}
+    .hide{display:none}
+    .spinner{display:inline-block; width:18px; height:18px; border:3px solid #e5e7eb; border-top-color:#0ea5e9; border-radius:50%; animation:spin 1s linear infinite; vertical-align:-3px; margin-right:8px}
+    @keyframes spin{to{transform:rotate(360deg)}}
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🏢 Company Portal</h1>
-    <p>เลือกโหมดที่คุณต้องการเข้าสู่ระบบ</p>
-    <a href="customer.html" class="btn client">🔓 สำหรับลูกค้า (Customer)</a>
-    <a href="admin_login.html" class="btn admin">🔐 สำหรับผู้ดูแล (Admin)</a>
-    <footer>© 2025 Company Portal — Powered by Supabase</footer>
+    <div id="loadingBox">
+      <h1>🏢 Company Portal</h1>
+      <p><span class="spinner"></span>กำลังตรวจสอบสถานะการเข้าสู่ระบบ…</p>
+      <p id="hint" class="hide" style="margin-top:8px;">ถ้าค้างนาน ลองรีเฟรชหน้าอีกครั้ง</p>
+    </div>
+
+    <div id="choiceBox" class="hide">
+      <h1>🏢 Company Portal</h1>
+      <p>เลือกโหมดที่คุณต้องการเข้าสู่ระบบ</p>
+      <a href="customer.html" class="btn">🔓 สำหรับลูกค้า (Customer)</a>
+      <a href="admin_login.html" class="btn admin">🔐 สำหรับผู้ดูแล (Admin)</a>
+      <footer>© 2025 Company Portal — Powered by Supabase</footer>
+    </div>
   </div>
+
+  <script>
+    // ------------ ตั้งค่า Supabase (ใช้ anon key) ------------
+    const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
+    const SUPABASE_KEY = "YOUR-ANON-KEY"; // <- ใส่ anon key ของโปรเจกต์
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const loadingBox = document.getElementById('loadingBox');
+    const choiceBox  = document.getElementById('choiceBox');
+    const hint       = document.getElementById('hint');
+
+    function showChoice(){
+      loadingBox.classList.add('hide');
+      choiceBox.classList.remove('hide');
+    }
+
+    // fallback safety: ถ้าตรวจสอบช้าเกินไป ให้ขึ้นปุ่มเลือก
+    const fallbackTimer = setTimeout(()=>{ hint.classList.remove('hide'); showChoice(); }, 4000);
+
+    async function smartRoute(){
+      // ถ้าบังคับโชว์ปุ่มด้วย query (?force=choice=1) ก็ไม่ redirect อัตโนมัติ
+      const params = new URLSearchParams(location.search);
+      if (params.get('force') === 'choice' || params.get('force') === 'choice=1'){
+        clearTimeout(fallbackTimer);
+        showChoice(); 
+        return;
+      }
+
+      const { data: { user } } = await sb.auth.getUser();
+      if(!user){
+        clearTimeout(fallbackTimer);
+        showChoice();
+        return;
+      }
+
+      // มี session แล้ว → ดึงบทบาทจาก company_members
+      const { data, error } = await sb
+        .from('company_members')
+        .select('role')
+        .eq('user_id', user.id);
+
+      clearTimeout(fallbackTimer);
+
+      if(error){
+        // ดึง role ไม่ได้ → ให้ผู้ใช้เลือกเอง
+        showChoice();
+        return;
+      }
+
+      if(!data || data.length === 0){
+        // ไม่มี mapping → ให้เลือกเอง
+        showChoice();
+        return;
+      }
+
+      // ถ้ามีหลายแถว ให้ admin ชนะความสำคัญ
+      const roles = data.map(r => (r.role || '').toLowerCase());
+      if (roles.includes('admin')) {
+        window.location.href = 'admin.html';
+        return;
+      }
+      if (roles.includes('staff')) {
+        // ถ้าคุณมีหน้า staff แยก ให้เปลี่ยนปลายทางได้ เช่น 'staff.html'
+        // ตอนนี้ให้เข้า admin.html ไปก่อน หรือจะแก้เป็น customer.html ก็ได้
+        window.location.href = 'admin.html';
+        return;
+      }
+      // ค่าเริ่มต้น → ลูกค้า
+      window.location.href = 'customer.html';
+    }
+
+    document.addEventListener('DOMContentLoaded', smartRoute);
+
+    // ถ้ามีการเปลี่ยนสถานะ auth กลางหน้า ให้ลอง route ใหม่
+    sb.auth.onAuthStateChange((_event, _session) => {
+      smartRoute();
+    });
+  </script>
 </body>
 </html>
