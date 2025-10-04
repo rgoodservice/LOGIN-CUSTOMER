@@ -51,6 +51,7 @@
       <div class="spacer"></div>
       <!-- กล่องค้นหา 'ชื่อการค้า' -->
       <input id="q" placeholder="พิมพ์ค้นหา 'ชื่อการค้า' ..." style="min-width:240px">
+      <input id="q" placeholder="พิมพ์ค้นหา ชื่อการค้า / ชื่อสามัญ ..." style="min-width:240px">
       <button id="clearBtn" class="btn" style="background:#0b1220;color:#cbd5e1;border:1px solid var(--border)">ล้าง</button>
       <button class="btn" id="refreshBtn">รีเฟรช</button>
     </div>
@@ -123,7 +124,7 @@ function render(q=''){
       <tr>
         <td>${escapeHtml(r.company_name||'-')}</td>
         <td>${highlight(r.brand_name, q)}</td>
-        <td>${escapeHtml(r.common_label||'-')}</td>
+        <td>${highlight(r.common_label, q)}</td>
         <td>${escapeHtml(r.registration_no||'-')}</td>
         <td>${escapeHtml(r.license_no||'-')}</td>
         <td>${fmtDate(r.expiry_date)}</td>
@@ -134,10 +135,18 @@ function render(q=''){
   $('count').textContent = `แสดง ${rows.length.toLocaleString('th-TH')} รายการ (ทั้งหมด ${FULL_ROWS.length.toLocaleString('th-TH')})`;
 }
 function applyFilter(){
-  const q = $('q').value.trim();
-  if(!q){ FILTERED = [...FULL_ROWS]; }
-  else { FILTERED = FULL_ROWS.filter(r => (r.brand_name||'').toLowerCase().includes(q.toLowerCase())); }
-  render(q);
+  const raw = $('q').value.trim();
+  const q = raw.toLowerCase();
+  if(!q){
+    FILTERED = [...FULL_ROWS];
+  }else{
+    FILTERED = FULL_ROWS.filter(r=>{
+      const brand  = (r.brand_name   ||'').toLowerCase();
+      const common = (r.common_label ||'').toLowerCase();
+      return brand.includes(q) || common.includes(q);
+    });
+  }
+  render(raw); // ส่ง raw ไปเพื่อให้ highlight รักษาเคสตัวอักษรผู้ใช้
 }
 
 /* ===== โหลดข้อมูลด้วยรหัสลูกค้า ===== */
