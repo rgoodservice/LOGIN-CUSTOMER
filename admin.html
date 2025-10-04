@@ -440,54 +440,25 @@ function downloadTemplate(){
 }
 
 function normalizeDate(v){
-  const toIso = d => d.toISOString().slice(0,10);
-
-  // 1) Excel serial number (รองรับทั้งที่เป็นทศนิยม)
-  if (typeof v === 'number') {
-    const ms = Math.round((v - 25569) * 86400 * 1000); // days since 1899-12-30
-    const d = new Date(ms);
-    return isNaN(d) ? null : toIso(d);
+  if(!v) return null;
+  if(v instanceof Date && !isNaN(v)) return v.toISOString().slice(0,10);
+  if(typeof v === 'number'){ // Excel serial date
+    const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+    if(!isNaN(d)) return d.toISOString().slice(0,10);
   }
-
-  // 2) JS Date object
-  if (v instanceof Date && !isNaN(v)) return toIso(v);
-
-  // 3) String formats
-  if (typeof v === 'string') {
-    let s = v.trim();
-    if (!s) return null;
-
-    // ถ้ามาเป็น ISO อยู่แล้ว
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-
-    // unify separators
-    s = s.replace(/[.]/g,'/').replace(/-/g,'/');
-
-    // เคส dd/mm/yyyy, yyyy/mm/dd, รวมทั้งปี พ.ศ. (25xx)
-    const m1 = s.match(/^(\d{1,4})\/(\d{1,2})\/(\d{1,4})$/);
-    if (m1) {
-      let a = parseInt(m1[1],10), b = parseInt(m1[2],10), c = parseInt(m1[3],10);
-      let y,m,d;
-      if (a > 31) {          // yyyy/mm/dd
-        y=a; m=b; d=c;
-      } else if (c > 31) {   // dd/mm/yyyy
-        y=c; m=b; d=a;
-      } else {               // กรณีคลุมเครือ สมมติ dd/mm/yy
-        y=c; m=b; d=a;
-      }
-      if (y > 2200) y -= 543; // แปลงปี พ.ศ. -> ค.ศ.
-      const dt = new Date(Date.UTC(y, m-1, d));
-      return isNaN(dt) ? null : toIso(dt);
+  if(typeof v === 'string'){
+    const s = v.trim();
+    if(!s) return null;
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    if(/^\d{4}\/\d{2}\/\d{2}$/.test(s)) return s.replace(/\//g,'-');
+    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/); // dd/mm/yyyy
+    if(m){
+      const dd=m[1].padStart(2,'0'), mm=m[2].padStart(2,'0'), yy=m[3];
+      return `${yy}-${mm}-${dd}`;
     }
-
-    // สุดท้ายลองปล่อยให้ Date parse
-    const dt = new Date(s);
-    return isNaN(dt) ? null : toIso(dt);
   }
-
   return null;
 }
-
 
 async function importExcel(ev){
   if(!currentCompany) return alert('โปรดเลือกบริษัทก่อน');
