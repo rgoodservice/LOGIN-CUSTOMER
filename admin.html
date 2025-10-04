@@ -227,7 +227,7 @@ async function loadDocs(code){
       <td>${r.registration_no||'-'}</td>
       <td>${r.license_no||'-'}</td>
       <td>${fmtDate(r.expiry_date)}</td>
-      <td>${fmtDate(r.renewed_on)}</td>
+      <td>${fmtDate(r.renewed_on || r.renewed_until || null)}</td>
       <td>${r.badge}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-secondary btn-small" onclick="saveRenewal('${r.id}')">ต่ออายุ</button>
