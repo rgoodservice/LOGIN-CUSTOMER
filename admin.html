@@ -375,24 +375,45 @@ async function importExcel(ev){
       return '';
     };
     const map = r => {
-      const brand  = pick(r, ['ชื่อการค้า','brand','brand_name']);
-      const common = pick(r, ['ชื่อสามัญ/สูตร','ชื่อสามัญ','สูตร','common','common_label']);
-      const regno  = pick(r, ['ทะเบียน','registration','registration_no','reg_no']);
-      const licno  = pick(r, ['ใบอนุญาต','license','license_no']);
-      const exp    = pick(r, ['หมดอายุเดิม','หมดอายุเดิม (yyyy-mm-dd)','expiry','expiry_date']);
-      const ren    = pick(r, ['ต่อถึง','ต่อถึง (yyyy-mm-dd)','renewed_until']);
-      const expiry_date   = normalizeDate(exp);
-      const renewed_until = normalizeDate(ren);
+  const pick = (obj, keys)=> {
+    for (const k of keys) {
+      for (const kk in obj) {
+        if (kk.trim().toLowerCase() === k) return obj[kk];
+      }
+    }
+    return '';
+  };
 
-      return {
-        company_code: currentCompany,
-        brand_name: String(brand).trim(),
-        common_label: String(common).trim(),
-        registration_no: String(regno).trim() || null,
-        license_no: String(licno).trim() || null,
-        expiry_date: expiry_date,
-        renewed_until: renewed_until
-      };
+  const brand  = pick(r, ['ชื่อการค้า','brand','brand_name']);
+  const common = pick(r, ['ชื่อสามัญ/สูตร','ชื่อสามัญ','สูตร','common','common_label']);
+  const regno  = pick(r, ['ทะเบียน','registration','registration_no','reg_no']);
+  const licno  = pick(r, ['ใบอนุญาต','license','license_no']);
+  const exp    = pick(r, ['หมดอายุเดิม','หมดอายุเดิม (yyyy-mm-dd)','expiry','expiry_date']);
+  const ren    = pick(r, ['ต่อถึง','ต่อถึง (yyyy-mm-dd)','renewed_until']);
+  const onRaw  = pick(r, ['ต่อแล้ววันที่','ต่อแล้ววันที่ (yyyy-mm-dd)','renewed_on']);
+
+  const expiry_date   = normalizeDate(exp);
+  const renewed_until = normalizeDate(ren);
+
+  // ถ้าไฟล์มี "ต่อแล้ววันที่" ให้ใช้ค่านั้น; ถ้าไม่มีแต่มี "ต่อถึง" ให้ประทับเวลาเป็นตอนนำเข้า
+  let renewed_on = null;
+  const onDate = normalizeDate(onRaw);
+  if (onDate) {
+    renewed_on = new Date(onDate + 'T00:00:00').toISOString();
+  } else if (renewed_until) {
+    renewed_on = new Date().toISOString();
+  }
+
+  return {
+    company_code: currentCompany,
+    brand_name: String(brand).trim(),
+    common_label: String(common).trim(),
+    registration_no: String(regno).trim() || null,
+    license_no: String(licno).trim() || null,
+    expiry_date: expiry_date,
+    renewed_until: renewed_until,
+    renewed_on: renewed_on
+  };
     };
 
     let payload = rows.map(map).filter(x => x.brand_name && x.common_label);
