@@ -453,5 +453,13 @@ $('companySelect').addEventListener('change', e=> e.target.value && loadDocs(e.t
 /* ======== Start ======== */
 document.addEventListener('DOMContentLoaded', loadCompanies);
 </script>
+  <script>
+document.addEventListener('DOMContentLoaded', async ()=>{
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { location.href = 'admin_login.html'; return; }
+  loadCompanies();
+});
+</script>
+
 </body>
 </html>
