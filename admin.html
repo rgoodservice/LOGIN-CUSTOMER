@@ -5,11 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Admin Portal — จัดการเอกสาร & รหัสลูกค้า</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script
-  /* ======== ตั้งค่า Supabase ======== */
-const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";   // <- Project URL ของคุณ
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";       // <- ใช้เฉพาะ anon key
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);</script>
+ <script>
+/* ======== ตั้งค่า Supabase ======== */
+const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";   // Project URL
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";                    // Public anon key เท่านั้น
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true }
+});
+</script>
 
 <!-- เพิ่ม SheetJS สำหรับ Excel -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -143,11 +146,6 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);</script>
   </div>
 
 <script>
-/* ======== ตั้งค่า Supabase ======== */
-const SUPABASE_URL="https://qmugpalgcktfwixqepti.supabase.co";
-const SUPABASE_KEY="YOUR-ANON-KEY"; // ← ใส่ anon key
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
 /* ======== Utils ======== */
 const $ = id => document.getElementById(id);
 const WARNING_DAYS = 90;
@@ -451,14 +449,16 @@ function exportExcel(){
 $('companySelect').addEventListener('change', e=> e.target.value && loadDocs(e.target.value));
 
 /* ======== Start ======== */
-document.addEventListener('DOMContentLoaded', loadCompanies);
-</script>
-  <script>
 document.addEventListener('DOMContentLoaded', async ()=>{
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) { location.href = 'admin_login.html'; return; }
+  const { data: { session }, error } = await sb.auth.getSession();
+  if (error) console.error('getSession error:', error);
+  if (!session) {
+    location.href = 'admin_login.html';
+    return;
+  }
   loadCompanies();
 });
+
 </script>
 
 </body>
