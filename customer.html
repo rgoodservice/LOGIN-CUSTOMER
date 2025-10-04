@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="th">
 <head>
 <meta charset="utf-8"/>
@@ -49,8 +49,7 @@
         <div id="companyName" style="font-weight:700;font-size:18px">—</div>
       </div>
       <div class="spacer"></div>
-      <!-- กล่องค้นหา 'ชื่อการค้า' -->
-      <input id="q" placeholder="พิมพ์ค้นหา 'ชื่อการค้า' ..." style="min-width:240px">
+      <!-- ✅ ช่องค้นหาเดียว (ไม่ซ้ำ id) -->
       <input id="q" placeholder="พิมพ์ค้นหา ชื่อการค้า / ชื่อสามัญ ..." style="min-width:240px">
       <button id="clearBtn" class="btn" style="background:#0b1220;color:#cbd5e1;border:1px solid var(--border)">ล้าง</button>
       <button class="btn" id="refreshBtn">รีเฟรช</button>
@@ -91,7 +90,6 @@ function fmtDate(d){
 }
 
 function badge(expiry, renewed){
-  // ลูกค้าไม่เห็นวันที่ต่ออายุ — ถ้าต่อแล้ว โชว์เฉพาะข้อความ
   if (renewed) return `<span class="badge ok">ดำเนินการต่อแล้ว</span>`;
   const eff = expiry ? new Date(expiry) : null;
   if(!eff || isNaN(eff)) return `<span class="badge ok">ปกติ</span>`;
@@ -124,7 +122,7 @@ function render(q=''){
       <tr>
         <td>${escapeHtml(r.company_name||'-')}</td>
         <td>${highlight(r.brand_name, q)}</td>
-        <td>${highlight(r.common_label, q)}</td>
+        <td>${highlight(r.common_label, q)}</td>  <!-- ✅ ไฮไลต์ชื่อสามัญ -->
         <td>${escapeHtml(r.registration_no||'-')}</td>
         <td>${escapeHtml(r.license_no||'-')}</td>
         <td>${fmtDate(r.expiry_date)}</td>
@@ -134,6 +132,7 @@ function render(q=''){
   }
   $('count').textContent = `แสดง ${rows.length.toLocaleString('th-TH')} รายการ (ทั้งหมด ${FULL_ROWS.length.toLocaleString('th-TH')})`;
 }
+
 function applyFilter(){
   const raw = $('q').value.trim();
   const q = raw.toLowerCase();
@@ -143,17 +142,16 @@ function applyFilter(){
     FILTERED = FULL_ROWS.filter(r=>{
       const brand  = (r.brand_name   ||'').toLowerCase();
       const common = (r.common_label ||'').toLowerCase();
-      return brand.includes(q) || common.includes(q);
+      return brand.includes(q) || common.includes(q);  // ✅ กรองสองคอลัมน์
     });
   }
-  render(raw); // ส่ง raw ไปเพื่อให้ highlight รักษาเคสตัวอักษรผู้ใช้
+  render(raw);
 }
 
 /* ===== โหลดข้อมูลด้วยรหัสลูกค้า ===== */
 async function loadCompanyByCode(){
   if(!CURRENT_CODE) return;
 
-  // 1) ดึงชื่อบริษัท (RPC) — ทำรหัสเป็นตัวพิมพ์ใหญ่ กันเว้นวรรค
   const codeNorm = CURRENT_CODE.trim().toUpperCase();
   const nameRes = await sb.rpc('get_company_name_by_code', { p_plain_code: codeNorm });
   if(nameRes.error || !nameRes.data){
@@ -163,7 +161,6 @@ async function loadCompanyByCode(){
   }
   $('companyName').textContent = nameRes.data;
 
-  // 2) โหลดเอกสาร (RPC)
   const res = await sb.rpc('get_company_portal', { p_plain_code: codeNorm });
   if(res.error){
     $('err').textContent = res.error.message;
@@ -175,16 +172,15 @@ async function loadCompanyByCode(){
   $('err').textContent = '';
   $('dataCard').style.display = 'block';
 
-  // พรีฟิลคำค้นจาก URL ถ้ามี
   const qs = new URLSearchParams(location.search);
   const initQ = qs.get('q') || '';
   $('q').value = initQ;
-  applyFilter();
+  applyFilter();  // ✅ ใช้ตัวกรองเป็นคนวาดตาราง
 }
 
 /* ===== Events ===== */
 $('enterBtn').addEventListener('click', async ()=>{
-  const code = $('code').value.trim().toUpperCase();  // normalize ฝั่งเว็บ
+  const code = $('code').value.trim().toUpperCase();
   if(!code){ $('err').textContent = 'กรุณาใส่รหัสลูกค้า'; return; }
   CURRENT_CODE = code;
   await loadCompanyByCode();
