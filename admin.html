@@ -182,12 +182,15 @@ let cachedRows = [];    // ทั้งหมด
 let filteredRows = [];  // หลังกรอง
 const selectedIds = new Set();
 
+// ใช้แสดงผลเป็น "ไทย + ค.ศ." เสมอ
 function fmtDate(d){
   if(!d) return '-';
   const t = new Date(d);
-  return isNaN(t) ? '-' :
-    t.toLocaleDateString('th-TH-u-ca-gregory', { year:'numeric', month:'long', day:'numeric' });
+  if (isNaN(t)) return '-';
+  return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()))
+    .toLocaleDateString('th-TH-u-ca-gregory', { year:'numeric', month:'long', day:'numeric' });
 }
+  
 function toISO(d){
   if(!d) return '';
   const t = new Date(d);
@@ -441,54 +444,57 @@ function downloadTemplate(){
 }
 
 function normalizeDate(v){
-  const toIso = d => d.toISOString().slice(0,10);
+  const pad2 = n => String(n).padStart(2,'0');
+  const toIso = (y,m,d) => `${y}-${pad2(m)}-${pad2(d)}`;
+
+  if (v === null || v === undefined || v === '') return null;
 
   // 1) Excel serial number
-  if (typeof v === 'number') {
-    const ms = Math.round((v - 25569) * 86400 * 1000); // 25569 = 1970-01-01
+  if (typeof v === 'number' && isFinite(v)) {
+    const ms = Math.round((v - 25569) * 86400 * 1000); // serial → epoch
     const d = new Date(ms);
-    return isNaN(d) ? null : toIso(d);
+    return isNaN(d) ? null : toIso(d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate());
   }
 
   // 2) JS Date
-  if (v instanceof Date && !isNaN(v)) return toIso(v);
+  if (v instanceof Date && !isNaN(v)) {
+    return toIso(v.getUTCFullYear(), v.getUTCMonth()+1, v.getUTCDate());
+  }
 
   // 3) String
   if (typeof v === 'string') {
     let s = v.trim();
     if (!s) return null;
 
-    // ปรับตัวคั่นให้เป็น / ทั้งหมด
-    s = s.replace(/[.]/g,'/').replace(/-/g,'/');
-
-    // รองรับ dd/mm/yyyy หรือ yyyy/mm/dd (รวม พ.ศ. 25xx)
-    const m = s.match(/^(\d{1,4})\/(\d{1,2})\/(\d{1,4})$/);
+    // yyyy-mm-dd หรือ yyyy/mm/dd
+    let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
     if (m) {
-      let a = +m[1], b = +m[2], c = +m[3];
-      let y, mth, d;
-      if (a > 31)      { y=a; mth=b; d=c; }   // yyyy/mm/dd
-      else if (c > 31) { y=c; mth=b; d=a; }   // dd/mm/yyyy
-      else             { y=c; mth=b; d=a; }   // เดาเป็น dd/mm/yy
-
-      if (y >= 2400 && y <= 2600) y = y - 543;              // พ.ศ. → ค.ศ.
-      if (y < 100) y += (y >= 70 ? 1900 : 2000);            // ปี 2 หลัก
-
-      const dt = new Date(Date.UTC(y, mth-1, d));
-      return isNaN(dt) ? null : toIso(dt);
+      let y = +m[1], mo = +m[2], d = +m[3];
+      if (y >= 2400 && y <= 2800) y -= 543; // พ.ศ. → ค.ศ.
+      return toIso(y, mo, d);
     }
 
-    // เผื่อไฟล์ให้มาเป็นรูป yyyymmdd
-    const ymd = s.match(/^(\d{4})(\d{2})(\d{2})$/);
-    if (ymd) {
-      let y = +ymd[1], mth = +ymd[2], d = +ymd[3];
-      if (y >= 2400 && y <= 2600) y = y - 543;
-      const dt = new Date(Date.UTC(y, mth-1, d));
-      return isNaN(dt) ? null : toIso(dt);
+    // dd/mm/yyyy หรือ dd-mm-yyyy
+    m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+    if (m) {
+      let d = +m[1], mo = +m[2], y = +m[3];
+      if (y >= 2400 && y <= 2800) y -= 543;
+      return toIso(y, mo, d);
     }
 
-    // ฟอร์แมตอื่น ๆ ให้ลอง parse ตรง ๆ
-    const dt = new Date(s);
-    return isNaN(dt) ? null : toIso(dt);
+    // yyyymmdd
+    m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if (m) {
+      let y = +m[1], mo = +m[2], d = +m[3];
+      if (y >= 2400 && y <= 2800) y -= 543;
+      return toIso(y, mo, d);
+    }
+
+    // fallback: ให้ JS parse แล้วบังคับเป็น UTC
+    const d = new Date(s);
+    if (!isNaN(d)) {
+      return toIso(d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate());
+    }
   }
 
   return null;
