@@ -446,6 +446,7 @@ function downloadTemplate(){
 }
 
 /* ========= Normalize Date (Excel → ISO, ค.ศ. เก็บใน DB) ========= */
+/* แก้เฉพาะจุดผิด: แปลง พ.ศ. → ค.ศ. เมื่อปี >= 2400 เพียงครั้งเดียว */
 function normalizeDate(v){
   const pad2 = n => String(n).padStart(2,'0');
   const toIso = (y,m,d) => `${y}-${pad2(m)}-${pad2(d)}`;
@@ -473,8 +474,7 @@ function normalizeDate(v){
     let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
     if (m) {
       let y = +m[1], mo = +m[2], d = +m[3];
-      if (y >= 2450 && y <= 2600) y -= 543; // พ.ศ. → ค.ศ.
-      if (y < 1900) return null;
+      if (y >= 2400) y -= 543; // ✅ พ.ศ. → ค.ศ. ครั้งเดียว
       return toIso(y, mo, d);
     }
 
@@ -482,8 +482,7 @@ function normalizeDate(v){
     m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
     if (m) {
       let d = +m[1], mo = +m[2], y = +m[3];
-      if (y >= 2450 && y <= 2600) y -= 543;
-      if (y < 1900) return null;
+      if (y >= 2400) y -= 543; // ✅ พ.ศ. → ค.ศ. ครั้งเดียว
       return toIso(y, mo, d);
     }
 
@@ -491,8 +490,7 @@ function normalizeDate(v){
     m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
     if (m) {
       let y = +m[1], mo = +m[2], d = +m[3];
-      if (y >= 2450 && y <= 2600) y -= 543;
-      if (y < 1900) return null;
+      if (y >= 2400) y -= 543; // ✅ พ.ศ. → ค.ศ. ครั้งเดียว
       return toIso(y, mo, d);
     }
 
@@ -505,8 +503,6 @@ function normalizeDate(v){
 
   return null;
 }
-
-
 
 async function importExcel(ev){
   if(!currentCompany) return alert('โปรดเลือกบริษัทก่อน');
