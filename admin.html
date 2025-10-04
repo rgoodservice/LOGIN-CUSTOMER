@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Admin Portal — จัดการเอกสาร & รหัสลูกค้า</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
- <script>
+<script>
 /* ======== ตั้งค่า Supabase ======== */
 const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";   // Project URL
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";                    // Public anon key เท่านั้น
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA"; // Public anon key เท่านั้น
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true }
 });
@@ -41,7 +41,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     padding:11px 12px; font-size:15px; border:1px solid var(--border); border-radius:10px; outline:none;
     background:white;
   }
-  .row{display:flex; gap:10px; flex-wrap:wrap}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
   .btn{cursor:pointer}
   .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:white; border:none}
   .btn-secondary{background:#0ea5a51a; color:#0e7490; border:1px solid #67e8f9}
@@ -60,6 +60,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   .hint{color:var(--muted); font-size:13px}
   .spacer{flex:1}
   .note{font-size:12px; color:#64748b}
+  mark{background:#fde68a80; padding:0 2px; border-radius:4px}
 </style>
 </head>
 <body>
@@ -121,8 +122,16 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
       <div class="hint" style="margin-top:8px">* เพิ่มเสร็จจะแสดงในตารางด้านล่างทันที</div>
     </div>
 
-    <!-- ตารางเอกสาร (ไม่มีคอลัมน์ 'ต่อถึง') -->
+    <!-- ตารางเอกสาร + แถบค้นหา -->
     <div class="card" style="overflow:auto; max-height:70vh">
+      <!-- 🔎 แถวค้นหาในตาราง -->
+      <div class="row" style="margin-bottom:10px">
+        <input id="adminSearch" placeholder="ค้นหา: บริษัท / ชื่อการค้า / ชื่อสามัญ / ทะเบียน / ใบอนุญาต" style="min-width:320px">
+        <button id="adminClearBtn" class="btn btn-outline btn-small">ล้าง</button>
+        <div class="spacer"></div>
+        <div id="adminCount" class="hint"></div>
+      </div>
+
       <table>
         <thead>
           <tr>
@@ -150,7 +159,8 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = id => document.getElementById(id);
 const WARNING_DAYS = 90;
 let currentCompany = '';
-let cachedRows = []; // เก็บข้อมูลล่าสุดเพื่อ export
+let cachedRows = [];   // ทั้งหมด
+let filteredRows = []; // หลังกรอง
 
 function fmtDate(d){
   if(!d) return '-';
@@ -162,6 +172,17 @@ function toISO(d){
   const t = new Date(d);
   if(isNaN(t)) return '';
   return t.toISOString().slice(0,10);
+}
+function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+function escapeRegExp(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function tokenize(q){ return (q||'').trim().toLowerCase().split(/\s+/).filter(Boolean); }
+function highlightTokens(text, tokens){
+  const s = String(text ?? '');
+  if(!tokens?.length) return escapeHtml(s);
+  const re = new RegExp(tokens.map(escapeRegExp).join('|'), 'gi');
+  let out = '', last = 0, m;
+  while((m = re.exec(s))){ out += escapeHtml(s.slice(last, m.index)) + '<mark>' + escapeHtml(m[0]) + '</mark>'; last = re.lastIndex; }
+  return out + escapeHtml(s.slice(last));
 }
 
 /** สถานะ (ใช้วันมีผล = renewed_until ถ้ามี, ไม่งั้นใช้ expiry_date) */
@@ -202,30 +223,23 @@ async function loadCompanies(){
   sel.innerHTML = `<option value="">— เลือกบริษัท —</option>` + (data||[]).map(c=>`<option value="${c.code}">${c.code}</option>`).join('');
 }
 
-/* ======== โหลดเอกสารของบริษัท ======== */
-async function loadDocs(code){
-  currentCompany = code;
-  if(!code){ $('tbody').innerHTML = `<tr><td colspan="10" style="color:var(--muted)">กรุณาเลือกบริษัท</td></tr>`; return; }
-
-  const {data, error} = await sb.from('product_registrations').select('*').eq('company_code', code);
-  if(error){ $('tbody').innerHTML=`<tr><td colspan="10">${error.message}</td></tr>`; return; }
-
-  cachedRows = (data||[]).map(r=>{
-    const s = classify(r.expiry_date, r.renewed_until);
-    return {...r, ...s};
-  }).sort((a,b)=> a.order - b.order || new Date(a.expiry_date) - new Date(b.expiry_date));
-
+/* ======== วาดตารางตาม filteredRows ======== */
+function renderTable(q=''){
   const tb = $('tbody');
-  tb.innerHTML = cachedRows.length? '' : `<tr><td colspan="10" style="color:var(--muted)">ยังไม่มีข้อมูล</td></tr>`;
-
-  cachedRows.forEach((r,i)=>{
-    tb.innerHTML += `<tr class="${r.cls}">
+  if(!filteredRows.length){
+    tb.innerHTML = `<tr><td colspan="10" style="color:var(--muted)">ไม่พบรายการที่ตรงกับ “${escapeHtml(q)}”</td></tr>`;
+    $('adminCount').textContent = '';
+    return;
+  }
+  const tokens = tokenize(q);
+  tb.innerHTML = filteredRows.map((r,i)=>`
+    <tr class="${r.cls}">
       <td>${i+1}</td>
-      <td>${r.company_code||'-'}</td>
-      <td>${r.brand_name||'-'}</td>
-      <td>${r.common_label||'-'}</td>
-      <td>${r.registration_no||'-'}</td>
-      <td>${r.license_no||'-'}</td>
+      <td>${highlightTokens(r.company_code||'-', tokens)}</td>
+      <td>${highlightTokens(r.brand_name||'-', tokens)}</td>
+      <td>${highlightTokens(r.common_label||'-', tokens)}</td>
+      <td>${highlightTokens(r.registration_no||'-', tokens)}</td>
+      <td>${highlightTokens(r.license_no||'-', tokens)}</td>
       <td>${fmtDate(r.expiry_date)}</td>
       <td>${fmtDate(r.renewed_on || r.renewed_until || null)}</td>
       <td>${r.badge}</td>
@@ -234,8 +248,53 @@ async function loadDocs(code){
         <button class="btn btn-outline btn-small" onclick="clearRenewal('${r.id}')">ล้างต่ออายุ</button>
         <button class="btn btn-danger btn-small" onclick="delDoc('${r.id}')">ลบ</button>
       </td>
-    </tr>`;
-  });
+    </tr>
+  `).join('');
+  $('adminCount').textContent = `แสดง ${filteredRows.length.toLocaleString('th-TH')} รายการ (ทั้งหมด ${cachedRows.length.toLocaleString('th-TH')})`;
+}
+
+/* ======== กรองตารางจากช่องค้นหา ======== */
+function applyAdminFilter(){
+  const q = $('adminSearch').value || '';
+  const tokens = tokenize(q);
+  if(!tokens.length){
+    filteredRows = [...cachedRows];
+  }else{
+    filteredRows = cachedRows.filter(r=>{
+      const fields = [
+        r.company_code || '',
+        r.brand_name || '',
+        r.common_label || '',
+        r.registration_no || '',
+        r.license_no || ''
+      ].map(x=>x.toLowerCase());
+      // ต้องพบทุกคำ ในอย่างน้อยหนึ่งฟิลด์
+      return tokens.every(tok => fields.some(f => f.includes(tok)));
+    });
+  }
+  renderTable(q);
+}
+
+/* ======== โหลดเอกสารของบริษัท ======== */
+async function loadDocs(code){
+  currentCompany = code;
+  if(!code){
+    $('tbody').innerHTML = `<tr><td colspan="10" style="color:var(--muted)">กรุณาเลือกบริษัท</td></tr>`;
+    $('adminCount').textContent = '';
+    return;
+  }
+
+  const {data, error} = await sb.from('product_registrations').select('*').eq('company_code', code);
+  if(error){ $('tbody').innerHTML=`<tr><td colspan="10">${error.message}</td></tr>`; $('adminCount').textContent=''; return; }
+
+  cachedRows = (data||[]).map(r=>{
+    const s = classify(r.expiry_date, r.renewed_until);
+    return {...r, ...s};
+  }).sort((a,b)=> a.order - b.order || new Date(a.expiry_date) - new Date(b.expiry_date));
+
+  // เริ่มด้วยการโชว์ทั้งหมด แล้วให้ผู้ใช้พิมพ์กรอง
+  filteredRows = [...cachedRows];
+  renderTable($('adminSearch').value || '');
 }
 
 /* ======== เพิ่มเอกสารใหม่ ======== */
@@ -344,8 +403,7 @@ function normalizeDate(v){
     if(!s) return null;
     if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
     if(/^\d{4}\/\d{2}\/\d{2}$/.test(s)) return s.replace(/\//g,'-');
-    // dd/mm/yyyy
-    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/); // dd/mm/yyyy
     if(m){
       const dd=m[1].padStart(2,'0'), mm=m[2].padStart(2,'0'), yy=m[3];
       return `${yy}-${mm}-${dd}`;
@@ -375,49 +433,38 @@ async function importExcel(ev){
       return '';
     };
     const map = r => {
-  const pick = (obj, keys)=> {
-    for (const k of keys) {
-      for (const kk in obj) {
-        if (kk.trim().toLowerCase() === k) return obj[kk];
+      const brand  = pick(r, ['ชื่อการค้า','brand','brand_name']);
+      const common = pick(r, ['ชื่อสามัญ/สูตร','ชื่อสามัญ','สูตร','common','common_label']);
+      const regno  = pick(r, ['ทะเบียน','registration','registration_no','reg_no']);
+      const licno  = pick(r, ['ใบอนุญาต','license','license_no']);
+      const exp    = pick(r, ['หมดอายุเดิม','หมดอายุเดิม (yyyy-mm-dd)','expiry','expiry_date']);
+      const ren    = pick(r, ['ต่อถึง','ต่อถึง (yyyy-mm-dd)','renewed_until']);
+      const onRaw  = pick(r, ['ต่อแล้ววันที่','ต่อแล้ววันที่ (yyyy-mm-dd)','renewed_on']);
+
+      const expiry_date   = normalizeDate(exp);
+      const renewed_until = normalizeDate(ren);
+
+      let renewed_on = null;
+      const onDate = normalizeDate(onRaw);
+      if (onDate) {
+        renewed_on = new Date(onDate + 'T00:00:00').toISOString();
+      } else if (renewed_until) {
+        renewed_on = new Date().toISOString();
       }
-    }
-    return '';
-  };
 
-  const brand  = pick(r, ['ชื่อการค้า','brand','brand_name']);
-  const common = pick(r, ['ชื่อสามัญ/สูตร','ชื่อสามัญ','สูตร','common','common_label']);
-  const regno  = pick(r, ['ทะเบียน','registration','registration_no','reg_no']);
-  const licno  = pick(r, ['ใบอนุญาต','license','license_no']);
-  const exp    = pick(r, ['หมดอายุเดิม','หมดอายุเดิม (yyyy-mm-dd)','expiry','expiry_date']);
-  const ren    = pick(r, ['ต่อถึง','ต่อถึง (yyyy-mm-dd)','renewed_until']);
-  const onRaw  = pick(r, ['ต่อแล้ววันที่','ต่อแล้ววันที่ (yyyy-mm-dd)','renewed_on']);
-
-  const expiry_date   = normalizeDate(exp);
-  const renewed_until = normalizeDate(ren);
-
-  // ถ้าไฟล์มี "ต่อแล้ววันที่" ให้ใช้ค่านั้น; ถ้าไม่มีแต่มี "ต่อถึง" ให้ประทับเวลาเป็นตอนนำเข้า
-  let renewed_on = null;
-  const onDate = normalizeDate(onRaw);
-  if (onDate) {
-    renewed_on = new Date(onDate + 'T00:00:00').toISOString();
-  } else if (renewed_until) {
-    renewed_on = new Date().toISOString();
-  }
-
-  return {
-    company_code: currentCompany,
-    brand_name: String(brand).trim(),
-    common_label: String(common).trim(),
-    registration_no: String(regno).trim() || null,
-    license_no: String(licno).trim() || null,
-    expiry_date: expiry_date,
-    renewed_until: renewed_until,
-    renewed_on: renewed_on
-  };
+      return {
+        company_code: currentCompany,
+        brand_name: String(brand).trim(),
+        common_label: String(common).trim(),
+        registration_no: String(regno).trim() || null,
+        license_no: String(licno).trim() || null,
+        expiry_date: expiry_date,
+        renewed_until: renewed_until,
+        renewed_on: renewed_on
+      };
     };
 
     let payload = rows.map(map).filter(x => x.brand_name && x.common_label);
-
     if(payload.length === 0) return alert('ไม่พบแถวที่ถูกต้อง (ต้องมีอย่างน้อย ชื่อการค้า + ชื่อสามัญ/สูตร)');
 
     if($('replaceMode').checked){
@@ -426,7 +473,6 @@ async function importExcel(ev){
       if(del.error) throw del.error;
     }
 
-    // insert เป็นชุด ๆ ป้องกัน payload ใหญ่เกิน
     for(let i=0;i<payload.length;i+=500){
       const chunk = payload.slice(i,i+500);
       const {error} = await sb.from('product_registrations').insert(chunk);
@@ -468,6 +514,8 @@ function exportExcel(){
 
 /* ======== Event ======== */
 $('companySelect').addEventListener('change', e=> e.target.value && loadDocs(e.target.value));
+$('adminSearch').addEventListener('input', applyAdminFilter);
+$('adminClearBtn').addEventListener('click', ()=>{ $('adminSearch').value=''; applyAdminFilter(); });
 
 /* ======== Start ======== */
 document.addEventListener('DOMContentLoaded', async ()=>{
@@ -479,7 +527,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   }
   loadCompanies();
 });
-
 </script>
 
 </body>
