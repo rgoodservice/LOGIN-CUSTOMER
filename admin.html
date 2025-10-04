@@ -182,21 +182,23 @@ let cachedRows = [];    // ทั้งหมด
 let filteredRows = [];  // หลังกรอง
 const selectedIds = new Set();
 
-// ใช้แสดงผลเป็น "ไทย + ค.ศ." เสมอ
+/* ========= Date Formatter ========= */
 function fmtDate(d){
   if(!d) return '-';
   const t = new Date(d);
   if (isNaN(t)) return '-';
+  // แสดงผลเป็น พ.ศ. (Buddhist calendar)
   return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()))
-    .toLocaleDateString('th-TH-u-ca-gregory', { year:'numeric', month:'long', day:'numeric' });
+    .toLocaleDateString('th-TH-u-ca-buddhist', { year:'numeric', month:'long', day:'numeric' });
 }
-  
+
 function toISO(d){
   if(!d) return '';
   const t = new Date(d);
   if(isNaN(t)) return '';
   return t.toISOString().slice(0,10);
 }
+
 function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
 function escapeRegExp(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&'); }
 function tokenize(q){ return (q||'').trim().toLowerCase().split(/\s+/).filter(Boolean); }
@@ -443,6 +445,7 @@ function downloadTemplate(){
   XLSX.writeFile(wb, 'template_products.xlsx');
 }
 
+/* ========= Normalize Date (Excel → ISO, ค.ศ. เก็บใน DB) ========= */
 function normalizeDate(v){
   const pad2 = n => String(n).padStart(2,'0');
   const toIso = (y,m,d) => `${y}-${pad2(m)}-${pad2(d)}`;
@@ -456,7 +459,7 @@ function normalizeDate(v){
     return isNaN(d) ? null : toIso(d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate());
   }
 
-  // 2) JS Date
+  // 2) JS Date object
   if (v instanceof Date && !isNaN(v)) {
     return toIso(v.getUTCFullYear(), v.getUTCMonth()+1, v.getUTCDate());
   }
@@ -470,7 +473,8 @@ function normalizeDate(v){
     let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
     if (m) {
       let y = +m[1], mo = +m[2], d = +m[3];
-      if (y >= 2400 && y <= 2800) y -= 543; // พ.ศ. → ค.ศ.
+      if (y >= 2450 && y <= 2600) y -= 543; // พ.ศ. → ค.ศ.
+      if (y < 1900) return null;
       return toIso(y, mo, d);
     }
 
@@ -478,7 +482,8 @@ function normalizeDate(v){
     m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
     if (m) {
       let d = +m[1], mo = +m[2], y = +m[3];
-      if (y >= 2400 && y <= 2800) y -= 543;
+      if (y >= 2450 && y <= 2600) y -= 543;
+      if (y < 1900) return null;
       return toIso(y, mo, d);
     }
 
@@ -486,11 +491,12 @@ function normalizeDate(v){
     m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
     if (m) {
       let y = +m[1], mo = +m[2], d = +m[3];
-      if (y >= 2400 && y <= 2800) y -= 543;
+      if (y >= 2450 && y <= 2600) y -= 543;
+      if (y < 1900) return null;
       return toIso(y, mo, d);
     }
 
-    // fallback: ให้ JS parse แล้วบังคับเป็น UTC
+    // fallback: ให้ JS parse
     const d = new Date(s);
     if (!isNaN(d)) {
       return toIso(d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate());
