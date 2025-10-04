@@ -4,18 +4,12 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Admin Portal — จัดการเอกสาร & รหัสลูกค้า</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-/* ======== ตั้งค่า Supabase ======== */
-const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";   // Project URL
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA"; // Public anon key เท่านั้น
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true }
-});
-</script>
 
-<!-- เพิ่ม SheetJS สำหรับ Excel -->
+<!-- Supabase JS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- SheetJS สำหรับ Excel -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -38,8 +32,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   .card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:0 4px 20px rgba(10,30,60,.06); padding:18px; margin-bottom:16px;}
   label{display:block; margin:6px 0 8px; color:var(--muted); font-size:14px;}
   select, input, button{
-    padding:11px 12px; font-size:15px; border:1px solid var(--border); border-radius:10px; outline:none;
-    background:white;
+    padding:11px 12px; font-size:15px; border:1px solid var(--border); border-radius:10px; outline:none; background:white;
   }
   .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
   .btn{cursor:pointer}
@@ -103,7 +96,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
       <div class="note" style="margin-top:8px">
         รองรับหัวคอลัมน์: 
         “ชื่อการค้า / brand_name”, “ชื่อสามัญ/สูตร / common_label”, “ทะเบียน / registration_no”, 
-        “ใบอนุญาต / license_no”, “หมดอายุเดิม / expiry_date”, “ต่อถึง / renewed_until (ไม่บังคับ)”.<br/>
+        “ใบอนุญาต / license_no”, “หมดอายุเดิม / expiry_date”, “ต่อถึง / renewed_until (ไม่บังคับ)”, “ต่อแล้ววันที่ / renewed_on (ไม่บังคับ)”.<br/>
         วันที่ใช้รูปแบบ YYYY-MM-DD หรือ Excel date ก็ได้
       </div>
     </div>
@@ -122,9 +115,9 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
       <div class="hint" style="margin-top:8px">* เพิ่มเสร็จจะแสดงในตารางด้านล่างทันที</div>
     </div>
 
-    <!-- ตารางเอกสาร + แถบค้นหา -->
+    <!-- ตารางเอกสาร + แถบค้นหา + บัล์คแอ็กชัน -->
     <div class="card" style="overflow:auto; max-height:70vh">
-      <!-- 🔎 แถวค้นหาในตาราง -->
+      <!-- แถบค้นหา -->
       <div class="row" style="margin-bottom:10px">
         <input id="adminSearch" placeholder="ค้นหา: บริษัท / ชื่อการค้า / ชื่อสามัญ / ทะเบียน / ใบอนุญาต" style="min-width:320px">
         <button id="adminClearBtn" class="btn btn-outline btn-small">ล้าง</button>
@@ -132,9 +125,28 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
         <div id="adminCount" class="hint"></div>
       </div>
 
+      <!-- บัล์คแอ็กชัน -->
+      <div class="row" style="margin:6px 0 12px; gap:8px">
+        <label style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="chkAllPage">
+          เลือกทั้งหมดในหน้านี้
+        </label>
+
+        <button id="btnSelectAllFiltered" class="btn btn-outline btn-small">เลือกทั้งหมด (ผลค้นหา)</button>
+        <button id="btnClearSel" class="btn btn-outline btn-small">ล้างการเลือก</button>
+
+        <button id="btnDeleteSel" class="btn btn-danger btn-small">ลบรายการที่เลือก</button>
+        <button id="btnClearRegSel" class="btn btn-outline btn-small">ล้างค่า "ทะเบียน" (ที่เลือก)</button>
+        <button id="btnClearRenewSel" class="btn btn-outline btn-small">ล้างต่ออายุ (ที่เลือก)</button>
+
+        <div class="spacer"></div>
+        <button id="btnDeleteAllCompany" class="btn btn-danger btn-small">ลบทั้งหมดของบริษัทนี้</button>
+      </div>
+
       <table>
         <thead>
           <tr>
+            <th style="width:38px"><input type="checkbox" id="chkAllVisible"></th>
             <th>ลำดับ</th>
             <th>บริษัท</th>
             <th>ชื่อการค้า</th>
@@ -148,19 +160,27 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
           </tr>
         </thead>
         <tbody id="tbody">
-          <tr><td colspan="10" style="color:var(--muted)">กรุณาเลือกบริษัทด้านบน</td></tr>
+          <tr><td colspan="11" style="color:var(--muted)">กรุณาเลือกบริษัทด้านบน</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 
 <script>
-/* ======== Utils ======== */
+/* ========= Supabase Config ========= */
+const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co"; // เปลี่ยนได้ถ้าคนละโปรเจกต์
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA"; // anon key
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true }
+});
+
+/* ========= Utils ========= */
 const $ = id => document.getElementById(id);
 const WARNING_DAYS = 90;
 let currentCompany = '';
-let cachedRows = [];   // ทั้งหมด
-let filteredRows = []; // หลังกรอง
+let cachedRows = [];    // ทั้งหมด
+let filteredRows = [];  // หลังกรอง
+const selectedIds = new Set();
 
 function fmtDate(d){
   if(!d) return '-';
@@ -174,18 +194,21 @@ function toISO(d){
   return t.toISOString().slice(0,10);
 }
 function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
-function escapeRegExp(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function escapeRegExp(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&'); }
 function tokenize(q){ return (q||'').trim().toLowerCase().split(/\s+/).filter(Boolean); }
 function highlightTokens(text, tokens){
   const s = String(text ?? '');
   if(!tokens?.length) return escapeHtml(s);
   const re = new RegExp(tokens.map(escapeRegExp).join('|'), 'gi');
   let out = '', last = 0, m;
-  while((m = re.exec(s))){ out += escapeHtml(s.slice(last, m.index)) + '<mark>' + escapeHtml(m[0]) + '</mark>'; last = re.lastIndex; }
+  while((m = re.exec(s))){
+    out += escapeHtml(s.slice(last, m.index)) + '<mark>' + escapeHtml(m[0]) + '</mark>';
+    last = re.lastIndex;
+  }
   return out + escapeHtml(s.slice(last));
 }
 
-/** สถานะ (ใช้วันมีผล = renewed_until ถ้ามี, ไม่งั้นใช้ expiry_date) */
+/** สถานะ (ใช้ renewed_until ถ้ามี; ไม่งั้นใช้ expiry_date) */
 function classify(expiry, renewed){
   const eff = renewed ? new Date(renewed) : (expiry? new Date(expiry) : null);
   if(!eff || isNaN(eff)) return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3, statusText:'ปกติ'};
@@ -208,13 +231,19 @@ function genCode(){
   return `${pick(letters,2)}-${pick(digits,4)}`;
 }
 
-/* ======== Auth (ปุ่มออกจากระบบ) ======== */
+/* ========= ยืนยันด้วยการพิมพ์ ========= */
+function requireType(expected, promptText){
+  const v = prompt(promptText);
+  return v && v.trim().toUpperCase() === expected.toUpperCase();
+}
+
+/* ========= Auth ========= */
 $('signOutBtn').addEventListener('click', async ()=>{
   await sb.auth.signOut();
   location.href = 'admin_login.html';
 });
 
-/* ======== โหลดบริษัท ======== */
+/* ========= Companies ========= */
 async function loadCompanies(){
   const sel = $('companySelect');
   sel.innerHTML = `<option value="">— กำลังโหลดบริษัท —</option>`;
@@ -223,17 +252,20 @@ async function loadCompanies(){
   sel.innerHTML = `<option value="">— เลือกบริษัท —</option>` + (data||[]).map(c=>`<option value="${c.code}">${c.code}</option>`).join('');
 }
 
-/* ======== วาดตารางตาม filteredRows ======== */
+/* ========= Render Table ========= */
 function renderTable(q=''){
   const tb = $('tbody');
   if(!filteredRows.length){
-    tb.innerHTML = `<tr><td colspan="10" style="color:var(--muted)">ไม่พบรายการที่ตรงกับ “${escapeHtml(q)}”</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="11" style="color:var(--muted)">ไม่พบรายการที่ตรงกับ “${escapeHtml(q)}”</td></tr>`;
     $('adminCount').textContent = '';
+    $('chkAllPage').checked = false;
+    $('chkAllVisible').checked = false;
     return;
   }
   const tokens = tokenize(q);
   tb.innerHTML = filteredRows.map((r,i)=>`
     <tr class="${r.cls}">
+      <td><input type="checkbox" class="rowchk" data-id="${r.id}" ${selectedIds.has(r.id)?'checked':''}></td>
       <td>${i+1}</td>
       <td>${highlightTokens(r.company_code||'-', tokens)}</td>
       <td>${highlightTokens(r.brand_name||'-', tokens)}</td>
@@ -250,10 +282,26 @@ function renderTable(q=''){
       </td>
     </tr>
   `).join('');
-  $('adminCount').textContent = `แสดง ${filteredRows.length.toLocaleString('th-TH')} รายการ (ทั้งหมด ${cachedRows.length.toLocaleString('th-TH')})`;
+
+  $('adminCount').textContent =
+    `เลือก ${selectedIds.size.toLocaleString('th-TH')} / แสดง ${filteredRows.length.toLocaleString('th-TH')} / ทั้งหมด ${cachedRows.length.toLocaleString('th-TH')}`;
+
+  const allChecked = filteredRows.length>0 && filteredRows.every(r=>selectedIds.has(r.id));
+  $('chkAllVisible').checked = allChecked;
+
+  document.querySelectorAll('.rowchk').forEach(chk=>{
+    chk.addEventListener('change', (e)=>{
+      const id = e.target.dataset.id;
+      if(e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+      $('adminCount').textContent =
+        `เลือก ${selectedIds.size.toLocaleString('th-TH')} / แสดง ${filteredRows.length.toLocaleString('th-TH')} / ทั้งหมด ${cachedRows.length.toLocaleString('th-TH')}`;
+      const allNow = filteredRows.length>0 && filteredRows.every(r=>selectedIds.has(r.id));
+      $('chkAllVisible').checked = allNow;
+    });
+  });
 }
 
-/* ======== กรองตารางจากช่องค้นหา ======== */
+/* ========= Search/Filter ========= */
 function applyAdminFilter(){
   const q = $('adminSearch').value || '';
   const tokens = tokenize(q);
@@ -268,36 +316,38 @@ function applyAdminFilter(){
         r.registration_no || '',
         r.license_no || ''
       ].map(x=>x.toLowerCase());
-      // ต้องพบทุกคำ ในอย่างน้อยหนึ่งฟิลด์
       return tokens.every(tok => fields.some(f => f.includes(tok)));
     });
   }
   renderTable(q);
 }
 
-/* ======== โหลดเอกสารของบริษัท ======== */
+/* ========= Load docs ========= */
 async function loadDocs(code){
   currentCompany = code;
+  selectedIds.clear();
+  $('chkAllPage').checked = false;
+  $('chkAllVisible').checked = false;
+
   if(!code){
-    $('tbody').innerHTML = `<tr><td colspan="10" style="color:var(--muted)">กรุณาเลือกบริษัท</td></tr>`;
+    $('tbody').innerHTML = `<tr><td colspan="11" style="color:var(--muted)">กรุณาเลือกบริษัท</td></tr>`;
     $('adminCount').textContent = '';
     return;
   }
 
   const {data, error} = await sb.from('product_registrations').select('*').eq('company_code', code);
-  if(error){ $('tbody').innerHTML=`<tr><td colspan="10">${error.message}</td></tr>`; $('adminCount').textContent=''; return; }
+  if(error){ $('tbody').innerHTML=`<tr><td colspan="11">${error.message}</td></tr>`; $('adminCount').textContent=''; return; }
 
   cachedRows = (data||[]).map(r=>{
     const s = classify(r.expiry_date, r.renewed_until);
     return {...r, ...s};
   }).sort((a,b)=> a.order - b.order || new Date(a.expiry_date) - new Date(b.expiry_date));
 
-  // เริ่มด้วยการโชว์ทั้งหมด แล้วให้ผู้ใช้พิมพ์กรอง
   filteredRows = [...cachedRows];
   renderTable($('adminSearch').value || '');
 }
 
-/* ======== เพิ่มเอกสารใหม่ ======== */
+/* ========= Add / Update / Delete single ========= */
 $('addForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   if(!currentCompany) return alert('โปรดเลือกบริษัทก่อนเพิ่มข้อมูล');
@@ -306,8 +356,8 @@ $('addForm').addEventListener('submit', async (e)=>{
     company_code: currentCompany,
     brand_name: $('brand_name').value.trim(),
     common_label: $('common_label').value.trim(),
-    registration_no: $('registration_no').value.trim(),
-    license_no: $('license_no').value.trim(),
+    registration_no: $('registration_no').value.trim() || null,
+    license_no: $('license_no').value.trim() || null,
     expiry_date: $('expiry_date').value || null
   };
   if(!payload.brand_name || !payload.common_label) return alert('กรอก "ชื่อการค้า" และ "ชื่อสามัญ/สูตร" ให้ครบ');
@@ -318,7 +368,6 @@ $('addForm').addEventListener('submit', async (e)=>{
   loadDocs(currentCompany);
 });
 
-/* ======== ต่ออายุ / ล้างต่ออายุ ======== */
 async function saveRenewal(id){
   const to = prompt('กรุณาใส่วันที่ "ต่อถึง" (รูปแบบ YYYY-MM-DD):');
   if(!to) return;
@@ -343,7 +392,6 @@ async function clearRenewal(id){
   loadDocs(currentCompany);
 }
 
-/* ======== ลบเอกสาร ======== */
 async function delDoc(id){
   if(!confirm('ลบรายการนี้?')) return;
   const {error} = await sb.from('product_registrations').delete().eq('id', id);
@@ -351,7 +399,7 @@ async function delDoc(id){
   loadDocs(currentCompany);
 }
 
-/* ======== ตั้ง/เปลี่ยนรหัสลูกค้า (เรียก RPC) ======== */
+/* ========= ตั้ง/เปลี่ยนรหัสลูกค้า (RPC) ========= */
 $('genCodeBtn').addEventListener('click', ()=>{
   $('cust_code').value = genCode();
 });
@@ -374,7 +422,7 @@ $('setCodeBtn').addEventListener('click', async ()=>{
   toast(`ตั้ง/เปลี่ยนรหัสลูกค้าสำหรับ "${currentCompany}" เรียบร้อย ✓`);
 });
 
-/* ======== Excel: เทมเพลต / นำเข้า / ส่งออก ======== */
+/* ========= Excel ========= */
 $('tplBtn').addEventListener('click', downloadTemplate);
 $('impBtn').addEventListener('click', ()=> $('excelFile').click());
 $('expBtn').addEventListener('click', exportExcel);
@@ -382,8 +430,8 @@ $('excelFile').addEventListener('change', importExcel);
 
 function downloadTemplate(){
   const aoa = [
-    ['ชื่อการค้า','ชื่อสามัญ/สูตร','ทะเบียน','ใบอนุญาต','หมดอายุเดิม (YYYY-MM-DD)','ต่อถึง (YYYY-MM-DD)'],
-    ['ตัวอย่างA','สูตรX','TH-0001','LIC-1234','2026-12-31','']
+    ['ชื่อการค้า','ชื่อสามัญ/สูตร','ทะเบียน','ใบอนุญาต','หมดอายุเดิม (YYYY-MM-DD)','ต่อถึง (YYYY-MM-DD)','ต่อแล้ววันที่ (YYYY-MM-DD)'],
+    ['ตัวอย่างA','สูตรX','TH-0001','LIC-1234','2026-12-31','','']
   ];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   const wb = XLSX.utils.book_new();
@@ -444,6 +492,7 @@ async function importExcel(ev){
       const expiry_date   = normalizeDate(exp);
       const renewed_until = normalizeDate(ren);
 
+      // ถ้ามี "ต่อแล้ววันที่" ใช้ค่านั้น; ถ้าไม่มีแต่มี "ต่อถึง" ให้ประทับเวลาปัจจุบัน
       let renewed_on = null;
       const onDate = normalizeDate(onRaw);
       if (onDate) {
@@ -512,12 +561,106 @@ function exportExcel(){
   XLSX.writeFile(wb, `products_${currentCompany.replace(/[\\/:*?"<>|]/g,'_')}.xlsx`);
 }
 
-/* ======== Event ======== */
+/* ========= Bulk select / batch actions ========= */
+function getVisibleIds(){ return filteredRows.map(r=>r.id); }
+async function runInChunks(ids, size, fn){
+  for(let i=0;i<ids.length;i+=size){
+    const chunk = ids.slice(i,i+size);
+    await fn(chunk);
+  }
+}
+
+// เลือกทั้งหมดในหน้านี้
+$('chkAllPage').addEventListener('change', (e)=>{
+  const ids = getVisibleIds();
+  if(e.target.checked){ ids.forEach(id=>selectedIds.add(id)); }
+  else { ids.forEach(id=>selectedIds.delete(id)); }
+  renderTable($('adminSearch').value||'');
+});
+
+// เลือกทั้งหมดในหัวตาราง
+$('chkAllVisible').addEventListener('change', (e)=>{
+  const ids = getVisibleIds();
+  if(e.target.checked){ ids.forEach(id=>selectedIds.add(id)); }
+  else { ids.forEach(id=>selectedIds.delete(id)); }
+  renderTable($('adminSearch').value||'');
+});
+
+// เลือกทั้งหมด (ผลค้นหา)
+$('btnSelectAllFiltered').addEventListener('click', ()=>{
+  filteredRows.forEach(r => selectedIds.add(r.id));
+  renderTable($('adminSearch').value || '');
+});
+
+// ล้างการเลือก
+$('btnClearSel').addEventListener('click', ()=>{
+  selectedIds.clear();
+  $('chkAllPage').checked = false;
+  $('chkAllVisible').checked = false;
+  renderTable($('adminSearch').value||'');
+});
+
+// ลบรายการที่เลือก (ต้องพิมพ์ DELETE)
+$('btnDeleteSel').addEventListener('click', async ()=>{
+  const ids = Array.from(selectedIds);
+  if(ids.length===0) return alert('ยังไม่ได้เลือกรายการ');
+  if(!requireType('DELETE', `พิมพ์ DELETE เพื่อยืนยันลบ ${ids.length} รายการ`)) return;
+
+  try{
+    await runInChunks(ids, 300, async (chunk)=>{
+      const {error} = await sb.from('product_registrations').delete().in('id', chunk);
+      if(error) throw error;
+    });
+    selectedIds.clear();
+    await loadDocs(currentCompany);
+  }catch(err){ alert(err?.message||err); }
+});
+
+// ล้างค่า "ทะเบียน" ของที่เลือก
+$('btnClearRegSel').addEventListener('click', async ()=>{
+  const ids = Array.from(selectedIds);
+  if(ids.length===0) return alert('ยังไม่ได้เลือกรายการ');
+  try{
+    await runInChunks(ids, 300, async (chunk)=>{
+      const {error} = await sb.from('product_registrations').update({ registration_no: null }).in('id', chunk);
+      if(error) throw error;
+    });
+    await loadDocs(currentCompany);
+  }catch(err){ alert(err?.message||err); }
+});
+
+// ล้างข้อมูลต่ออายุของที่เลือก
+$('btnClearRenewSel').addEventListener('click', async ()=>{
+  const ids = Array.from(selectedIds);
+  if(ids.length===0) return alert('ยังไม่ได้เลือกรายการ');
+  try{
+    await runInChunks(ids, 300, async (chunk)=>{
+      const {error} = await sb.from('product_registrations').update({ renewed_until: null, renewed_on: null }).in('id', chunk);
+      if(error) throw error;
+    });
+    await loadDocs(currentCompany);
+  }catch(err){ alert(err?.message||err); }
+});
+
+// ลบทั้งหมดของบริษัทนี้ (ต้องพิมพ์ DELETE)
+$('btnDeleteAllCompany').addEventListener('click', async ()=>{
+  if(!currentCompany) return alert('โปรดเลือกบริษัทก่อน');
+  if(!requireType('DELETE', `พิมพ์ DELETE เพื่อยืนยัน "ลบทั้งหมดของบริษัท ${currentCompany}"`)) return;
+
+  try{
+    const {error} = await sb.from('product_registrations').delete().eq('company_code', currentCompany);
+    if(error) throw error;
+    selectedIds.clear();
+    await loadDocs(currentCompany);
+  }catch(err){ alert(err?.message||err); }
+});
+
+/* ========= Events ========= */
 $('companySelect').addEventListener('change', e=> e.target.value && loadDocs(e.target.value));
 $('adminSearch').addEventListener('input', applyAdminFilter);
 $('adminClearBtn').addEventListener('click', ()=>{ $('adminSearch').value=''; applyAdminFilter(); });
 
-/* ======== Start ======== */
+/* ========= Start ========= */
 document.addEventListener('DOMContentLoaded', async ()=>{
   const { data: { session }, error } = await sb.auth.getSession();
   if (error) console.error('getSession error:', error);
