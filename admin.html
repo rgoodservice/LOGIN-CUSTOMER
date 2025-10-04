@@ -442,51 +442,57 @@ function downloadTemplate(){
 function normalizeDate(v){
   const toIso = d => d.toISOString().slice(0,10);
 
-  // 1) Excel serial number (รองรับทั้งที่เป็นทศนิยม)
+  // 1) Excel serial number
   if (typeof v === 'number') {
-    const ms = Math.round((v - 25569) * 86400 * 1000); // days since 1899-12-30
+    const ms = Math.round((v - 25569) * 86400 * 1000); // 25569 = 1970-01-01
     const d = new Date(ms);
     return isNaN(d) ? null : toIso(d);
   }
 
-  // 2) JS Date object
+  // 2) JS Date
   if (v instanceof Date && !isNaN(v)) return toIso(v);
 
-  // 3) String formats
+  // 3) String
   if (typeof v === 'string') {
     let s = v.trim();
     if (!s) return null;
 
-    // ถ้ามาเป็น ISO อยู่แล้ว
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-
-    // unify separators
+    // ปรับตัวคั่นให้เป็น / ทั้งหมด
     s = s.replace(/[.]/g,'/').replace(/-/g,'/');
 
-    // เคส dd/mm/yyyy, yyyy/mm/dd, รวมทั้งปี พ.ศ. (25xx)
-    const m1 = s.match(/^(\d{1,4})\/(\d{1,2})\/(\d{1,4})$/);
-    if (m1) {
-      let a = parseInt(m1[1],10), b = parseInt(m1[2],10), c = parseInt(m1[3],10);
-      let y,m,d;
-      if (a > 31) {          // yyyy/mm/dd
-        y=a; m=b; d=c;
-      } else if (c > 31) {   // dd/mm/yyyy
-        y=c; m=b; d=a;
-      } else {               // กรณีคลุมเครือ สมมติ dd/mm/yy
-        y=c; m=b; d=a;
-      }
-      if (y > 2200) y = -543; // แปลงปี พ.ศ. -> ค.ศ.
-      const dt = new Date(Date.UTC(y, m-1, d));
+    // รองรับ dd/mm/yyyy หรือ yyyy/mm/dd (รวม พ.ศ. 25xx)
+    const m = s.match(/^(\d{1,4})\/(\d{1,2})\/(\d{1,4})$/);
+    if (m) {
+      let a = +m[1], b = +m[2], c = +m[3];
+      let y, mth, d;
+      if (a > 31)      { y=a; mth=b; d=c; }   // yyyy/mm/dd
+      else if (c > 31) { y=c; mth=b; d=a; }   // dd/mm/yyyy
+      else             { y=c; mth=b; d=a; }   // เดาเป็น dd/mm/yy
+
+      if (y >= 2400 && y <= 2600) y = y - 543;              // พ.ศ. → ค.ศ.
+      if (y < 100) y += (y >= 70 ? 1900 : 2000);            // ปี 2 หลัก
+
+      const dt = new Date(Date.UTC(y, mth-1, d));
       return isNaN(dt) ? null : toIso(dt);
     }
 
-    // สุดท้ายลองปล่อยให้ Date parse
+    // เผื่อไฟล์ให้มาเป็นรูป yyyymmdd
+    const ymd = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if (ymd) {
+      let y = +ymd[1], mth = +ymd[2], d = +ymd[3];
+      if (y >= 2400 && y <= 2600) y = y - 543;
+      const dt = new Date(Date.UTC(y, mth-1, d));
+      return isNaN(dt) ? null : toIso(dt);
+    }
+
+    // ฟอร์แมตอื่น ๆ ให้ลอง parse ตรง ๆ
     const dt = new Date(s);
     return isNaN(dt) ? null : toIso(dt);
   }
 
   return null;
 }
+
 
 
 async function importExcel(ev){
