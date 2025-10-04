@@ -54,6 +54,10 @@
   .spacer{flex:1}
   .note{font-size:12px; color:#64748b}
   mark{background:#fde68a80; padding:0 2px; border-radius:4px}
+
+  /* ===== inline edit ===== */
+  td.editable { cursor: text; }
+  td.editing { background: #fffbe6; }
 </style>
 </head>
 <body>
@@ -191,14 +195,12 @@ function fmtDate(d){
   return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()))
     .toLocaleDateString('th-TH-u-ca-buddhist', { year:'numeric', month:'long', day:'numeric' });
 }
-
 function toISO(d){
   if(!d) return '';
   const t = new Date(d);
   if(isNaN(t)) return '';
   return t.toISOString().slice(0,10);
 }
-
 function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
 function escapeRegExp(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&'); }
 function tokenize(q){ return (q||'').trim().toLowerCase().split(/\s+/).filter(Boolean); }
@@ -223,13 +225,11 @@ function classify(expiry, renewed){
   if(diff <= WARNING_DAYS) return {cls:'warning', badge:`<span class="badge warning">เหลือ ${diff} วัน</span>`, order:2, statusText:`เหลือ ${diff} วัน`};
   return {cls:'', badge:`<span class="badge ok">${renewed? 'ต่อแล้ว' : 'ปกติ'}</span>`, order:3, statusText: renewed? 'ต่อแล้ว' : 'ปกติ'};
 }
-
 function toast(msg, ok=true){
   $('msg').textContent = msg;
   $('msg').style.color = ok ? '#065f46' : '#b91c1c';
   setTimeout(()=>{$('msg').textContent='';}, 4000);
 }
-
 function genCode(){
   const letters='ABCDEFGHJKLMNPQRSTUVWXYZ';
   const digits='23456789';
@@ -258,7 +258,7 @@ async function loadCompanies(){
   sel.innerHTML = `<option value="">— เลือกบริษัท —</option>` + (data||[]).map(c=>`<option value="${c.code}">${c.code}</option>`).join('');
 }
 
-/* ========= Render Table ========= */
+/* ========= Render Table (รองรับแก้ในตาราง) ========= */
 function renderTable(q=''){
   const tb = $('tbody');
   if(!filteredRows.length){
@@ -268,17 +268,21 @@ function renderTable(q=''){
     $('chkAllVisible').checked = false;
     return;
   }
+
   const tokens = tokenize(q);
   tb.innerHTML = filteredRows.map((r,i)=>`
     <tr class="${r.cls}">
       <td><input type="checkbox" class="rowchk" data-id="${r.id}" ${selectedIds.has(r.id)?'checked':''}></td>
       <td>${i+1}</td>
       <td>${highlightTokens(r.company_code||'-', tokens)}</td>
-      <td>${highlightTokens(r.brand_name||'-', tokens)}</td>
-      <td>${highlightTokens(r.common_label||'-', tokens)}</td>
-      <td>${highlightTokens(r.registration_no||'-', tokens)}</td>
-      <td>${highlightTokens(r.license_no||'-', tokens)}</td>
-      <td>${fmtDate(r.expiry_date)}</td>
+
+      <!-- แก้ได้ด้วยการดับเบิลคลิก -->
+      <td class="editable" data-id="${r.id}" data-field="brand_name">${escapeHtml(r.brand_name||'')}</td>
+      <td class="editable" data-id="${r.id}" data-field="common_label" style="min-width:240px">${escapeHtml(r.common_label||'')}</td>
+      <td class="editable" data-id="${r.id}" data-field="registration_no">${escapeHtml(r.registration_no||'')}</td>
+      <td class="editable" data-id="${r.id}" data-field="license_no">${escapeHtml(r.license_no||'')}</td>
+      <td class="editable" data-id="${r.id}" data-field="expiry_date">${r.expiry_date? toISO(r.expiry_date): ''}</td>
+
       <td>${fmtDate(r.renewed_on || r.renewed_until || null)}</td>
       <td>${r.badge}</td>
       <td style="white-space:nowrap">
@@ -445,8 +449,8 @@ function downloadTemplate(){
   XLSX.writeFile(wb, 'template_products.xlsx');
 }
 
-/* ========= Normalize Date (Excel → ISO, ค.ศ. เก็บใน DB) ========= */
-/* แก้เฉพาะจุดผิด: แปลง พ.ศ. → ค.ศ. เมื่อปี >= 2400 เพียงครั้งเดียว */
+/* ========= Normalize Date (Excel → ISO, เก็บ ค.ศ. ใน DB) ========= */
+/* แปลง พ.ศ. → ค.ศ. เมื่อปี >= 2400 เพียงครั้งเดียว (กันลบ 543 ซ้ำ) */
 function normalizeDate(v){
   const pad2 = n => String(n).padStart(2,'0');
   const toIso = (y,m,d) => `${y}-${pad2(m)}-${pad2(d)}`;
@@ -474,7 +478,7 @@ function normalizeDate(v){
     let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
     if (m) {
       let y = +m[1], mo = +m[2], d = +m[3];
-      if (y >= 2400) y -= 543; // ✅ พ.ศ. → ค.ศ. ครั้งเดียว
+      if (y >= 2400) y -= 543; // พ.ศ. → ค.ศ.
       return toIso(y, mo, d);
     }
 
@@ -482,7 +486,7 @@ function normalizeDate(v){
     m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
     if (m) {
       let d = +m[1], mo = +m[2], y = +m[3];
-      if (y >= 2400) y -= 543; // ✅ พ.ศ. → ค.ศ. ครั้งเดียว
+      if (y >= 2400) y -= 543;
       return toIso(y, mo, d);
     }
 
@@ -490,7 +494,7 @@ function normalizeDate(v){
     m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
     if (m) {
       let y = +m[1], mo = +m[2], d = +m[3];
-      if (y >= 2400) y -= 543; // ✅ พ.ศ. → ค.ศ. ครั้งเดียว
+      if (y >= 2400) y -= 543;
       return toIso(y, mo, d);
     }
 
@@ -605,99 +609,98 @@ function exportExcel(){
   XLSX.writeFile(wb, `products_${currentCompany.replace(/[\\/:*?"<>|]/g,'_')}.xlsx`);
 }
 
-/* ========= Bulk select / batch actions ========= */
-function getVisibleIds(){ return filteredRows.map(r=>r.id); }
-async function runInChunks(ids, size, fn){
-  for(let i=0;i<ids.length;i+=size){
-    const chunk = ids.slice(i,i+size);
-    await fn(chunk);
-  }
-}
+/* ========= Inline Edit Handler ========= */
+(function initInlineEdit(){
+  const tb = $('tbody');
 
-// เลือกทั้งหมดในหน้านี้
-$('chkAllPage').addEventListener('change', (e)=>{
-  const ids = getVisibleIds();
-  if(e.target.checked){ ids.forEach(id=>selectedIds.add(id)); }
-  else { ids.forEach(id=>selectedIds.delete(id)); }
-  renderTable($('adminSearch').value||'');
-});
+  tb.addEventListener('dblclick', (e)=>{
+    const td = e.target.closest('td.editable');
+    if(!td) return;
 
-// เลือกทั้งหมดในหัวตาราง
-$('chkAllVisible').addEventListener('change', (e)=>{
-  const ids = getVisibleIds();
-  if(e.target.checked){ ids.forEach(id=>selectedIds.add(id)); }
-  else { ids.forEach(id=>selectedIds.delete(id)); }
-  renderTable($('adminSearch').value||'');
-});
+    if(td.classList.contains('editing')) return;
+    const id = td.getAttribute('data-id');
+    const field = td.getAttribute('data-field');
+    const oldText = td.textContent;
 
-// เลือกทั้งหมด (ผลค้นหา)
-$('btnSelectAllFiltered').addEventListener('click', ()=>{
-  filteredRows.forEach(r => selectedIds.add(r.id));
-  renderTable($('adminSearch').value || '');
-});
+    td.classList.add('editing');
 
-// ล้างการเลือก
-$('btnClearSel').addEventListener('click', ()=>{
-  selectedIds.clear();
-  $('chkAllPage').checked = false;
-  $('chkAllVisible').checked = false;
-  renderTable($('adminSearch').value||'');
-});
+    let input = document.createElement('input');
+    if(field === 'expiry_date'){
+      input.type = 'date';
+      input.value = (oldText||'').trim(); // แสดง YYYY-MM-DD
+    }else{
+      input.type = 'text';
+      input.value = oldText;
+    }
+    input.style.width = '100%';
+    input.style.boxSizing = 'border-box';
 
-// ลบรายการที่เลือก (ต้องพิมพ์ DELETE)
-$('btnDeleteSel').addEventListener('click', async ()=>{
-  const ids = Array.from(selectedIds);
-  if(ids.length===0) return alert('ยังไม่ได้เลือกรายการ');
-  if(!requireType('DELETE', `พิมพ์ DELETE เพื่อยืนยันลบ ${ids.length} รายการ`)) return;
+    td.innerHTML = '';
+    td.appendChild(input);
+    input.focus();
+    input.select();
 
-  try{
-    await runInChunks(ids, 300, async (chunk)=>{
-      const {error} = await sb.from('product_registrations').delete().in('id', chunk);
-      if(error) throw error;
+    const finish = async (commit)=>{
+      const val = input.value;
+      td.classList.remove('editing');
+
+      if(!commit){
+        td.textContent = oldText;
+        return;
+      }
+
+      const payload = {};
+      if(field === 'brand_name' || field === 'common_label'){
+        if(!val.trim()){
+          td.textContent = oldText;
+          alert('ต้องมีค่า "'+(field==='brand_name'?'ชื่อการค้า':'ชื่อสามัญ/สูตร')+'"');
+          return;
+        }
+        payload[field] = val.trim();
+      }else if(field === 'registration_no' || field === 'license_no'){
+        payload[field] = val.trim() || null;
+      }else if(field === 'expiry_date'){
+        const raw = val.trim();
+        if(raw){
+          const normalized = normalizeDate(raw);
+          if(!normalized){
+            td.textContent = oldText;
+            alert('รูปแบบวันที่ไม่ถูกต้อง (ควรเป็น YYYY-MM-DD หรือค่าที่ parse ได้)');
+            return;
+          }
+          payload[field] = normalized;
+        }else{
+          payload[field] = null;
+        }
+      }
+
+      try{
+        const { error } = await sb.from('product_registrations').update(payload).eq('id', id);
+        if(error) throw error;
+
+        // update cache + status
+        const idx = cachedRows.findIndex(x=>x.id===id);
+        if(idx>-1){
+          cachedRows[idx] = { ...cachedRows[idx], ...payload };
+          const s = classify(cachedRows[idx].expiry_date, cachedRows[idx].renewed_until);
+          cachedRows[idx] = { ...cachedRows[idx], ...s };
+        }
+
+        applyAdminFilter(); // re-render
+        toast('บันทึกแล้ว ✓');
+      }catch(err){
+        td.textContent = oldText;
+        alert(err?.message || err);
+      }
+    };
+
+    input.addEventListener('keydown', (ev)=>{
+      if(ev.key === 'Enter'){ ev.preventDefault(); finish(true); }
+      if(ev.key === 'Escape'){ ev.preventDefault(); finish(false); }
     });
-    selectedIds.clear();
-    await loadDocs(currentCompany);
-  }catch(err){ alert(err?.message||err); }
-});
-
-// ล้างค่า "ทะเบียน" ของที่เลือก
-$('btnClearRegSel').addEventListener('click', async ()=>{
-  const ids = Array.from(selectedIds);
-  if(ids.length===0) return alert('ยังไม่ได้เลือกรายการ');
-  try{
-    await runInChunks(ids, 300, async (chunk)=>{
-      const {error} = await sb.from('product_registrations').update({ registration_no: null }).in('id', chunk);
-      if(error) throw error;
-    });
-    await loadDocs(currentCompany);
-  }catch(err){ alert(err?.message||err); }
-});
-
-// ล้างข้อมูลต่ออายุของที่เลือก
-$('btnClearRenewSel').addEventListener('click', async ()=>{
-  const ids = Array.from(selectedIds);
-  if(ids.length===0) return alert('ยังไม่ได้เลือกรายการ');
-  try{
-    await runInChunks(ids, 300, async (chunk)=>{
-      const {error} = await sb.from('product_registrations').update({ renewed_until: null, renewed_on: null }).in('id', chunk);
-      if(error) throw error;
-    });
-    await loadDocs(currentCompany);
-  }catch(err){ alert(err?.message||err); }
-});
-
-// ลบทั้งหมดของบริษัทนี้ (ต้องพิมพ์ DELETE)
-$('btnDeleteAllCompany').addEventListener('click', async ()=>{
-  if(!currentCompany) return alert('โปรดเลือกบริษัทก่อน');
-  if(!requireType('DELETE', `พิมพ์ DELETE เพื่อยืนยัน "ลบทั้งหมดของบริษัท ${currentCompany}"`)) return;
-
-  try{
-    const {error} = await sb.from('product_registrations').delete().eq('company_code', currentCompany);
-    if(error) throw error;
-    selectedIds.clear();
-    await loadDocs(currentCompany);
-  }catch(err){ alert(err?.message||err); }
-});
+    input.addEventListener('blur', ()=> finish(true));
+  });
+})();
 
 /* ========= Events ========= */
 $('companySelect').addEventListener('change', e=> e.target.value && loadDocs(e.target.value));
