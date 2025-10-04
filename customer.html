@@ -17,15 +17,17 @@
   .card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:18px; box-shadow:0 8px 28px rgba(0,0,0,.25); margin-bottom:16px}
   input,button{padding:12px; border-radius:12px; border:1px solid var(--border); background:#0b1220; color:var(--ink); font-size:15px}
   .btn{cursor:pointer; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#0b1220; font-weight:700; border:none}
-  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row{display:flex;gap:10px;flex-wrap:wrap; align-items:center}
   table{width:100%; border-collapse:collapse; margin-top:12px}
-  th,td{padding:10px 12px; border-bottom:1px solid var(--border); text-align:left}
+  th,td{padding:10px 12px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top}
   th{color:#93c5fd}
   .mut{color:var(--mut)}
   .badge{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;display:inline-block}
   .ok{color:#10b981;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.4)}
   .warn{color:#f59e0b;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4)}
   .exp{color:#ef4444;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4)}
+  mark{background:#fde68a55; padding:0 2px; border-radius:4px}
+  .spacer{flex:1}
 </style>
 </head>
 <body>
@@ -41,13 +43,20 @@
   </div>
 
   <div class="card" id="dataCard" style="display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center">
+    <div class="row" style="justify-content:space-between">
       <div>
         <div class="mut">บริษัทของคุณ</div>
         <div id="companyName" style="font-weight:700;font-size:18px">—</div>
       </div>
+      <div class="spacer"></div>
+      <!-- กล่องค้นหาชื่อการค้า -->
+      <input id="q" placeholder="พิมพ์ค้นหา 'ชื่อการค้า' ..." style="min-width:240px">
+      <button id="clearBtn" class="btn" style="background:#0b1220;color:#cbd5e1;border:1px solid var(--border)">ล้าง</button>
       <button class="btn" id="refreshBtn">รีเฟรช</button>
     </div>
+
+    <div class="mut" id="count" style="margin-top:8px">—</div>
+
     <table>
       <thead>
         <tr>
@@ -67,7 +76,7 @@
 
 <script>
 const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA"; // ← ใส่ anon key ของโปรเจกต์
+const SUPABASE_KEY = "YOUR-ANON-KEY"; // ← ใส่ anon key ของโปรเจกต์
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const $ = id => document.getElementById(id);
@@ -81,9 +90,7 @@ function fmtDate(d){
 
 /** badge แบบลูกค้า: ถ้าต่ออายุแล้ว โชว์ "ดำเนินการต่อแล้ว" โดยไม่เปิดเผยวันที่ */
 function badge(expiry, renewed){
-  if (renewed) {
-    return `<span class="badge ok">ดำเนินการต่อแล้ว</span>`;
-  }
+  if (renewed) return `<span class="badge ok">ดำเนินการต่อแล้ว</span>`;
   const eff = expiry ? new Date(expiry) : null;
   if(!eff || isNaN(eff)) return `<span class="badge ok">ปกติ</span>`;
   const diff = Math.ceil((eff - new Date())/86400000);
@@ -92,8 +99,54 @@ function badge(expiry, renewed){
   return `<span class="badge ok">ปกติ</span>`;
 }
 
+/* ========= ค้นหา ========= */
 let CURRENT_CODE = '';
+let FULL_ROWS = [];   // เก็บผลทั้งหมดจาก RPC
+let FILTERED = [];    // แถวหลังกรอง
 
+function highlight(text, q){
+  if(!q) return escapeHtml(text||'-');
+  const s = String(text||'');
+  const i = s.toLowerCase().indexOf(q.toLowerCase());
+  if(i === -1) return escapeHtml(s || '-');
+  const a = s.slice(0,i), b = s.slice(i, i+q.length), c = s.slice(i+q.length);
+  return `${escapeHtml(a)}<mark>${escapeHtml(b)}</mark>${escapeHtml(c)}`;
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+
+function render(q=''){
+  const tb = $('tbody');
+  const rows = FILTERED;
+  if(rows.length === 0){
+    tb.innerHTML = `<tr><td colspan="7" class="mut">ไม่พบรายการที่ตรงกับคำว่า “${escapeHtml(q)}”</td></tr>`;
+  }else{
+    tb.innerHTML = rows.map(r=>`
+      <tr>
+        <td>${escapeHtml(r.company_name||'-')}</td>
+        <td>${highlight(r.brand_name, q)}</td>
+        <td>${escapeHtml(r.common_label||'-')}</td>
+        <td>${escapeHtml(r.registration_no||'-')}</td>
+        <td>${escapeHtml(r.license_no||'-')}</td>
+        <td>${fmtDate(r.expiry_date)}</td>
+        <td>${badge(r.expiry_date, r.renewed_until)}</td>
+      </tr>
+    `).join('');
+  }
+  $('count').textContent = `แสดง ${rows.length.toLocaleString('th-TH')} รายการ (ทั้งหมด ${FULL_ROWS.length.toLocaleString('th-TH')})`;
+}
+
+function applyFilter(){
+  const q = $('q').value.trim();
+  if(!q){
+    FILTERED = [...FULL_ROWS];
+  }else{
+    const ql = q.toLowerCase();
+    FILTERED = FULL_ROWS.filter(r => (r.brand_name||'').toLowerCase().includes(ql));
+  }
+  render(q);
+}
+
+/* ========= โหลดข้อมูลบริษัทตามรหัส ========= */
 async function loadCompanyByCode(){
   if(!CURRENT_CODE) return;
 
@@ -106,7 +159,7 @@ async function loadCompanyByCode(){
   }
   $('companyName').textContent = nameRes.data;
 
-  // 2) เอกสาร (RPC) — มี company_name ในผลลัพธ์
+  // 2) เอกสาร (RPC)
   const res = await sb.rpc('get_company_portal', { p_plain_code: CURRENT_CODE });
   if(res.error){
     $('err').textContent = res.error.message;
@@ -114,27 +167,18 @@ async function loadCompanyByCode(){
     return;
   }
 
-  const rows = res.data || [];
-  const tb = $('tbody');
-  if(rows.length === 0){
-    tb.innerHTML = `<tr><td colspan="7" class="mut">ยังไม่มีข้อมูล</td></tr>`;
-  }else{
-    tb.innerHTML = rows.map(r=>`
-      <tr>
-        <td>${r.company_name||'-'}</td>
-        <td>${r.brand_name||'-'}</td>
-        <td>${r.common_label||'-'}</td>
-        <td>${r.registration_no||'-'}</td>
-        <td>${r.license_no||'-'}</td>
-        <td>${fmtDate(r.expiry_date)}</td>
-        <td>${badge(r.expiry_date, r.renewed_until)}</td>
-      </tr>
-    `).join('');
-  }
+  FULL_ROWS = res.data || [];
   $('err').textContent = '';
   $('dataCard').style.display = 'block';
+
+  // ถ้ามี ?q= ใน URL เติมให้ด้วย
+  const qs = new URLSearchParams(location.search);
+  const initQ = qs.get('q') || '';
+  $('q').value = initQ;
+  applyFilter();
 }
 
+/* ========= Events ========= */
 $('enterBtn').addEventListener('click', async ()=>{
   const code = $('code').value.trim();
   if(!code){ $('err').textContent = 'กรุณาใส่รหัสลูกค้า'; return; }
@@ -142,6 +186,21 @@ $('enterBtn').addEventListener('click', async ()=>{
   await loadCompanyByCode();
 });
 $('refreshBtn').addEventListener('click', loadCompanyByCode);
+$('q').addEventListener('input', applyFilter);
+$('clearBtn').addEventListener('click', ()=>{
+  $('q').value = '';
+  applyFilter();
+});
+
+/* ========= โหลดรหัสจาก URL (optional) ========= */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const params = new URLSearchParams(location.search);
+  const code = params.get('code');
+  if(code){
+    $('code').value = code;
+    $('enterBtn').click();
+  }
+});
 </script>
 </body>
 </html>
