@@ -184,8 +184,9 @@ const selectedIds = new Set();
 
 function fmtDate(d){
   if(!d) return '-';
-  const t=new Date(d);
-  return isNaN(t)?'-':t.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  const t = new Date(d);
+  return isNaN(t) ? '-' :
+    t.toLocaleDateString('th-TH-u-ca-gregory', { year:'numeric', month:'long', day:'numeric' });
 }
 function toISO(d){
   if(!d) return '';
