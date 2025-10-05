@@ -190,11 +190,14 @@ const selectedIds = new Set();
 function fmtDate(d){
   if(!d) return '-';
   const t = new Date(d);
-  if (isNaN(t)) return '-';
-  // แสดงผลเป็น พ.ศ. (Buddhist calendar)
-  return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()))
-    .toLocaleDateString('th-TH-u-ca-buddhist', { year:'numeric', month:'long', day:'numeric' });
+  if(isNaN(t)) return '-';
+  return t.toLocaleDateString('th-TH', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
 }
+
 function toISO(d){
   if(!d) return '';
   const t = new Date(d);
