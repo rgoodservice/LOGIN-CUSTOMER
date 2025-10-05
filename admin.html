@@ -454,42 +454,41 @@ function downloadTemplate(){
 
 /* ========= Normalize Date (Excel → ISO, เก็บ ค.ศ. ใน DB) ========= */
 /* แปลง พ.ศ. → ค.ศ. เมื่อปี >= 2400 เพียงครั้งเดียว (กันลบ 543 ซ้ำ) */
-function normalizeDate(v){
-  const pad2 = n => String(n).padStart(2,'0');
-  const toIso = (y,m,d) => `${y}-${pad2(m)}-${pad2(d)}`;
+function normalizeDate(v) {
+  const pad = n => String(n).padStart(2, "0");
+  const toIso = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
+  if (!v) return null;
 
-  if (v === null || v === undefined || v === '') return null;
-
-  // 1) Excel serial number
-  if (typeof v === 'number' && isFinite(v)) {
-    const ms = Math.round((v - 25569) * 86400 * 1000); // serial → epoch
-    const d = new Date(ms);
-    return isNaN(d) ? null : toIso(d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate());
-  }
-
-  // 2) JS Date object
+  // ถ้าเป็น Date object
   if (v instanceof Date && !isNaN(v)) {
-    return toIso(v.getUTCFullYear(), v.getUTCMonth()+1, v.getUTCDate());
+    return toIso(v.getFullYear(), v.getMonth() + 1, v.getDate());
   }
 
-  // 3) String
-  if (typeof v === 'string') {
-    let s = v.trim();
+  // ถ้าเป็น Excel serial number (เช่น 45700)
+  if (typeof v === "number" && isFinite(v)) {
+    const epoch = new Date(Math.round((v - 25569) * 86400 * 1000));
+    return toIso(epoch.getUTCFullYear(), epoch.getUTCMonth() + 1, epoch.getUTCDate());
+  }
+
+  // ถ้าเป็น string
+  if (typeof v === "string") {
+    const s = v.trim();
     if (!s) return null;
 
-    // yyyy-mm-dd หรือ yyyy/mm/dd
+    // รูปแบบ YYYY-MM-DD
     let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
     if (m) {
       let y = +m[1], mo = +m[2], d = +m[3];
-      if (y >= 2400) y -= 543; // พ.ศ. → ค.ศ.
+      if (y >= 2400 && y < 2600) y -= 543; // พ.ศ. → ค.ศ.
       return toIso(y, mo, d);
     }
 
-    // dd/mm/yyyy หรือ dd-mm-yyyy
+    // รูปแบบ DD/MM/YYYY หรือ DD-MM-YYYY
     m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
     if (m) {
       let d = +m[1], mo = +m[2], y = +m[3];
-      if (y >= 2400) y -= 543;
+      if (y >= 2400 && y < 2600) y -= 543; // พ.ศ. → ค.ศ.
+      // ✅ ตรงนี้คือจุดสำคัญ — สลับตำแหน่งให้ตรงตามที่คนไทยใช้
       return toIso(y, mo, d);
     }
 
@@ -497,19 +496,17 @@ function normalizeDate(v){
     m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
     if (m) {
       let y = +m[1], mo = +m[2], d = +m[3];
-      if (y >= 2400) y -= 543;
+      if (y >= 2400 && y < 2600) y -= 543;
       return toIso(y, mo, d);
-    }
-
-    // fallback: ให้ JS parse
-    const d = new Date(s);
-    if (!isNaN(d)) {
-      return toIso(d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate());
     }
   }
 
   return null;
 }
+
+  
+
+  
 
 async function importExcel(ev){
   if(!currentCompany) return alert('โปรดเลือกบริษัทก่อน');
