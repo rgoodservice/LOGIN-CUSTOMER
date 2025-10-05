@@ -717,7 +717,84 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   }
   loadCompanies();
 });
-</script>
 
+/* ========= ลบหลายรายการ (Bulk Delete) ========= */
+$('btnDeleteSel').addEventListener('click', async ()=>{
+  if (selectedIds.size === 0) return alert('กรุณาเลือกรายการก่อน');
+  if (!confirm(`ต้องการลบ ${selectedIds.size} รายการที่เลือกหรือไม่?`)) return;
+
+  const ids = Array.from(selectedIds);
+  const { error } = await sb.from('product_registrations').delete().in('id', ids);
+  if (error) return alert(error.message);
+
+  toast(`ลบ ${ids.length} รายการสำเร็จ ✓`);
+  selectedIds.clear();
+  loadDocs(currentCompany);
+});
+
+/* ========= ลบทั้งหมดของบริษัทนี้ ========= */
+$('btnDeleteAllCompany').addEventListener('click', async ()=>{
+  if (!currentCompany) return alert('กรุณาเลือกบริษัทก่อน');
+  if (!confirm(`⚠️ ต้องการลบเอกสารทั้งหมดของบริษัท ${currentCompany} ใช่หรือไม่?`)) return;
+
+  const { error } = await sb.from('product_registrations').delete().eq('company_code', currentCompany);
+  if (error) return alert(error.message);
+
+  toast(`ลบข้อมูลทั้งหมดของบริษัท ${currentCompany} เรียบร้อย ✓`);
+  loadDocs(currentCompany);
+});
+
+/* ========= แก้ไฮไลต์ในการค้นหาให้กลับมาทำงาน ========= */
+/* ปรับ renderTable() ให้ใช้ highlightTokens กับทุกช่องที่ค้นหาได้ */
+const oldRenderTable = renderTable;
+renderTable = function(q=''){
+  const tb = $('tbody');
+  if(!filteredRows.length){
+    tb.innerHTML = `<tr><td colspan="11" style="color:var(--muted)">ไม่พบรายการที่ตรงกับ “${escapeHtml(q)}”</td></tr>`;
+    $('adminCount').textContent = '';
+    $('chkAllPage').checked = false;
+    $('chkAllVisible').checked = false;
+    return;
+  }
+
+  const tokens = tokenize(q);
+  tb.innerHTML = filteredRows.map((r,i)=>`
+    <tr class="${r.cls}">
+      <td><input type="checkbox" class="rowchk" data-id="${r.id}" ${selectedIds.has(r.id)?'checked':''}></td>
+      <td>${i+1}</td>
+      <td>${highlightTokens(r.company_code||'-', tokens)}</td>
+      <td class="editable" data-id="${r.id}" data-field="brand_name">${highlightTokens(r.brand_name||'', tokens)}</td>
+      <td class="editable" data-id="${r.id}" data-field="common_label">${highlightTokens(r.common_label||'', tokens)}</td>
+      <td class="editable" data-id="${r.id}" data-field="registration_no">${highlightTokens(r.registration_no||'', tokens)}</td>
+      <td class="editable" data-id="${r.id}" data-field="license_no">${highlightTokens(r.license_no||'', tokens)}</td>
+      <td class="editable" data-id="${r.id}" data-field="expiry_date">${r.expiry_date? toISO(r.expiry_date): ''}</td>
+      <td>${fmtDate(r.renewed_on || r.renewed_until || null)}</td>
+      <td>${r.badge}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-secondary btn-small" onclick="saveRenewal('${r.id}')">ต่ออายุ</button>
+        <button class="btn btn-outline btn-small" onclick="clearRenewal('${r.id}')">ล้างต่ออายุ</button>
+        <button class="btn btn-danger btn-small" onclick="delDoc('${r.id}')">ลบ</button>
+      </td>
+    </tr>
+  `).join('');
+
+  $('adminCount').textContent =
+    `เลือก ${selectedIds.size.toLocaleString('th-TH')} / แสดง ${filteredRows.length.toLocaleString('th-TH')} / ทั้งหมด ${cachedRows.length.toLocaleString('th-TH')}`;
+
+  const allChecked = filteredRows.length>0 && filteredRows.every(r=>selectedIds.has(r.id));
+  $('chkAllVisible').checked = allChecked;
+
+  document.querySelectorAll('.rowchk').forEach(chk=>{
+    chk.addEventListener('change', (e)=>{
+      const id = e.target.dataset.id;
+      if(e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+      $('adminCount').textContent =
+        `เลือก ${selectedIds.size.toLocaleString('th-TH')} / แสดง ${filteredRows.length.toLocaleString('th-TH')} / ทั้งหมด ${cachedRows.length.toLocaleString('th-TH')}`;
+      const allNow = filteredRows.length>0 && filteredRows.every(r=>selectedIds.has(r.id));
+      $('chkAllVisible').checked = allNow;
+    });
+  });
+};
+</script>
 </body>
 </html>
