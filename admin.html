@@ -54,6 +54,8 @@
   .spacer{flex:1}
   .note{font-size:12px; color:#64748b}
   mark{background:#fde68a80; padding:0 2px; border-radius:4px}
+
+  /* ===== inline edit ===== */
   td.editable { cursor: text; }
   td.editing { background: #fffbe6; }
 </style>
@@ -117,8 +119,9 @@
       <div class="hint" style="margin-top:8px">* เพิ่มเสร็จจะแสดงในตารางด้านล่างทันที</div>
     </div>
 
-    <!-- ตารางเอกสาร -->
+    <!-- ตารางเอกสาร + แถบค้นหา + บัล์คแอ็กชัน -->
     <div class="card" style="overflow:auto; max-height:70vh">
+      <!-- แถบค้นหา -->
       <div class="row" style="margin-bottom:10px">
         <input id="adminSearch" placeholder="ค้นหา: บริษัท / ชื่อการค้า / ชื่อสามัญ / ทะเบียน / ใบอนุญาต" style="min-width:320px">
         <button id="adminClearBtn" class="btn btn-outline btn-small">ล้าง</button>
@@ -126,15 +129,20 @@
         <div id="adminCount" class="hint"></div>
       </div>
 
-      <!-- ปุ่มบัล์คแอ็กชัน -->
+      <!-- บัล์คแอ็กชัน -->
       <div class="row" style="margin:6px 0 12px; gap:8px">
         <label style="display:flex;align-items:center;gap:8px">
           <input type="checkbox" id="chkAllPage">
           เลือกทั้งหมดในหน้านี้
         </label>
+
         <button id="btnSelectAllFiltered" class="btn btn-outline btn-small">เลือกทั้งหมด (ผลค้นหา)</button>
         <button id="btnClearSel" class="btn btn-outline btn-small">ล้างการเลือก</button>
+
         <button id="btnDeleteSel" class="btn btn-danger btn-small">ลบรายการที่เลือก</button>
+        <button id="btnClearRegSel" class="btn btn-outline btn-small">ล้างค่า "ทะเบียน" (ที่เลือก)</button>
+        <button id="btnClearRenewSel" class="btn btn-outline btn-small">ล้างต่ออายุ (ที่เลือก)</button>
+
         <div class="spacer"></div>
         <button id="btnDeleteAllCompany" class="btn btn-danger btn-small">ลบทั้งหมดของบริษัทนี้</button>
       </div>
@@ -164,8 +172,8 @@
 
 <script>
 /* ========= Supabase Config ========= */
-const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
+const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co"; // เปลี่ยนได้ถ้าคนละโปรเจกต์
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA"; // anon key
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true }
 });
@@ -174,29 +182,27 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 const $ = id => document.getElementById(id);
 const WARNING_DAYS = 90;
 let currentCompany = '';
-let cachedRows = [];
-let filteredRows = [];
+let cachedRows = [];    // ทั้งหมด
+let filteredRows = [];  // หลังกรอง
 const selectedIds = new Set();
 
-/* ========= Date Formatter (แก้เดือนเพี้ยน) ========= */
+/* ========= Date Formatter ========= */
 function fmtDate(d){
   if(!d) return '-';
-  let s = String(d);
-  if(s.includes('T')) s = s.split('T')[0];
-  const [y,m,dd] = s.split('-').map(Number);
-  const t = new Date(y, m-1, dd);
+  const t = new Date(d);
   if(isNaN(t)) return '-';
-  return t.toLocaleDateString('th-TH-u-ca-buddhist', {year:'numeric', month:'long', day:'numeric'});
+  return t.toLocaleDateString('th-TH', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
 }
 
 function toISO(d){
   if(!d) return '';
   const t = new Date(d);
   if(isNaN(t)) return '';
-  const yyyy = t.getFullYear();
-  const mm = String(t.getMonth()+1).padStart(2,'0');
-  const dd = String(t.getDate()).padStart(2,'0');
-  return `${yyyy}-${mm}-${dd}`;
+  return t.toISOString().slice(0,10);
 }
 function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
 function escapeRegExp(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&'); }
@@ -213,22 +219,123 @@ function highlightTokens(text, tokens){
   return out + escapeHtml(s.slice(last));
 }
 
+/** สถานะ (ใช้ renewed_until ถ้ามี; ไม่งั้นใช้ expiry_date) */
+function classify(expiry, renewed){
+  const eff = renewed ? new Date(renewed) : (expiry? new Date(expiry) : null);
+  if(!eff || isNaN(eff)) return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3, statusText:'ปกติ'};
+  const diff = Math.ceil((eff - new Date())/86400000);
+  if(diff < 0) return {cls:'expired', badge:`<span class="badge expired">หมดอายุ</span>`, order:1, statusText:'หมดอายุ'};
+  if(diff <= WARNING_DAYS) return {cls:'warning', badge:`<span class="badge warning">เหลือ ${diff} วัน</span>`, order:2, statusText:`เหลือ ${diff} วัน`};
+  return {cls:'', badge:`<span class="badge ok">${renewed? 'ต่อแล้ว' : 'ปกติ'}</span>`, order:3, statusText: renewed? 'ต่อแล้ว' : 'ปกติ'};
+}
+function toast(msg, ok=true){
+  $('msg').textContent = msg;
+  $('msg').style.color = ok ? '#065f46' : '#b91c1c';
+  setTimeout(()=>{$('msg').textContent='';}, 4000);
+}
+function genCode(){
+  const letters='ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const digits='23456789';
+  const pick = (set,n)=> Array.from({length:n},()=>set[Math.floor(Math.random()*set.length)]).join('');
+  return `${pick(letters,2)}-${pick(digits,4)}`;
+}
+
+/* ========= ยืนยันด้วยการพิมพ์ ========= */
+function requireType(expected, promptText){
+  const v = prompt(promptText);
+  return v && v.trim().toUpperCase() === expected.toUpperCase();
+}
+
 /* ========= Auth ========= */
 $('signOutBtn').addEventListener('click', async ()=>{
   await sb.auth.signOut();
   location.href = 'admin_login.html';
 });
 
-/* ========= โหลดรายชื่อบริษัท ========= */
+/* ========= Companies ========= */
 async function loadCompanies(){
   const sel = $('companySelect');
   sel.innerHTML = `<option value="">— กำลังโหลดบริษัท —</option>`;
   const {data, error} = await sb.from('companies').select('code').order('code',{ascending:true});
-  if(error){ sel.innerHTML = `<option value="">โหลดไม่สำเร็จ</option>`; return; }
+  if(error){ sel.innerHTML = `<option value="">โหลดบริษัทไม่สำเร็จ</option>`; return; }
   sel.innerHTML = `<option value="">— เลือกบริษัท —</option>` + (data||[]).map(c=>`<option value="${c.code}">${c.code}</option>`).join('');
 }
 
-/* ========= โหลดข้อมูลเอกสาร ========= */
+/* ========= Render Table (รองรับแก้ในตาราง) ========= */
+function renderTable(q=''){
+  const tb = $('tbody');
+  if(!filteredRows.length){
+    tb.innerHTML = `<tr><td colspan="11" style="color:var(--muted)">ไม่พบรายการที่ตรงกับ “${escapeHtml(q)}”</td></tr>`;
+    $('adminCount').textContent = '';
+    $('chkAllPage').checked = false;
+    $('chkAllVisible').checked = false;
+    return;
+  }
+
+  const tokens = tokenize(q);
+  tb.innerHTML = filteredRows.map((r,i)=>`
+    <tr class="${r.cls}">
+      <td><input type="checkbox" class="rowchk" data-id="${r.id}" ${selectedIds.has(r.id)?'checked':''}></td>
+      <td>${i+1}</td>
+      <td>${highlightTokens(r.company_code||'-', tokens)}</td>
+
+      <!-- แก้ได้ด้วยการดับเบิลคลิก -->
+      <td class="editable" data-id="${r.id}" data-field="brand_name">${escapeHtml(r.brand_name||'')}</td>
+      <td class="editable" data-id="${r.id}" data-field="common_label" style="min-width:240px">${escapeHtml(r.common_label||'')}</td>
+      <td class="editable" data-id="${r.id}" data-field="registration_no">${escapeHtml(r.registration_no||'')}</td>
+      <td class="editable" data-id="${r.id}" data-field="license_no">${escapeHtml(r.license_no||'')}</td>
+      <td class="editable" data-id="${r.id}" data-field="expiry_date">${r.expiry_date? toISO(r.expiry_date): ''}</td>
+
+      <td>${fmtDate(r.renewed_on || r.renewed_until || null)}</td>
+      <td>${r.badge}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-secondary btn-small" onclick="saveRenewal('${r.id}')">ต่ออายุ</button>
+        <button class="btn btn-outline btn-small" onclick="clearRenewal('${r.id}')">ล้างต่ออายุ</button>
+        <button class="btn btn-danger btn-small" onclick="delDoc('${r.id}')">ลบ</button>
+      </td>
+    </tr>
+  `).join('');
+
+  $('adminCount').textContent =
+    `เลือก ${selectedIds.size.toLocaleString('th-TH')} / แสดง ${filteredRows.length.toLocaleString('th-TH')} / ทั้งหมด ${cachedRows.length.toLocaleString('th-TH')}`;
+
+  const allChecked = filteredRows.length>0 && filteredRows.every(r=>selectedIds.has(r.id));
+  $('chkAllVisible').checked = allChecked;
+
+  document.querySelectorAll('.rowchk').forEach(chk=>{
+    chk.addEventListener('change', (e)=>{
+      const id = e.target.dataset.id;
+      if(e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+      $('adminCount').textContent =
+        `เลือก ${selectedIds.size.toLocaleString('th-TH')} / แสดง ${filteredRows.length.toLocaleString('th-TH')} / ทั้งหมด ${cachedRows.length.toLocaleString('th-TH')}`;
+      const allNow = filteredRows.length>0 && filteredRows.every(r=>selectedIds.has(r.id));
+      $('chkAllVisible').checked = allNow;
+    });
+  });
+}
+
+/* ========= Search/Filter ========= */
+function applyAdminFilter(){
+  const q = $('adminSearch').value || '';
+  const tokens = tokenize(q);
+  if(!tokens.length){
+    filteredRows = [...cachedRows];
+  }else{
+    filteredRows = cachedRows.filter(r=>{
+      const fields = [
+        r.company_code || '',
+        r.brand_name || '',
+        r.common_label || '',
+        r.registration_no || '',
+        r.license_no || ''
+      ].map(x=>x.toLowerCase());
+      return tokens.every(tok => fields.some(f => f.includes(tok)));
+    });
+  }
+  renderTable(q);
+}
+
+/* ========= Load docs ========= */
 async function loadDocs(code){
   currentCompany = code;
   selectedIds.clear();
@@ -253,39 +360,397 @@ async function loadDocs(code){
   renderTable($('adminSearch').value || '');
 }
 
-/* ========= สถานะหมดอายุ ========= */
-function classify(expiry, renewed){
-  const eff = renewed ? new Date(renewed) : (expiry? new Date(expiry) : null);
-  if(!eff || isNaN(eff)) return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3, statusText:'ปกติ'};
-  const diff = Math.ceil((eff - new Date())/86400000);
-  if(diff < 0) return {cls:'expired', badge:`<span class="badge expired">หมดอายุ</span>`, order:1, statusText:'หมดอายุ'};
-  if(diff <= WARNING_DAYS) return {cls:'warning', badge:`<span class="badge warning">เหลือ ${diff} วัน</span>`, order:2, statusText:`เหลือ ${diff} วัน`};
-  return {cls:'', badge:`<span class="badge ok">${renewed? 'ต่อแล้ว' : 'ปกติ'}</span>`, order:3, statusText: renewed? 'ต่อแล้ว' : 'ปกติ'};
+/* ========= Add / Update / Delete single ========= */
+$('addForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if(!currentCompany) return alert('โปรดเลือกบริษัทก่อนเพิ่มข้อมูล');
+
+  const payload = {
+    company_code: currentCompany,
+    brand_name: $('brand_name').value.trim(),
+    common_label: $('common_label').value.trim(),
+    registration_no: $('registration_no').value.trim() || null,
+    license_no: $('license_no').value.trim() || null,
+    expiry_date: $('expiry_date').value || null
+  };
+  if(!payload.brand_name || !payload.common_label) return alert('กรอก "ชื่อการค้า" และ "ชื่อสามัญ/สูตร" ให้ครบ');
+
+  const {error} = await sb.from('product_registrations').insert(payload);
+  if(error) return alert(error.message);
+  e.target.reset();
+  loadDocs(currentCompany);
+});
+
+async function saveRenewal(id){
+  const to = prompt('กรุณาใส่วันที่ "ต่อถึง" (รูปแบบ YYYY-MM-DD):');
+  if(!to) return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(to)) return alert('รูปแบบวันที่ไม่ถูกต้อง ควรเป็น YYYY-MM-DD');
+
+  const {error} = await sb.from('product_registrations')
+    .update({ renewed_until: to, renewed_on: new Date().toISOString() })
+    .eq('id', id);
+
+  if(error) return alert(error.message);
+  toast('บันทึกการต่ออายุแล้ว ✓');
+  loadDocs(currentCompany);
 }
 
-/* ========= ค้นหา ========= */
-function applyAdminFilter(){
-  const q = $('adminSearch').value || '';
-  const tokens = tokenize(q);
-  if(!tokens.length){
-    filteredRows = [...cachedRows];
-  }else{
-    filteredRows = cachedRows.filter(r=>{
-      const fields = [
-        r.company_code || '',
-        r.brand_name || '',
-        r.common_label || '',
-        r.registration_no || '',
-        r.license_no || ''
-      ].map(x=>x.toLowerCase());
-      return tokens.every(tok => fields.some(f => f.includes(tok)));
-    });
+async function clearRenewal(id){
+  if(!confirm('ล้างข้อมูลการต่ออายุของรายการนี้?')) return;
+  const {error} = await sb.from('product_registrations')
+    .update({ renewed_until: null, renewed_on: null })
+    .eq('id', id);
+  if(error) return alert(error.message);
+  toast('ล้างข้อมูลการต่ออายุแล้ว');
+  loadDocs(currentCompany);
+}
+
+async function delDoc(id){
+  if(!confirm('ลบรายการนี้?')) return;
+  const {error} = await sb.from('product_registrations').delete().eq('id', id);
+  if(error) return alert(error.message);
+  loadDocs(currentCompany);
+}
+
+/* ========= ตั้ง/เปลี่ยนรหัสลูกค้า (RPC) ========= */
+$('genCodeBtn').addEventListener('click', ()=>{
+  $('cust_code').value = genCode();
+});
+$('copyCodeBtn').addEventListener('click', async ()=>{
+  const v = $('cust_code').value.trim();
+  if(!v) return alert('ยังไม่มีรหัสให้คัดลอก');
+  await navigator.clipboard.writeText(v);
+  toast('คัดลอกรหัสแล้ว ✓');
+});
+$('setCodeBtn').addEventListener('click', async ()=>{
+  if(!currentCompany) return alert('โปรดเลือกบริษัทก่อน');
+  const code = $('cust_code').value.trim();
+  if(!code) return alert('กรุณากรอกรหัสลูกค้า');
+
+  const {error} = await sb.rpc('set_customer_code', {
+    p_company_code: currentCompany,
+    p_plain_code: code
+  });
+  if(error){ alert(error.message); return; }
+  toast(`ตั้ง/เปลี่ยนรหัสลูกค้าสำหรับ "${currentCompany}" เรียบร้อย ✓`);
+});
+
+/* ========= Excel ========= */
+$('tplBtn').addEventListener('click', downloadTemplate);
+$('impBtn').addEventListener('click', ()=> $('excelFile').click());
+$('expBtn').addEventListener('click', exportExcel);
+$('excelFile').addEventListener('change', importExcel);
+
+function downloadTemplate(){
+  const aoa = [
+    ['ชื่อการค้า','ชื่อสามัญ/สูตร','ทะเบียน','ใบอนุญาต','หมดอายุเดิม (YYYY-MM-DD)','ต่อถึง (YYYY-MM-DD)','ต่อแล้ววันที่ (YYYY-MM-DD)'],
+    ['ตัวอย่างA','สูตรX','TH-0001','LIC-1234','2026-12-31','','']
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Template');
+  XLSX.writeFile(wb, 'template_products.xlsx');
+}
+
+/* ========= Normalize Date (Excel → ISO, เก็บ ค.ศ. ใน DB) ========= */
+/* แปลง พ.ศ. → ค.ศ. เมื่อปี >= 2400 เพียงครั้งเดียว (กันลบ 543 ซ้ำ) */
+function normalizeDate(v){
+  const pad2 = n => String(n).padStart(2,'0');
+  const toIso = (y,m,d) => `${y}-${pad2(m)}-${pad2(d)}`;
+
+  if (v === null || v === undefined || v === '') return null;
+
+  // 1) Excel serial number
+  if (typeof v === 'number' && isFinite(v)) {
+    const ms = Math.round((v - 25569) * 86400 * 1000); // serial → epoch
+    const d = new Date(ms);
+    return isNaN(d) ? null : toIso(d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate());
   }
-  renderTable(q);
+
+  // 2) JS Date object
+  if (v instanceof Date && !isNaN(v)) {
+    return toIso(v.getUTCFullYear(), v.getUTCMonth()+1, v.getUTCDate());
+  }
+
+  // 3) String
+  if (typeof v === 'string') {
+    let s = v.trim();
+    if (!s) return null;
+
+    // yyyy-mm-dd หรือ yyyy/mm/dd
+    let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+    if (m) {
+      let y = +m[1], mo = +m[2], d = +m[3];
+      if (y >= 2400) y -= 543; // พ.ศ. → ค.ศ.
+      return toIso(y, mo, d);
+    }
+
+    // dd/mm/yyyy หรือ dd-mm-yyyy
+    m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+    if (m) {
+      let d = +m[1], mo = +m[2], y = +m[3];
+      if (y >= 2400) y -= 543;
+      return toIso(y, mo, d);
+    }
+
+    // yyyymmdd
+    m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if (m) {
+      let y = +m[1], mo = +m[2], d = +m[3];
+      if (y >= 2400) y -= 543;
+      return toIso(y, mo, d);
+    }
+
+    // fallback: ให้ JS parse
+    const d = new Date(s);
+    if (!isNaN(d)) {
+      return toIso(d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate());
+    }
+  }
+
+  return null;
 }
 
-/* ========= สร้างตาราง ========= */
-function renderTable(q=''){
+async function importExcel(ev){
+  if(!currentCompany) return alert('โปรดเลือกบริษัทก่อน');
+  const file = ev.target.files?.[0];
+  ev.target.value = ''; // reset
+  if(!file) return;
+
+  try{
+    const ab = await file.arrayBuffer();
+    const wb = XLSX.read(ab, {type:'array', cellDates:true});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {defval:'', raw:false, dateNF:'yyyy-mm-dd'});
+
+    const pick = (obj, keys)=> {
+      for(const k of keys){
+        for(const kk in obj){
+          if(kk.trim().toLowerCase() === k) return obj[kk];
+        }
+      }
+      return '';
+    };
+    const map = r => {
+      const brand  = pick(r, ['ชื่อการค้า','brand','brand_name']);
+      const common = pick(r, ['ชื่อสามัญ/สูตร','ชื่อสามัญ','สูตร','common','common_label']);
+      const regno  = pick(r, ['ทะเบียน','registration','registration_no','reg_no']);
+      const licno  = pick(r, ['ใบอนุญาต','license','license_no']);
+      const exp    = pick(r, ['หมดอายุเดิม','หมดอายุเดิม (yyyy-mm-dd)','expiry','expiry_date']);
+      const ren    = pick(r, ['ต่อถึง','ต่อถึง (yyyy-mm-dd)','renewed_until']);
+      const onRaw  = pick(r, ['ต่อแล้ววันที่','ต่อแล้ววันที่ (yyyy-mm-dd)','renewed_on']);
+
+      const expiry_date   = normalizeDate(exp);
+      const renewed_until = normalizeDate(ren);
+
+      // ถ้ามี "ต่อแล้ววันที่" ใช้ค่านั้น; ถ้าไม่มีแต่มี "ต่อถึง" ให้ประทับเวลาปัจจุบัน
+      let renewed_on = null;
+      const onDate = normalizeDate(onRaw);
+      if (onDate) {
+        renewed_on = new Date(onDate + 'T00:00:00').toISOString();
+      } else if (renewed_until) {
+        renewed_on = new Date().toISOString();
+      }
+
+      return {
+        company_code: currentCompany,
+        brand_name: String(brand).trim(),
+        common_label: String(common).trim(),
+        registration_no: String(regno).trim() || null,
+        license_no: String(licno).trim() || null,
+        expiry_date: expiry_date,
+        renewed_until: renewed_until,
+        renewed_on: renewed_on
+      };
+    };
+
+    let payload = rows.map(map).filter(x => x.brand_name && x.common_label);
+    if(payload.length === 0) return alert('ไม่พบแถวที่ถูกต้อง (ต้องมีอย่างน้อย ชื่อการค้า + ชื่อสามัญ/สูตร)');
+
+    if($('replaceMode').checked){
+      if(!confirm('ยืนยัน: ล้างข้อมูลเดิมของบริษัทนี้ทั้งหมด แล้วนำเข้าใหม่?')) return;
+      const del = await sb.from('product_registrations').delete().eq('company_code', currentCompany);
+      if(del.error) throw del.error;
+    }
+
+    for(let i=0;i<payload.length;i+=500){
+      const chunk = payload.slice(i,i+500);
+      const {error} = await sb.from('product_registrations').insert(chunk);
+      if(error) throw error;
+    }
+
+    toast(`นำเข้า ${payload.length} รายการสำเร็จ ✓`);
+    loadDocs(currentCompany);
+  }catch(err){
+    console.error(err);
+    alert('นำเข้าไม่สำเร็จ: ' + (err?.message || err));
+  }
+}
+
+function exportExcel(){
+  if(!currentCompany) return alert('โปรดเลือกบริษัทก่อน');
+  const rows = cachedRows || [];
+  const aoa = [
+    ['บริษัท','ชื่อการค้า','ชื่อสามัญ/สูตร','ทะเบียน','ใบอนุญาต','หมดอายุเดิม (YYYY-MM-DD)','ต่อถึง (YYYY-MM-DD)','ต่อแล้ววันที่ (YYYY-MM-DD)','สถานะ']
+  ];
+  rows.forEach(r=>{
+    aoa.push([
+      r.company_code || '',
+      r.brand_name || '',
+      r.common_label || '',
+      r.registration_no || '',
+      r.license_no || '',
+      r.expiry_date ? toISO(r.expiry_date) : '',
+      r.renewed_until ? toISO(r.renewed_until) : '',
+      r.renewed_on ? toISO(r.renewed_on) : '',
+      r.statusText || ''
+    ]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, currentCompany.slice(0,31));
+  XLSX.writeFile(wb, `products_${currentCompany.replace(/[\\/:*?"<>|]/g,'_')}.xlsx`);
+}
+
+/* ========= Inline Edit Handler ========= */
+(function initInlineEdit(){
+  const tb = $('tbody');
+
+  tb.addEventListener('dblclick', (e)=>{
+    const td = e.target.closest('td.editable');
+    if(!td) return;
+
+    if(td.classList.contains('editing')) return;
+    const id = td.getAttribute('data-id');
+    const field = td.getAttribute('data-field');
+    const oldText = td.textContent;
+
+    td.classList.add('editing');
+
+    let input = document.createElement('input');
+    if(field === 'expiry_date'){
+      input.type = 'date';
+      input.value = (oldText||'').trim(); // แสดง YYYY-MM-DD
+    }else{
+      input.type = 'text';
+      input.value = oldText;
+    }
+    input.style.width = '100%';
+    input.style.boxSizing = 'border-box';
+
+    td.innerHTML = '';
+    td.appendChild(input);
+    input.focus();
+    input.select();
+
+    const finish = async (commit)=>{
+      const val = input.value;
+      td.classList.remove('editing');
+
+      if(!commit){
+        td.textContent = oldText;
+        return;
+      }
+
+      const payload = {};
+      if(field === 'brand_name' || field === 'common_label'){
+        if(!val.trim()){
+          td.textContent = oldText;
+          alert('ต้องมีค่า "'+(field==='brand_name'?'ชื่อการค้า':'ชื่อสามัญ/สูตร')+'"');
+          return;
+        }
+        payload[field] = val.trim();
+      }else if(field === 'registration_no' || field === 'license_no'){
+        payload[field] = val.trim() || null;
+      }else if(field === 'expiry_date'){
+        const raw = val.trim();
+        if(raw){
+          const normalized = normalizeDate(raw);
+          if(!normalized){
+            td.textContent = oldText;
+            alert('รูปแบบวันที่ไม่ถูกต้อง (ควรเป็น YYYY-MM-DD หรือค่าที่ parse ได้)');
+            return;
+          }
+          payload[field] = normalized;
+        }else{
+          payload[field] = null;
+        }
+      }
+
+      try{
+        const { error } = await sb.from('product_registrations').update(payload).eq('id', id);
+        if(error) throw error;
+
+        // update cache + status
+        const idx = cachedRows.findIndex(x=>x.id===id);
+        if(idx>-1){
+          cachedRows[idx] = { ...cachedRows[idx], ...payload };
+          const s = classify(cachedRows[idx].expiry_date, cachedRows[idx].renewed_until);
+          cachedRows[idx] = { ...cachedRows[idx], ...s };
+        }
+
+        applyAdminFilter(); // re-render
+        toast('บันทึกแล้ว ✓');
+      }catch(err){
+        td.textContent = oldText;
+        alert(err?.message || err);
+      }
+    };
+
+    input.addEventListener('keydown', (ev)=>{
+      if(ev.key === 'Enter'){ ev.preventDefault(); finish(true); }
+      if(ev.key === 'Escape'){ ev.preventDefault(); finish(false); }
+    });
+    input.addEventListener('blur', ()=> finish(true));
+  });
+})();
+
+/* ========= Events ========= */
+$('companySelect').addEventListener('change', e=> e.target.value && loadDocs(e.target.value));
+$('adminSearch').addEventListener('input', applyAdminFilter);
+$('adminClearBtn').addEventListener('click', ()=>{ $('adminSearch').value=''; applyAdminFilter(); });
+
+/* ========= Start ========= */
+document.addEventListener('DOMContentLoaded', async ()=>{
+  const { data: { session }, error } = await sb.auth.getSession();
+  if (error) console.error('getSession error:', error);
+  if (!session) {
+    location.href = 'admin_login.html';
+    return;
+  }
+  loadCompanies();
+});
+
+/* ========= ลบหลายรายการ (Bulk Delete) ========= */
+$('btnDeleteSel').addEventListener('click', async ()=>{
+  if (selectedIds.size === 0) return alert('กรุณาเลือกรายการก่อน');
+  if (!confirm(`ต้องการลบ ${selectedIds.size} รายการที่เลือกหรือไม่?`)) return;
+
+  const ids = Array.from(selectedIds);
+  const { error } = await sb.from('product_registrations').delete().in('id', ids);
+  if (error) return alert(error.message);
+
+  toast(`ลบ ${ids.length} รายการสำเร็จ ✓`);
+  selectedIds.clear();
+  loadDocs(currentCompany);
+});
+
+/* ========= ลบทั้งหมดของบริษัทนี้ ========= */
+$('btnDeleteAllCompany').addEventListener('click', async ()=>{
+  if (!currentCompany) return alert('กรุณาเลือกบริษัทก่อน');
+  if (!confirm(`⚠️ ต้องการลบเอกสารทั้งหมดของบริษัท ${currentCompany} ใช่หรือไม่?`)) return;
+
+  const { error } = await sb.from('product_registrations').delete().eq('company_code', currentCompany);
+  if (error) return alert(error.message);
+
+  toast(`ลบข้อมูลทั้งหมดของบริษัท ${currentCompany} เรียบร้อย ✓`);
+  loadDocs(currentCompany);
+});
+
+/* ========= แก้ไฮไลต์ในการค้นหาให้กลับมาทำงาน ========= */
+/* ปรับ renderTable() ให้ใช้ highlightTokens กับทุกช่องที่ค้นหาได้ */
+const oldRenderTable = renderTable;
+renderTable = function(q=''){
   const tb = $('tbody');
   if(!filteredRows.length){
     tb.innerHTML = `<tr><td colspan="11" style="color:var(--muted)">ไม่พบรายการที่ตรงกับ “${escapeHtml(q)}”</td></tr>`;
@@ -319,93 +784,20 @@ function renderTable(q=''){
   $('adminCount').textContent =
     `เลือก ${selectedIds.size.toLocaleString('th-TH')} / แสดง ${filteredRows.length.toLocaleString('th-TH')} / ทั้งหมด ${cachedRows.length.toLocaleString('th-TH')}`;
 
+  const allChecked = filteredRows.length>0 && filteredRows.every(r=>selectedIds.has(r.id));
+  $('chkAllVisible').checked = allChecked;
+
   document.querySelectorAll('.rowchk').forEach(chk=>{
-    chk.addEventListener('change', e=>{
+    chk.addEventListener('change', (e)=>{
       const id = e.target.dataset.id;
       if(e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
       $('adminCount').textContent =
         `เลือก ${selectedIds.size.toLocaleString('th-TH')} / แสดง ${filteredRows.length.toLocaleString('th-TH')} / ทั้งหมด ${cachedRows.length.toLocaleString('th-TH')}`;
+      const allNow = filteredRows.length>0 && filteredRows.every(r=>selectedIds.has(r.id));
+      $('chkAllVisible').checked = allNow;
     });
   });
-}
-
-/* ========= ต่ออายุ / ลบ / แก้ ========= */
-async function saveRenewal(id){
-  const to = prompt('กรุณาใส่วันที่ "ต่อถึง" (YYYY-MM-DD):');
-  if(!to) return;
-  const {error} = await sb.from('product_registrations')
-    .update({renewed_until: to, renewed_on: new Date().toISOString()})
-    .eq('id', id);
-  if(error) return alert(error.message);
-  loadDocs(currentCompany);
-}
-
-async function clearRenewal(id){
-  if(!confirm('ล้างข้อมูลการต่ออายุของรายการนี้?')) return;
-  const {error} = await sb.from('product_registrations').update({renewed_until:null, renewed_on:null}).eq('id',id);
-  if(error) return alert(error.message);
-  loadDocs(currentCompany);
-}
-
-async function delDoc(id){
-  if(!confirm('ลบรายการนี้?')) return;
-  const {error} = await sb.from('product_registrations').delete().eq('id', id);
-  if(error) return alert(error.message);
-  loadDocs(currentCompany);
-}
-
-/* ========= Inline Edit ========= */
-document.addEventListener('dblclick', e=>{
-  const td = e.target.closest('td.editable');
-  if(!td) return;
-  if(td.classList.contains('editing')) return;
-  const id = td.dataset.id;
-  const field = td.dataset.field;
-  const old = td.textContent.trim();
-  td.classList.add('editing');
-  const inp = document.createElement('input');
-  inp.value = old;
-  inp.style.width='100%';
-  td.innerHTML=''; td.appendChild(inp); inp.focus();
-  const commit = async(ok)=>{
-    td.classList.remove('editing');
-    const val = inp.value.trim();
-    if(!ok){ td.textContent = old; return; }
-    const {error}=await sb.from('product_registrations').update({[field]:val||null}).eq('id',id);
-    if(error){alert(error.message); td.textContent=old;} else {loadDocs(currentCompany);}
-  };
-  inp.addEventListener('keydown',ev=>{
-    if(ev.key==='Enter')commit(true);
-    if(ev.key==='Escape')commit(false);
-  });
-  inp.addEventListener('blur',()=>commit(true));
-});
-
-/* ========= Bulk Delete ========= */
-$('btnDeleteSel').addEventListener('click', async ()=>{
-  if(!selectedIds.size) return alert('ยังไม่ได้เลือกรายการ');
-  if(!confirm(`ต้องการลบ ${selectedIds.size} รายการใช่ไหม?`)) return;
-  const {error}=await sb.from('product_registrations').delete().in('id',Array.from(selectedIds));
-  if(error) return alert(error.message);
-  selectedIds.clear();
-  loadDocs(currentCompany);
-});
-
-/* ========= Delete all ========= */
-$('btnDeleteAllCompany').addEventListener('click', async ()=>{
-  if(!currentCompany) return alert('กรุณาเลือกบริษัทก่อน');
-  if(!confirm(`ลบทั้งหมดของบริษัท ${currentCompany}?`)) return;
-  const {error}=await sb.from('product_registrations').delete().eq('company_code',currentCompany);
-  if(error) return alert(error.message);
-  loadDocs(currentCompany);
-});
-
-/* ========= Event เริ่มต้น ========= */
-document.addEventListener('DOMContentLoaded', async ()=>{
-  const {data:{session}}=await sb.auth.getSession();
-  if(!session){location.href='admin_login.html';return;}
-  loadCompanies();
-});
+};
 </script>
 </body>
 </html>
