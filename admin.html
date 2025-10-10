@@ -392,7 +392,7 @@ async function delDoc(id){
 
 /* ===== ตั้ง/เปลี่ยนรหัสลูกค้า ===== */
 $('copyCodeBtn').addEventListener('click', async ()=>{
-  const v = $('cust_code').value.trim();
+  const code = $('cust_code').value.trim().toUpperCase();
   if(!v) return alert('ยังไม่มีรหัสให้คัดลอก');
   await navigator.clipboard.writeText(v);
   toast('คัดลอกรหัสแล้ว ✓');
