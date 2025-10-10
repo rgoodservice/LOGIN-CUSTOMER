@@ -78,7 +78,7 @@
         <select id="companySelect" style="min-width:260px"><option value="">— กำลังโหลดบริษัท —</option></select>
         <div class="spacer"></div>
         <input id="cust_code" placeholder="ตั้ง/เปลี่ยนรหัสลูกค้า (เช่น RG-1234)" style="min-width:240px">
-        <button id="genCodeBtn" class="btn btn-secondary">สุ่มรหัส</button>
+        <!-- ลบปุ่มสุ่มรหัสแล้ว -->
         <button id="setCodeBtn" class="btn btn-primary">ตั้ง/เปลี่ยนรหัสลูกค้า</button>
         <button id="copyCodeBtn" class="btn btn-outline">คัดลอกรหัส</button>
       </div>
@@ -157,7 +157,7 @@
             <th>ชื่อสามัญ/สูตร</th>
             <th>ทะเบียน</th>
             <th>ใบอนุญาต</th>
-            <th>หมดอายุเดิม</th>
+            <th>หมดอายุเดิม (พ.ศ.)</th>
             <th>ต่อแล้ววันที่</th>
             <th>สถานะ</th>
             <th>จัดการ</th>
@@ -172,8 +172,8 @@
 
 <script>
 /* ========= Supabase Config ========= */
-const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co"; // เปลี่ยนได้ถ้าคนละโปรเจกต์
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA"; // anon key
+const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true }
 });
@@ -186,18 +186,21 @@ let cachedRows = [];    // ทั้งหมด
 let filteredRows = [];  // หลังกรอง
 const selectedIds = new Set();
 
-/* ========= Date Formatter ========= */
-function fmtDate(d){
+/* ========= Date Formatter: แสดงผล "พ.ศ." เสมอ ========= */
+function fmtDateBE(d){
   if(!d) return '-';
   const t = new Date(d);
   if(isNaN(t)) return '-';
-  return t.toLocaleDateString('th-TH', { 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
-  });
+  try{
+    return t.toLocaleDateString('th-TH-u-ca-buddhist', {
+      year:'numeric', month:'long', day:'numeric', timeZone:'Asia/Bangkok'
+    });
+  }catch(e){
+    const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+                    'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+    return `${t.getDate()} ${months[t.getMonth()]} ${t.getFullYear()+543}`;
+  }
 }
-
 function toISO(d){
   if(!d) return '';
   const t = new Date(d);
@@ -219,25 +222,22 @@ function highlightTokens(text, tokens){
   return out + escapeHtml(s.slice(last));
 }
 
-/** สถานะ (ใช้ renewed_until ถ้ามี; ไม่งั้นใช้ expiry_date) */
+/** สถานะ: ถ้ามี renewed_until ให้เป็น "ดำเนินการแล้ว" */
 function classify(expiry, renewed){
   const eff = renewed ? new Date(renewed) : (expiry? new Date(expiry) : null);
+  if(renewed){
+    return {cls:'', badge:`<span class="badge ok">ดำเนินการแล้ว</span>`, order:3, statusText:'ดำเนินการแล้ว'};
+  }
   if(!eff || isNaN(eff)) return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3, statusText:'ปกติ'};
   const diff = Math.ceil((eff - new Date())/86400000);
   if(diff < 0) return {cls:'expired', badge:`<span class="badge expired">หมดอายุ</span>`, order:1, statusText:'หมดอายุ'};
   if(diff <= WARNING_DAYS) return {cls:'warning', badge:`<span class="badge warning">เหลือ ${diff} วัน</span>`, order:2, statusText:`เหลือ ${diff} วัน`};
-  return {cls:'', badge:`<span class="badge ok">${renewed? 'ต่อแล้ว' : 'ปกติ'}</span>`, order:3, statusText: renewed? 'ต่อแล้ว' : 'ปกติ'};
+  return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3, statusText:'ปกติ'};
 }
 function toast(msg, ok=true){
   $('msg').textContent = msg;
   $('msg').style.color = ok ? '#065f46' : '#b91c1c';
   setTimeout(()=>{$('msg').textContent='';}, 4000);
-}
-function genCode(){
-  const letters='ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const digits='23456789';
-  const pick = (set,n)=> Array.from({length:n},()=>set[Math.floor(Math.random()*set.length)]).join('');
-  return `${pick(letters,2)}-${pick(digits,4)}`;
 }
 
 /* ========= ยืนยันด้วยการพิมพ์ ========= */
@@ -261,7 +261,7 @@ async function loadCompanies(){
   sel.innerHTML = `<option value="">— เลือกบริษัท —</option>` + (data||[]).map(c=>`<option value="${c.code}">${c.code}</option>`).join('');
 }
 
-/* ========= Render Table (รองรับแก้ในตาราง) ========= */
+/* ========= Render Table ========= */
 function renderTable(q=''){
   const tb = $('tbody');
   if(!filteredRows.length){
@@ -280,14 +280,20 @@ function renderTable(q=''){
       <td>${highlightTokens(r.company_code||'-', tokens)}</td>
 
       <!-- แก้ได้ด้วยการดับเบิลคลิก -->
-      <td class="editable" data-id="${r.id}" data-field="brand_name">${escapeHtml(r.brand_name||'')}</td>
-      <td class="editable" data-id="${r.id}" data-field="common_label" style="min-width:240px">${escapeHtml(r.common_label||'')}</td>
-      <td class="editable" data-id="${r.id}" data-field="registration_no">${escapeHtml(r.registration_no||'')}</td>
-      <td class="editable" data-id="${r.id}" data-field="license_no">${escapeHtml(r.license_no||'')}</td>
+      <td class="editable" data-id="${r.id}" data-field="brand_name">${highlightTokens(r.brand_name||'', tokens)}</td>
+      <td class="editable" data-id="${r.id}" data-field="common_label" style="min-width:240px">${highlightTokens(r.common_label||'', tokens)}</td>
+      <td class="editable" data-id="${r.id}" data-field="registration_no">${highlightTokens(r.registration_no||'', tokens)}</td>
+      <td class="editable" data-id="${r.id}" data-field="license_no">${highlightTokens(r.license_no||'', tokens)}</td>
+
+      <!-- หมดอายุเดิม (แสดง พ.ศ.) -->
       <td class="editable" data-id="${r.id}" data-field="expiry_date">${r.expiry_date? toISO(r.expiry_date): ''}</td>
 
-      <td>${fmtDate(r.renewed_on || r.renewed_until || null)}</td>
+      <!-- ต่อแล้ววันที่: แสดงเป็น "ดำเนินการแล้ว" แทนวัน -->
+      <td>${r.renewed_until ? 'ดำเนินการแล้ว' : ''}</td>
+
+      <!-- สถานะ: ใช้ badge ตามตรรกะ -->
       <td>${r.badge}</td>
+
       <td style="white-space:nowrap">
         <button class="btn btn-secondary btn-small" onclick="saveRenewal('${r.id}')">ต่ออายุ</button>
         <button class="btn btn-outline btn-small" onclick="clearRenewal('${r.id}')">ล้างต่ออายุ</button>
@@ -412,10 +418,7 @@ async function delDoc(id){
   loadDocs(currentCompany);
 }
 
-/* ========= ตั้ง/เปลี่ยนรหัสลูกค้า (RPC) ========= */
-$('genCodeBtn').addEventListener('click', ()=>{
-  $('cust_code').value = genCode();
-});
+/* ========= ตั้ง/เปลี่ยนรหัสลูกค้า (ไม่มีปุ่มสุ่มแล้ว) ========= */
 $('copyCodeBtn').addEventListener('click', async ()=>{
   const v = $('cust_code').value.trim();
   if(!v) return alert('ยังไม่มีรหัสให้คัดลอก');
@@ -452,47 +455,35 @@ function downloadTemplate(){
   XLSX.writeFile(wb, 'template_products.xlsx');
 }
 
-/* ========= Normalize Date (Excel → ISO, เก็บ ค.ศ. ใน DB) ========= */
-/* แปลง พ.ศ. → ค.ศ. เมื่อปี >= 2400 เพียงครั้งเดียว (กันลบ 543 ซ้ำ) */
+/* แปลงวันที่นำเข้า: รองรับ พ.ศ. → ค.ศ. + รูปแบบไทยยอดนิยม */
 function normalizeDate(v) {
   const pad = n => String(n).padStart(2, "0");
   const toIso = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
   if (!v) return null;
 
-  // ถ้าเป็น Date object
   if (v instanceof Date && !isNaN(v)) {
     return toIso(v.getFullYear(), v.getMonth() + 1, v.getDate());
   }
-
-  // ถ้าเป็น Excel serial number (เช่น 45700)
   if (typeof v === "number" && isFinite(v)) {
     const epoch = new Date(Math.round((v - 25569) * 86400 * 1000));
     return toIso(epoch.getUTCFullYear(), epoch.getUTCMonth() + 1, epoch.getUTCDate());
   }
-
-  // ถ้าเป็น string
   if (typeof v === "string") {
     const s = v.trim();
     if (!s) return null;
 
-    // รูปแบบ YYYY-MM-DD
     let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
     if (m) {
       let y = +m[1], mo = +m[2], d = +m[3];
       if (y >= 2400 && y < 2600) y -= 543; // พ.ศ. → ค.ศ.
       return toIso(y, mo, d);
     }
-
-    // รูปแบบ DD/MM/YYYY หรือ DD-MM-YYYY
     m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
     if (m) {
       let d = +m[1], mo = +m[2], y = +m[3];
       if (y >= 2400 && y < 2600) y -= 543; // พ.ศ. → ค.ศ.
-      // ✅ ตรงนี้คือจุดสำคัญ — สลับตำแหน่งให้ตรงตามที่คนไทยใช้
       return toIso(y, mo, d);
     }
-
-    // yyyymmdd
     m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
     if (m) {
       let y = +m[1], mo = +m[2], d = +m[3];
@@ -500,13 +491,8 @@ function normalizeDate(v) {
       return toIso(y, mo, d);
     }
   }
-
   return null;
 }
-
-  
-
-  
 
 async function importExcel(ev){
   if(!currentCompany) return alert('โปรดเลือกบริษัทก่อน');
@@ -540,7 +526,6 @@ async function importExcel(ev){
       const expiry_date   = normalizeDate(exp);
       const renewed_until = normalizeDate(ren);
 
-      // ถ้ามี "ต่อแล้ววันที่" ใช้ค่านั้น; ถ้าไม่มีแต่มี "ต่อถึง" ให้ประทับเวลาปัจจุบัน
       let renewed_on = null;
       const onDate = normalizeDate(onRaw);
       if (onDate) {
@@ -743,58 +728,6 @@ $('btnDeleteAllCompany').addEventListener('click', async ()=>{
   toast(`ลบข้อมูลทั้งหมดของบริษัท ${currentCompany} เรียบร้อย ✓`);
   loadDocs(currentCompany);
 });
-
-/* ========= แก้ไฮไลต์ในการค้นหาให้กลับมาทำงาน ========= */
-/* ปรับ renderTable() ให้ใช้ highlightTokens กับทุกช่องที่ค้นหาได้ */
-const oldRenderTable = renderTable;
-renderTable = function(q=''){
-  const tb = $('tbody');
-  if(!filteredRows.length){
-    tb.innerHTML = `<tr><td colspan="11" style="color:var(--muted)">ไม่พบรายการที่ตรงกับ “${escapeHtml(q)}”</td></tr>`;
-    $('adminCount').textContent = '';
-    $('chkAllPage').checked = false;
-    $('chkAllVisible').checked = false;
-    return;
-  }
-
-  const tokens = tokenize(q);
-  tb.innerHTML = filteredRows.map((r,i)=>`
-    <tr class="${r.cls}">
-      <td><input type="checkbox" class="rowchk" data-id="${r.id}" ${selectedIds.has(r.id)?'checked':''}></td>
-      <td>${i+1}</td>
-      <td>${highlightTokens(r.company_code||'-', tokens)}</td>
-      <td class="editable" data-id="${r.id}" data-field="brand_name">${highlightTokens(r.brand_name||'', tokens)}</td>
-      <td class="editable" data-id="${r.id}" data-field="common_label">${highlightTokens(r.common_label||'', tokens)}</td>
-      <td class="editable" data-id="${r.id}" data-field="registration_no">${highlightTokens(r.registration_no||'', tokens)}</td>
-      <td class="editable" data-id="${r.id}" data-field="license_no">${highlightTokens(r.license_no||'', tokens)}</td>
-      <td class="editable" data-id="${r.id}" data-field="expiry_date">${r.expiry_date? toISO(r.expiry_date): ''}</td>
-      <td>${fmtDate(r.renewed_on || r.renewed_until || null)}</td>
-      <td>${r.badge}</td>
-      <td style="white-space:nowrap">
-        <button class="btn btn-secondary btn-small" onclick="saveRenewal('${r.id}')">ต่ออายุ</button>
-        <button class="btn btn-outline btn-small" onclick="clearRenewal('${r.id}')">ล้างต่ออายุ</button>
-        <button class="btn btn-danger btn-small" onclick="delDoc('${r.id}')">ลบ</button>
-      </td>
-    </tr>
-  `).join('');
-
-  $('adminCount').textContent =
-    `เลือก ${selectedIds.size.toLocaleString('th-TH')} / แสดง ${filteredRows.length.toLocaleString('th-TH')} / ทั้งหมด ${cachedRows.length.toLocaleString('th-TH')}`;
-
-  const allChecked = filteredRows.length>0 && filteredRows.every(r=>selectedIds.has(r.id));
-  $('chkAllVisible').checked = allChecked;
-
-  document.querySelectorAll('.rowchk').forEach(chk=>{
-    chk.addEventListener('change', (e)=>{
-      const id = e.target.dataset.id;
-      if(e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
-      $('adminCount').textContent =
-        `เลือก ${selectedIds.size.toLocaleString('th-TH')} / แสดง ${filteredRows.length.toLocaleString('th-TH')} / ทั้งหมด ${cachedRows.length.toLocaleString('th-TH')}`;
-      const allNow = filteredRows.length>0 && filteredRows.every(r=>selectedIds.has(r.id));
-      $('chkAllVisible').checked = allNow;
-    });
-  });
-};
 </script>
 </body>
 </html>
