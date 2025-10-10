@@ -31,9 +31,7 @@
   .container{max-width:1100px;margin:20px auto; padding:0 16px 28px;}
   .card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:0 4px 20px rgba(10,30,60,.06); padding:18px; margin-bottom:16px;}
   label{display:block; margin:6px 0 8px; color:var(--muted); font-size:14px;}
-  select, input, button{
-    padding:11px 12px; font-size:15px; border:1px solid var(--border); border-radius:10px; outline:none; background:white;
-  }
+  select, input, button{ padding:11px 12px; font-size:15px; border:1px solid var(--border); border-radius:10px; outline:none; background:white; }
   .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
   .btn{cursor:pointer}
   .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:white; border:none}
@@ -54,8 +52,6 @@
   .spacer{flex:1}
   .note{font-size:12px; color:#64748b}
   mark{background:#fde68a80; padding:0 2px; border-radius:4px}
-
-  /* ===== inline edit ===== */
   td.editable { cursor: text; }
   td.editing { background: #fffbe6; }
 </style>
@@ -78,7 +74,6 @@
         <select id="companySelect" style="min-width:260px"><option value="">— กำลังโหลดบริษัท —</option></select>
         <div class="spacer"></div>
         <input id="cust_code" placeholder="ตั้ง/เปลี่ยนรหัสลูกค้า (เช่น RG-1234)" style="min-width:240px">
-        <!-- ลบปุ่มสุ่มรหัสแล้ว -->
         <button id="setCodeBtn" class="btn btn-primary">ตั้ง/เปลี่ยนรหัสลูกค้า</button>
         <button id="copyCodeBtn" class="btn btn-outline">คัดลอกรหัส</button>
       </div>
@@ -98,10 +93,9 @@
         </label>
       </div>
       <div class="note" style="margin-top:8px">
-        รองรับหัวคอลัมน์: 
-        “ชื่อการค้า / brand_name”, “ชื่อสามัญ/สูตร / common_label”, “ทะเบียน / registration_no”, 
+        หัวคอลัมน์สำหรับนำเข้า: “ชื่อการค้า / brand_name”, “ชื่อสามัญ/สูตร / common_label”, “ทะเบียน / registration_no”, 
         “ใบอนุญาต / license_no”, “หมดอายุเดิม / expiry_date”, “ต่อถึง / renewed_until (ไม่บังคับ)”, “ต่อแล้ววันที่ / renewed_on (ไม่บังคับ)”.<br/>
-        วันที่ใช้รูปแบบ YYYY-MM-DD หรือ Excel date ก็ได้
+        ป้อนเป็น YYYY-MM-DD, วันที่แบบ Excel, หรือ พ.ศ./ค.ศ. ได้ (ระบบจะแปลงอัตโนมัติ)
       </div>
     </div>
 
@@ -119,7 +113,7 @@
       <div class="hint" style="margin-top:8px">* เพิ่มเสร็จจะแสดงในตารางด้านล่างทันที</div>
     </div>
 
-    <!-- ตารางเอกสาร + แถบค้นหา + บัล์คแอ็กชัน -->
+    <!-- ตารางเอกสาร -->
     <div class="card" style="overflow:auto; max-height:70vh">
       <!-- แถบค้นหา -->
       <div class="row" style="margin-bottom:10px">
@@ -132,8 +126,7 @@
       <!-- บัล์คแอ็กชัน -->
       <div class="row" style="margin:6px 0 12px; gap:8px">
         <label style="display:flex;align-items:center;gap:8px">
-          <input type="checkbox" id="chkAllPage">
-          เลือกทั้งหมดในหน้านี้
+          <input type="checkbox" id="chkAllPage"> เลือกทั้งหมดในหน้านี้
         </label>
 
         <button id="btnSelectAllFiltered" class="btn btn-outline btn-small">เลือกทั้งหมด (ผลค้นหา)</button>
@@ -171,22 +164,20 @@
   </div>
 
 <script>
-/* ========= Supabase Config ========= */
+/* ========= Supabase ========= */
 const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true }
-});
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
 
 /* ========= Utils ========= */
 const $ = id => document.getElementById(id);
 const WARNING_DAYS = 90;
 let currentCompany = '';
-let cachedRows = [];    // ทั้งหมด
-let filteredRows = [];  // หลังกรอง
+let cachedRows = [];
+let filteredRows = [];
 const selectedIds = new Set();
 
-/* ========= Date Formatter: แสดงผล "พ.ศ." เสมอ ========= */
+/* ===== แสดงผลเป็น "พ.ศ." ทุกจุด ===== */
 function fmtDateBE(d){
   if(!d) return '-';
   const t = new Date(d);
@@ -196,17 +187,11 @@ function fmtDateBE(d){
       year:'numeric', month:'long', day:'numeric', timeZone:'Asia/Bangkok'
     });
   }catch(e){
-    const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
-                    'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+    const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
     return `${t.getDate()} ${months[t.getMonth()]} ${t.getFullYear()+543}`;
   }
 }
-function toISO(d){
-  if(!d) return '';
-  const t = new Date(d);
-  if(isNaN(t)) return '';
-  return t.toISOString().slice(0,10);
-}
+function toISO(d){ if(!d) return ''; const t=new Date(d); return isNaN(t)?'':t.toISOString().slice(0,10); }
 function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
 function escapeRegExp(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&'); }
 function tokenize(q){ return (q||'').trim().toLowerCase().split(/\s+/).filter(Boolean); }
@@ -222,7 +207,7 @@ function highlightTokens(text, tokens){
   return out + escapeHtml(s.slice(last));
 }
 
-/** สถานะ: ถ้ามี renewed_until ให้เป็น "ดำเนินการแล้ว" */
+/* ===== สถานะ (ต่อแล้ว=ดำเนินการแล้ว / ไม่งั้นคำนวณจากวันหมดอายุเดิม) ===== */
 function classify(expiry, renewed){
   const eff = renewed ? new Date(renewed) : (expiry? new Date(expiry) : null);
   if(renewed){
@@ -234,25 +219,12 @@ function classify(expiry, renewed){
   if(diff <= WARNING_DAYS) return {cls:'warning', badge:`<span class="badge warning">เหลือ ${diff} วัน</span>`, order:2, statusText:`เหลือ ${diff} วัน`};
   return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3, statusText:'ปกติ'};
 }
-function toast(msg, ok=true){
-  $('msg').textContent = msg;
-  $('msg').style.color = ok ? '#065f46' : '#b91c1c';
-  setTimeout(()=>{$('msg').textContent='';}, 4000);
-}
+function toast(msg, ok=true){ $('msg').textContent = msg; $('msg').style.color = ok ? '#065f46' : '#b91c1c'; setTimeout(()=>{$('msg').textContent='';}, 4000); }
 
-/* ========= ยืนยันด้วยการพิมพ์ ========= */
-function requireType(expected, promptText){
-  const v = prompt(promptText);
-  return v && v.trim().toUpperCase() === expected.toUpperCase();
-}
+/* ===== Auth ===== */
+$('signOutBtn').addEventListener('click', async ()=>{ await sb.auth.signOut(); location.href = 'admin_login.html'; });
 
-/* ========= Auth ========= */
-$('signOutBtn').addEventListener('click', async ()=>{
-  await sb.auth.signOut();
-  location.href = 'admin_login.html';
-});
-
-/* ========= Companies ========= */
+/* ===== Companies ===== */
 async function loadCompanies(){
   const sel = $('companySelect');
   sel.innerHTML = `<option value="">— กำลังโหลดบริษัท —</option>`;
@@ -261,7 +233,7 @@ async function loadCompanies(){
   sel.innerHTML = `<option value="">— เลือกบริษัท —</option>` + (data||[]).map(c=>`<option value="${c.code}">${c.code}</option>`).join('');
 }
 
-/* ========= Render Table ========= */
+/* ===== Render Table (แสดง พ.ศ. + เก็บ ISO ใน data-raw สำหรับแก้ไข) ===== */
 function renderTable(q=''){
   const tb = $('tbody');
   if(!filteredRows.length){
@@ -279,19 +251,19 @@ function renderTable(q=''){
       <td>${i+1}</td>
       <td>${highlightTokens(r.company_code||'-', tokens)}</td>
 
-      <!-- แก้ได้ด้วยการดับเบิลคลิก -->
       <td class="editable" data-id="${r.id}" data-field="brand_name">${highlightTokens(r.brand_name||'', tokens)}</td>
       <td class="editable" data-id="${r.id}" data-field="common_label" style="min-width:240px">${highlightTokens(r.common_label||'', tokens)}</td>
       <td class="editable" data-id="${r.id}" data-field="registration_no">${highlightTokens(r.registration_no||'', tokens)}</td>
       <td class="editable" data-id="${r.id}" data-field="license_no">${highlightTokens(r.license_no||'', tokens)}</td>
 
-      <!-- หมดอายุเดิม (แสดง พ.ศ.) -->
-      <td class="editable" data-id="${r.id}" data-field="expiry_date">${r.expiry_date? toISO(r.expiry_date): ''}</td>
+      <!-- แสดงผลเป็น พ.ศ. แต่พก ISO ไว้ใน data-raw -->
+      <td class="editable" data-id="${r.id}" data-field="expiry_date" data-raw="${r.expiry_date ? toISO(r.expiry_date) : ''}">
+        ${r.expiry_date ? fmtDateBE(r.expiry_date) : ''}
+      </td>
 
-      <!-- ต่อแล้ววันที่: แสดงเป็น "ดำเนินการแล้ว" แทนวัน -->
+      <!-- ต่อแล้ววันที่: แสดงคำว่า "ดำเนินการแล้ว" -->
       <td>${r.renewed_until ? 'ดำเนินการแล้ว' : ''}</td>
 
-      <!-- สถานะ: ใช้ badge ตามตรรกะ -->
       <td>${r.badge}</td>
 
       <td style="white-space:nowrap">
@@ -320,7 +292,7 @@ function renderTable(q=''){
   });
 }
 
-/* ========= Search/Filter ========= */
+/* ===== Filter ===== */
 function applyAdminFilter(){
   const q = $('adminSearch').value || '';
   const tokens = tokenize(q);
@@ -341,7 +313,7 @@ function applyAdminFilter(){
   renderTable(q);
 }
 
-/* ========= Load docs ========= */
+/* ===== Load docs ===== */
 async function loadDocs(code){
   currentCompany = code;
   selectedIds.clear();
@@ -366,7 +338,7 @@ async function loadDocs(code){
   renderTable($('adminSearch').value || '');
 }
 
-/* ========= Add / Update / Delete single ========= */
+/* ===== Add / Update / Delete single ===== */
 $('addForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   if(!currentCompany) return alert('โปรดเลือกบริษัทก่อนเพิ่มข้อมูล');
@@ -377,7 +349,7 @@ $('addForm').addEventListener('submit', async (e)=>{
     common_label: $('common_label').value.trim(),
     registration_no: $('registration_no').value.trim() || null,
     license_no: $('license_no').value.trim() || null,
-    expiry_date: $('expiry_date').value || null
+    expiry_date: $('expiry_date').value || null   // ค.ศ. (ISO) เข้า DB
   };
   if(!payload.brand_name || !payload.common_label) return alert('กรอก "ชื่อการค้า" และ "ชื่อสามัญ/สูตร" ให้ครบ');
 
@@ -418,7 +390,7 @@ async function delDoc(id){
   loadDocs(currentCompany);
 }
 
-/* ========= ตั้ง/เปลี่ยนรหัสลูกค้า (ไม่มีปุ่มสุ่มแล้ว) ========= */
+/* ===== ตั้ง/เปลี่ยนรหัสลูกค้า ===== */
 $('copyCodeBtn').addEventListener('click', async ()=>{
   const v = $('cust_code').value.trim();
   if(!v) return alert('ยังไม่มีรหัสให้คัดลอก');
@@ -438,7 +410,7 @@ $('setCodeBtn').addEventListener('click', async ()=>{
   toast(`ตั้ง/เปลี่ยนรหัสลูกค้าสำหรับ "${currentCompany}" เรียบร้อย ✓`);
 });
 
-/* ========= Excel ========= */
+/* ===== Excel: เทมเพลต (สำหรับนำเข้า — ใช้ YYYY-MM-DD จะชัวร์สุด) ===== */
 $('tplBtn').addEventListener('click', downloadTemplate);
 $('impBtn').addEventListener('click', ()=> $('excelFile').click());
 $('expBtn').addEventListener('click', exportExcel);
@@ -455,49 +427,58 @@ function downloadTemplate(){
   XLSX.writeFile(wb, 'template_products.xlsx');
 }
 
-/* แปลงวันที่นำเข้า: รองรับ พ.ศ. → ค.ศ. + รูปแบบไทยยอดนิยม */
+/* ===== แปลงค่าวันที่ตอนนำเข้า: รองรับ พ.ศ./ค.ศ., เลขไทย, และ Excel serial ===== */
 function normalizeDate(v) {
   const pad = n => String(n).padStart(2, "0");
   const toIso = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
-  if (!v) return null;
+  const isValidYMD = (y, m, d) => {
+    if (!y || !m || !d) return false;
+    const t = new Date(Date.UTC(y, m - 1, d));
+    return t.getUTCFullYear() === y && (t.getUTCMonth() + 1) === m && t.getUTCDate() === d;
+  };
+  if (v == null || v === '') return null;
 
   if (v instanceof Date && !isNaN(v)) {
-    return toIso(v.getFullYear(), v.getMonth() + 1, v.getDate());
+    const y = v.getFullYear(), m = v.getMonth() + 1, d = v.getDate();
+    return isValidYMD(y,m,d) ? toIso(y,m,d) : null;
   }
   if (typeof v === "number" && isFinite(v)) {
     const epoch = new Date(Math.round((v - 25569) * 86400 * 1000));
-    return toIso(epoch.getUTCFullYear(), epoch.getUTCMonth() + 1, epoch.getUTCDate());
+    const y = epoch.getUTCFullYear(), m = epoch.getUTCMonth() + 1, d = epoch.getUTCDate();
+    return isValidYMD(y,m,d) ? toIso(y,m,d) : null;
   }
   if (typeof v === "string") {
-    const s = v.trim();
+    const th = '๐๑๒๓๔๕๖๗๘๙';
+    let s = v.trim()
+      .replace(/[๐-๙]/g, d => th.indexOf(d))
+      .replace(/[\.]/g, '/')
+      .replace(/\s+/g, '');
     if (!s) return null;
 
+    const normYear = (yy) => {
+      let y = +yy;
+      if (y >= 2400 && y < 2600) y -= 543;              // พ.ศ. → ค.ศ.
+      else if (y < 100) y += (y >= 70 ? 1900 : 2000);   // ปี 2 หลัก
+      return y;
+    };
+
     let m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
-    if (m) {
-      let y = +m[1], mo = +m[2], d = +m[3];
-      if (y >= 2400 && y < 2600) y -= 543; // พ.ศ. → ค.ศ.
-      return toIso(y, mo, d);
-    }
-    m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
-    if (m) {
-      let d = +m[1], mo = +m[2], y = +m[3];
-      if (y >= 2400 && y < 2600) y -= 543; // พ.ศ. → ค.ศ.
-      return toIso(y, mo, d);
-    }
+    if (m) { let y = normYear(m[1]), mo = +m[2], d = +m[3]; return isValidYMD(y,mo,d) ? toIso(y,mo,d) : null; }
+
+    m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+    if (m) { let d = +m[1], mo = +m[2], y = normYear(m[3]); return isValidYMD(y,mo,d) ? toIso(y,mo,d) : null; }
+
     m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
-    if (m) {
-      let y = +m[1], mo = +m[2], d = +m[3];
-      if (y >= 2400 && y < 2600) y -= 543;
-      return toIso(y, mo, d);
-    }
+    if (m) { let y = normYear(m[1]), mo = +m[2], d = +m[3]; return isValidYMD(y,mo,d) ? toIso(y,mo,d) : null; }
   }
   return null;
 }
 
+/* ===== นำเข้า Excel (เก็บเป็นค.ศ.ใน DB แต่แสดงเป็น พ.ศ.) ===== */
 async function importExcel(ev){
   if(!currentCompany) return alert('โปรดเลือกบริษัทก่อน');
   const file = ev.target.files?.[0];
-  ev.target.value = ''; // reset
+  ev.target.value = '';
   if(!file) return;
 
   try{
@@ -569,11 +550,12 @@ async function importExcel(ev){
   }
 }
 
+/* ===== ส่งออก Excel (พ.ศ.ล้วน) ===== */
 function exportExcel(){
   if(!currentCompany) return alert('โปรดเลือกบริษัทก่อน');
   const rows = cachedRows || [];
   const aoa = [
-    ['บริษัท','ชื่อการค้า','ชื่อสามัญ/สูตร','ทะเบียน','ใบอนุญาต','หมดอายุเดิม (YYYY-MM-DD)','ต่อถึง (YYYY-MM-DD)','ต่อแล้ววันที่ (YYYY-MM-DD)','สถานะ']
+    ['บริษัท','ชื่อการค้า','ชื่อสามัญ/สูตร','ทะเบียน','ใบอนุญาต','หมดอายุเดิม (พ.ศ.)','ต่อถึง (พ.ศ.)','ต่อแล้ววันที่ (พ.ศ.)','สถานะ']
   ];
   rows.forEach(r=>{
     aoa.push([
@@ -582,9 +564,9 @@ function exportExcel(){
       r.common_label || '',
       r.registration_no || '',
       r.license_no || '',
-      r.expiry_date ? toISO(r.expiry_date) : '',
-      r.renewed_until ? toISO(r.renewed_until) : '',
-      r.renewed_on ? toISO(r.renewed_on) : '',
+      r.expiry_date ? fmtDateBE(r.expiry_date) : '',
+      r.renewed_until ? fmtDateBE(r.renewed_until) : '',
+      r.renewed_on ? fmtDateBE(r.renewed_on) : '',
       r.statusText || ''
     ]);
   });
@@ -594,7 +576,7 @@ function exportExcel(){
   XLSX.writeFile(wb, `products_${currentCompany.replace(/[\\/:*?"<>|]/g,'_')}.xlsx`);
 }
 
-/* ========= Inline Edit Handler ========= */
+/* ===== Inline Edit: ใช้ค่า ISO จาก data-raw เวลาแก้ไข ===== */
 (function initInlineEdit(){
   const tb = $('tbody');
 
@@ -612,7 +594,8 @@ function exportExcel(){
     let input = document.createElement('input');
     if(field === 'expiry_date'){
       input.type = 'date';
-      input.value = (oldText||'').trim(); // แสดง YYYY-MM-DD
+      const raw = td.getAttribute('data-raw') || '';
+      input.value = raw.trim(); // ใช้ ISO เดิม
     }else{
       input.type = 'text';
       input.value = oldText;
@@ -630,7 +613,9 @@ function exportExcel(){
       td.classList.remove('editing');
 
       if(!commit){
-        td.textContent = oldText;
+        td.innerHTML = field==='expiry_date'
+          ? (td.getAttribute('data-raw') ? fmtDateBE(td.getAttribute('data-raw')) : '')
+          : oldText;
         return;
       }
 
@@ -647,13 +632,8 @@ function exportExcel(){
       }else if(field === 'expiry_date'){
         const raw = val.trim();
         if(raw){
-          const normalized = normalizeDate(raw);
-          if(!normalized){
-            td.textContent = oldText;
-            alert('รูปแบบวันที่ไม่ถูกต้อง (ควรเป็น YYYY-MM-DD หรือค่าที่ parse ได้)');
-            return;
-          }
-          payload[field] = normalized;
+          // raw เป็น YYYY-MM-DD -> เก็บค.ศ.ใน DB
+          payload[field] = raw;
         }else{
           payload[field] = null;
         }
@@ -687,23 +667,20 @@ function exportExcel(){
   });
 })();
 
-/* ========= Events ========= */
+/* ===== Events ===== */
 $('companySelect').addEventListener('change', e=> e.target.value && loadDocs(e.target.value));
 $('adminSearch').addEventListener('input', applyAdminFilter);
 $('adminClearBtn').addEventListener('click', ()=>{ $('adminSearch').value=''; applyAdminFilter(); });
 
-/* ========= Start ========= */
+/* ===== Start ===== */
 document.addEventListener('DOMContentLoaded', async ()=>{
   const { data: { session }, error } = await sb.auth.getSession();
   if (error) console.error('getSession error:', error);
-  if (!session) {
-    location.href = 'admin_login.html';
-    return;
-  }
+  if (!session) { location.href = 'admin_login.html'; return; }
   loadCompanies();
 });
 
-/* ========= ลบหลายรายการ (Bulk Delete) ========= */
+/* ===== Bulk Delete ===== */
 $('btnDeleteSel').addEventListener('click', async ()=>{
   if (selectedIds.size === 0) return alert('กรุณาเลือกรายการก่อน');
   if (!confirm(`ต้องการลบ ${selectedIds.size} รายการที่เลือกหรือไม่?`)) return;
@@ -717,7 +694,7 @@ $('btnDeleteSel').addEventListener('click', async ()=>{
   loadDocs(currentCompany);
 });
 
-/* ========= ลบทั้งหมดของบริษัทนี้ ========= */
+/* ===== Delete All by Company ===== */
 $('btnDeleteAllCompany').addEventListener('click', async ()=>{
   if (!currentCompany) return alert('กรุณาเลือกบริษัทก่อน');
   if (!confirm(`⚠️ ต้องการลบเอกสารทั้งหมดของบริษัท ${currentCompany} ใช่หรือไม่?`)) return;
