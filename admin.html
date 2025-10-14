@@ -362,18 +362,36 @@ $('addForm').addEventListener('submit', async (e)=>{
 });
 
 async function saveRenewal(id){
-  const to = prompt('กรุณาใส่วันที่ "ต่อถึง" (รูปแบบ YYYY-MM-DD):');
-  if(!to) return;
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(to)) return alert('รูปแบบวันที่ไม่ถูกต้อง ควรเป็น YYYY-MM-DD');
+  // เลือกสถานะ
+  const status = prompt(
+    'เลือกสถานะการดำเนินการ:\n\n1 = ดำเนินการแล้ว\n2 = อยู่ระหว่างดำเนินการ\n3 = ไม่ต่ออายุแล้ว\n\nกรอกหมายเลขที่ต้องการ:'
+  );
+  if(!status) return;
 
-  const {error} = await sb.from('product_registrations')
-    .update({ renewed_until: to, renewed_on: new Date().toISOString() })
+  let renewed_status = '';
+  if(status === '1') renewed_status = 'ดำเนินการแล้ว';
+  else if(status === '2') renewed_status = 'อยู่ระหว่างดำเนินการ';
+  else if(status === '3') renewed_status = 'ไม่ต่ออายุแล้ว';
+  else return alert('กรุณาเลือกเฉพาะหมายเลข 1, 2 หรือ 3');
+
+  // ใส่หมายเหตุเพิ่มเติม
+  const renewed_note = prompt('เพิ่มหมายเหตุเพิ่มเติม (ถ้ามี):') || '';
+
+  // อัปเดต Supabase
+  const { error } = await sb
+    .from('product_registrations')
+    .update({
+      renewed_status,
+      renewed_note,
+      renewed_on: new Date().toISOString()
+    })
     .eq('id', id);
 
-  if(error) return alert(error.message);
-  toast('บันทึกการต่ออายุแล้ว ✓');
+  if (error) return alert(error.message);
+  toast(`บันทึกสถานะ "${renewed_status}" แล้ว ✓`);
   loadDocs(currentCompany);
 }
+
 
 async function clearRenewal(id){
   if(!confirm('ล้างข้อมูลการต่ออายุของรายการนี้?')) return;
