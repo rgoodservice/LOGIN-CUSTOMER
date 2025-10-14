@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>สรุปสถานะ (แยก 4 บล็อก) — R.Good Service</title>
+<title>สรุปสถานะ (แท็บ 4 ช่อง) — R.Good Service</title>
 
 <!-- Supabase UMD (รองรับมือถือ/อินแอป) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -11,19 +11,20 @@
 
 <style>
   :root{
-    --bg:#f6fbff; --card:#ffffff; --border:#e6eef5; --ink:#0f172a; --mut:#475569;
+    --bg:#f6fbff; --card:#ffffff; --border:#e6eef5; --ink:#0f172a; --mut:#64748b;
     --accent:#0ea5a5; --accent2:#60a5fa; --radius:16px;
-    --ok:#065f46;   --okbg:#ecfdf5;
-    --warn:#b45309; --warnbg:#fff7ed;
-    --exp:#b91c1c;  --expbg:#fff1f2;
-    --note:#334155;
+    --ok:#0b7a58;   --okbg:#e9fbf3;
+    --warn:#b45309; --warnbg:#fff3e6;
+    --exp:#b91c1c;  --expbg:#ffecec;
+    --pill:#0ea5a51a; --pill-b:#94d5e5;
   }
   *{box-sizing:border-box}
   body{
-    margin:0; font-family:"Prompt",ui-sans-serif,system-ui; color:var(--ink); background:
-    radial-gradient(1000px 500px at 10% -10%, #e6f7ff 0%, transparent 60%),
-    radial-gradient(900px 450px at 110% 0%, #e8fff6 0%, transparent 60%),
-    #f6fbff;
+    margin:0; font-family:"Prompt",ui-sans-serif,system-ui;
+    color:var(--ink); background:
+      radial-gradient(1000px 500px at 10% -10%, #e6f7ff 0%, transparent 60%),
+      radial-gradient(900px 450px at 110% 0%, #e8fff6 0%, transparent 60%),
+      #f6fbff;
   }
   header{
     padding:18px; background:linear-gradient(135deg,#e0f7f5,#f0fdfa);
@@ -35,101 +36,117 @@
     background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
     padding:18px; margin-bottom:14px; box-shadow:0 6px 22px rgba(10,30,60,.06)
   }
-  h2{margin:0 0 10px; font-size:22px; color:#0b3a4f}
-  .mut{color:var(--mut); font-size:16px}
+  h2{margin:0 0 10px; font-size:20px; color:#0b3a4f}
+  .mut{color:var(--mut)}
   .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
   .spacer{flex:1}
   input, button{
-    padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:#fff;
+    padding:12px; border-radius:12px; border:1px solid var(--border); background:#fff;
     font-size:18px; color:var(--ink)
   }
   .btn{cursor:pointer; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-weight:700; border:none}
-  .btn-ghost{background:#fff; color:#0e7490; border:1px solid #94d5e5; font-weight:700}
+  .btn-ghost{background:#fff; color:#0e7490; border:1px solid #94d5e5}
+  .pill{
+    padding:10px 16px; border-radius:999px; border:1px solid var(--pill-b); background:var(--pill);
+    cursor:pointer; font-weight:700; font-size:18px;
+  }
+  .pill.active{ background:linear-gradient(135deg,#eaf7ff,#f0fdfa); border-color:#9bd5e9 }
+  .pill .count{margin-left:8px; font-weight:700; color:#0ea5a5}
+
+  /* แถบหัวข้อบล็อก (accordion) */
+  .blk-head{
+    width:100%; text-align:left; background:#fff; border:1px solid var(--border);
+    border-radius:12px; padding:14px 16px; font-size:18px; font-weight:700;
+    display:flex; align-items:center; justify-content:space-between; cursor:pointer;
+  }
+  .blk-head .hint{font-weight:600; color:#0ea5a5}
+  .blk-body{padding:10px 0 2px}
 
   /* การ์ดรายการ */
-  .list-title{font-size:20px; font-weight:700; margin-bottom:8px; color:#0b3a4f}
   .item{
     border:1px solid var(--border); border-radius:14px; padding:16px; margin:12px 0;
     background:#fff; box-shadow:0 3px 14px rgba(10,30,60,.05)
   }
-  .item h3{margin:0 0 6px; font-size:22px}
-  .sub{color:#334155; font-size:18px; margin-bottom:10px}
-  .grid{display:grid; grid-template-columns: 1fr 1fr; gap:10px 16px; margin-top:6px}
-  .kv{font-size:17px}
+  .item h3{margin:0 0 8px; font-size:22px}
+  .sub{color:#475569; font-size:18px; margin-bottom:10px}
+  .grid{display:grid; grid-template-columns: 1fr 1fr; gap:10px 16px}
+  .kv{font-size:18px}
   .kv b{display:inline-block; min-width:120px; color:#334155}
-  .badge{padding:8px 14px; border-radius:999px; font-weight:800; display:inline-block; font-size:18px}
-  .ok{ color:var(--ok);   background:var(--okbg);   border:1px solid #a7f3d090; }
-  .warn{color:var(--warn); background:var(--warnbg); border:1px solid #fde68a80;}
-  .exp{ color:var(--exp);  background:var(--expbg);  border:1px solid #fecaca90;}
-  .note{color:var(--note); background:#f8fafc; border:1px dashed #cbd5e1; padding:12px; border-radius:12px; font-size:17px; white-space:pre-wrap}
+  .badge{padding:8px 14px; border-radius:999px; font-weight:700; display:inline-block; font-size:18px}
+  .ok{   color:var(--ok);   background:var(--okbg);   border:1px solid #b6f0d0; }
+  .warn{ color:var(--warn); background:var(--warnbg); border:1px solid #ffd7a6; }
+  .exp{  color:var(--exp);  background:var(--expbg);  border:1px solid #ffc0c0; }
+  .note{ color:#334155; background:#f8fafc; border:1px dashed #cbd5e1; padding:12px; border-radius:10px; font-size:18px; white-space:pre-wrap}
 
+  .tab-wrap{display:flex; gap:10px; flex-wrap:wrap; margin:12px 0 4px}
   .empty{color:var(--mut); font-size:18px; padding:14px}
 
-  /* หัวข้อแต่ละบล็อกให้มีสีขอบต่างกันชัดๆ */
-  .blk-near{ border-left:6px solid #f59e0b40; }
-  .blk-inprog{ border-left:6px solid #f59e0b; }
-  .blk-stopped{ border-left:6px solid #ef4444; }
-  .blk-done{ border-left:6px solid #10b981; }
-
   @media (max-width:640px){
-    input,button{font-size:18px}
+    input,button,.pill{font-size:18px}
     .grid{grid-template-columns: 1fr}
-    .item h3{font-size:20px}
+    .item h3{font-size:22px}
   }
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">🗂️ สรุปสถานะ (แยก 4 บล็อก)</div>
+  <div class="logo">🗂️ สรุปสถานะ (แท็บ 4 ช่อง)</div>
   <div class="spacer"></div>
   <button class="btn-ghost" onclick="history.length>1?history.back():window.close()">ย้อนกลับ</button>
 </header>
 
 <main class="wrap">
-  <!-- ส่วนค้นหา/ข้อมูลบริษัท -->
   <div class="card">
     <h2>ข้อมูลบริษัท</h2>
     <div id="companyName" class="mut" style="margin-bottom:10px">—</div>
 
-    <div class="row">
+    <div class="row" style="margin-bottom:10px">
       <input id="q" placeholder="ค้นหา: ชื่อการค้า / ชื่อสามัญ" style="min-width:260px">
       <button id="clearBtn" class="btn-ghost">ล้าง</button>
       <div class="spacer"></div>
       <button id="refreshBtn" class="btn">รีเฟรช</button>
     </div>
 
-    <div class="row" style="margin-top:12px;gap:12px">
-      <div class="btn-ghost" style="cursor:default">ใกล้/หมดอายุ: <b id="cnt-near">0</b></div>
-      <div class="btn-ghost" style="cursor:default">อยู่ระหว่างดำเนินการ: <b id="cnt-inprog">0</b></div>
-      <div class="btn-ghost" style="cursor:default">ไม่ต่ออายุแล้ว: <b id="cnt-stopped">0</b></div>
-      <div class="btn-ghost" style="cursor:default">ดำเนินการแล้ว: <b id="cnt-done">0</b></div>
-      <div class="spacer"></div>
-      <div class="mut" id="count">—</div>
+    <div class="tab-wrap">
+      <button class="pill active" data-tab="near"><span>ใกล้/หมดอายุ</span> <span class="count" id="cnt-near">0</span></button>
+      <button class="pill" data-tab="inprog"><span>อยู่ระหว่างดำเนินการ</span> <span class="count" id="cnt-inprog">0</span></button>
+      <button class="pill" data-tab="stopped"><span>ไม่ต่ออายุแล้ว</span> <span class="count" id="cnt-stopped">0</span></button>
+      <button class="pill" data-tab="done"><span>ดำเนินการแล้ว</span> <span class="count" id="cnt-done">0</span></button>
     </div>
+
+    <div id="count" class="mut">—</div>
   </div>
 
-  <!-- บล็อก 1: ใกล้/หมดอายุ -->
-  <div class="card blk-near">
-    <div class="list-title">ใกล้หมดอายุ / หมดอายุ</div>
-    <div id="list-near" class="list"></div>
+  <!-- ใกล้/หมดอายุ -->
+  <div class="card tab" id="tab-near">
+    <button class="blk-head" data-collapse="near">
+      ใกล้หมดอายุ / หมดอายุ <span class="hint" id="h-near">(แสดง)</span>
+    </button>
+    <div class="blk-body" id="list-near"></div>
   </div>
 
-  <!-- บล็อก 2: อยู่ระหว่างดำเนินการ -->
-  <div class="card blk-inprog">
-    <div class="list-title">อยู่ระหว่างดำเนินการ</div>
-    <div id="list-inprog" class="list"></div>
+  <!-- อยู่ระหว่างดำเนินการ -->
+  <div class="card tab" id="tab-inprog" style="display:none">
+    <button class="blk-head" data-collapse="inprog">
+      อยู่ระหว่างดำเนินการ <span class="hint" id="h-inprog">(แสดง)</span>
+    </button>
+    <div class="blk-body" id="list-inprog"></div>
   </div>
 
-  <!-- บล็อก 3: ไม่ต่ออายุแล้ว -->
-  <div class="card blk-stopped">
-    <div class="list-title">ไม่ต่ออายุแล้ว</div>
-    <div id="list-stopped" class="list"></div>
+  <!-- ไม่ต่ออายุแล้ว -->
+  <div class="card tab" id="tab-stopped" style="display:none">
+    <button class="blk-head" data-collapse="stopped">
+      ไม่ต่ออายุแล้ว <span class="hint" id="h-stopped">(แสดง)</span>
+    </button>
+    <div class="blk-body" id="list-stopped"></div>
   </div>
 
-  <!-- บล็อก 4: ดำเนินการแล้ว -->
-  <div class="card blk-done">
-    <div class="list-title">ดำเนินการแล้ว</div>
-    <div id="list-done" class="list"></div>
+  <!-- ดำเนินการแล้ว -->
+  <div class="card tab" id="tab-done" style="display:none">
+    <button class="blk-head" data-collapse="done">
+      ดำเนินการแล้ว <span class="hint" id="h-done">(แสดง)</span>
+    </button>
+    <div class="blk-body" id="list-done"></div>
   </div>
 </main>
 
@@ -154,12 +171,11 @@ function fmtDateBE(d){
 }
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
-/* ===== Data State ===== */
-let FULL = [];
+let FULL = []; // ข้อมูลบริษัทเดียวจาก RPC
 let FILTER_Q = '';
 let GROUPS = { near:[], inprog:[], stopped:[], done:[] };
 
-/* ===== Badge logic (ไม่มี “วันที่อัปเดต” แล้ว) ===== */
+/* ===== ป้ายสถานะ ===== */
 function computeBadge(row){
   if (row.renewed_status === 'อยู่ระหว่างดำเนินการ') return `<span class="badge warn">อยู่ระหว่างดำเนินการ</span>`;
   if (row.renewed_status === 'ไม่ต่ออายุแล้ว')     return `<span class="badge exp">ไม่ต่ออายุแล้ว</span>`;
@@ -172,8 +188,9 @@ function computeBadge(row){
   return `<span class="badge ok">ปกติ</span>`;
 }
 
-/* ===== กลุ่ม “ใกล้/หมดอายุ” ต้องไม่ทับกับสถานะอื่น ===== */
+/* ===== จัดกลุ่มตามแท็บ ===== */
 function inNearBucket(row){
+  // ไม่อยู่ 3 หมวดหลัก และใกล้ครบ/หมดอายุ
   if (row.renewed_status === 'อยู่ระหว่างดำเนินการ' ||
       row.renewed_status === 'ไม่ต่ออายุแล้ว' ||
       row.renewed_status === 'ดำเนินการแล้ว' ||
@@ -183,7 +200,6 @@ function inNearBucket(row){
   return (diff <= WARNING_DAYS);
 }
 
-/* ===== Filter + Group ===== */
 function applyFilterAndGroup(){
   const q = FILTER_Q.toLowerCase();
   const rows = FULL.filter(r=>{
@@ -206,7 +222,7 @@ function applyFilterAndGroup(){
   $('count').textContent = `ผลการค้นหา "${FILTER_Q || '—'}" รวม ${total.toLocaleString('th-TH')} รายการ`;
 }
 
-/* ===== วาดแต่ละบล็อก (ไม่ปนกัน) ===== */
+/* ===== วาดรายการการ์ด ===== */
 function renderList(listId, rows){
   const box = $(listId);
   if(rows.length === 0){
@@ -234,7 +250,7 @@ function renderList(listId, rows){
   }).join('');
 }
 
-/* ===== โหลดข้อมูลจากรหัสลูกค้า ===== */
+/* ===== โหลดข้อมูล ===== */
 async function loadData(){
   const params = new URLSearchParams(location.search);
   const code = (params.get('code')||'').trim().toUpperCase();
@@ -243,17 +259,22 @@ async function loadData(){
     return;
   }
 
+  // ชื่อบริษัท
   const nameRes = await sb.rpc('get_company_name_by_code', { p_plain_code: code });
   $('companyName').textContent = nameRes.data ? `บริษัท: ${nameRes.data} (รหัสลูกค้า: ${code})` : `รหัสลูกค้า: ${code}`;
 
+  // รายการทั้งหมดของบริษัท (ฝั่งลูกค้า)
   const res = await sb.rpc('get_company_portal', { p_plain_code: code });
   if(res.error){
     $('companyName').textContent += ` — โหลดข้อมูลผิดพลาด: ${res.error.message}`;
     return;
   }
 
-  // เผื่อข้อมูลเก่า: ถ้ามี renewed_until แต่ยังไม่มี renewed_status ให้ถือว่า "ดำเนินการแล้ว"
-  FULL = (res.data||[]).map(x=>({ ...x, renewed_status: x.renewed_status || (x.renewed_until ? 'ดำเนินการแล้ว' : null) }));
+  // map ให้มี renewed_status ถ้าเคยต่อแล้ว (รองรับข้อมูลชุดเก่า)
+  FULL = (res.data||[]).map(x=>({
+    ...x,
+    renewed_status: x.renewed_status || (x.renewed_until ? 'ดำเนินการแล้ว' : null)
+  }));
 
   applyFilterAndGroup();
   renderList('list-near',    GROUPS.near);
@@ -262,10 +283,44 @@ async function loadData(){
   renderList('list-done',    GROUPS.done);
 }
 
+/* ===== Tabs ===== */
+function switchTab(key){
+  document.querySelectorAll('.pill').forEach(el=>{
+    el.classList.toggle('active', el.dataset.tab === key);
+  });
+  document.querySelectorAll('.tab').forEach(el=> el.style.display='none');
+  document.getElementById('tab-'+key).style.display='block';
+  // เปิดบล็อกของแท็บนั้นไว้เสมอ
+  const body = document.querySelector('#tab-'+key+' .blk-body');
+  const hint = document.querySelector('#h-'+key);
+  body.style.display = 'block';
+  hint.textContent = '(แสดง)';
+}
+
+/* ===== Collapse (บล็อก) ===== */
+function toggleBlock(key){
+  const body = document.querySelector('#list-'+key).parentElement.querySelector('.blk-body');
+  const hint = document.getElementById('h-'+key);
+  const shown = body.style.display !== 'none';
+  body.style.display = shown ? 'none' : 'block';
+  hint.textContent = shown ? '(ซ่อน)' : '(แสดง)';
+}
+
 /* ===== Events ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
   loadData();
 
+  // tabs
+  document.querySelectorAll('.pill').forEach(btn=>{
+    btn.addEventListener('click', ()=> switchTab(btn.dataset.tab));
+  });
+
+  // collapse
+  document.querySelectorAll('.blk-head').forEach(btn=>{
+    btn.addEventListener('click', ()=> toggleBlock(btn.dataset.collapse));
+  });
+
+  // search
   $('q').addEventListener('input', ()=>{
     FILTER_Q = $('q').value.trim();
     applyFilterAndGroup();
@@ -274,7 +329,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     renderList('list-stopped', GROUPS.stopped);
     renderList('list-done',    GROUPS.done);
   });
-
   $('clearBtn').addEventListener('click', ()=>{
     $('q').value=''; FILTER_Q='';
     applyFilterAndGroup();
