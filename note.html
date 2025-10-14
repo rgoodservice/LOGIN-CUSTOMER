@@ -18,7 +18,13 @@
     --accent:#0ea5a5;
     --warn:#b45309;
     --danger:#b91c1c;
+    --ok:#047857;
     --radius:14px;
+
+    /* สีพื้นหลังสถานะแยกกัน */
+    --bg-inprog:#fff8e1;  /* เหลืองอ่อน */
+    --bg-done:#ecfdf5;    /* เขียวอ่อน */
+    --bg-stop:#ffecec;    /* แดงอ่อน */
   }
   *{box-sizing:border-box;}
   body{
@@ -53,11 +59,14 @@
   table{width:100%;border-collapse:collapse;font-size:15px;}
   th,td{padding:10px;border-bottom:1px solid var(--border);vertical-align:top;}
   th{background:#f1f5f9;text-align:left;}
+  tr[data-status="อยู่ระหว่างดำเนินการ"]{background:var(--bg-inprog);}
+  tr[data-status="ดำเนินการแล้ว"]{background:var(--bg-done);}
+  tr[data-status="ไม่ต่ออายุแล้ว"]{background:var(--bg-stop);}
   .note{color:var(--muted);font-size:13px;}
   .status{font-weight:600;padding:4px 8px;border-radius:8px;display:inline-block;}
   .status[data-status="อยู่ระหว่างดำเนินการ"]{background:#fff7ed;color:var(--warn);}
   .status[data-status="ไม่ต่ออายุแล้ว"]{background:#fef2f2;color:var(--danger);}
-  .status[data-status="ดำเนินการแล้ว"]{background:#ecfdf5;color:#047857;}
+  .status[data-status="ดำเนินการแล้ว"]{background:#ecfdf5;color:var(--ok);}
   .filter-bar{
     display:flex;
     gap:10px;
@@ -88,7 +97,9 @@
         <label for="statusFilter">แสดงเฉพาะ:</label>
         <select id="statusFilter">
           <option value="ทั้งหมด">ทั้งหมด</option>
-          <option value="อยู่ระหว่างดำเนินการ">อยู่ระหว่างดำเนินการ</option>
+          <option value="ดำเนินการรวม">ดำเนินการแล้ว + อยู่ระหว่างดำเนินการ</option>
+          <option value="อยู่ระหว่างดำเนินการ">เฉพาะอยู่ระหว่างดำเนินการ</option>
+          <option value="ดำเนินการแล้ว">เฉพาะดำเนินการแล้ว</option>
           <option value="ไม่ต่ออายุแล้ว">ไม่ต่ออายุแล้ว</option>
         </select>
       </div>
@@ -139,7 +150,7 @@ async function loadNotes(){
     .from('product_registrations')
     .select('id,brand_name,common_label,renewed_status,renewed_note,renewed_on')
     .eq('company_code', code)
-    .in('renewed_status', ['อยู่ระหว่างดำเนินการ', 'ไม่ต่ออายุแล้ว'])
+    .in('renewed_status', ['อยู่ระหว่างดำเนินการ', 'ดำเนินการแล้ว', 'ไม่ต่ออายุแล้ว'])
     .order('renewed_on', { ascending: false });
 
   if(error){
@@ -155,7 +166,17 @@ function renderTable(){
   const filter = document.getElementById('statusFilter').value;
   let filtered = allData;
 
-  if(filter !== 'ทั้งหมด'){
+  if(filter === 'ดำเนินการรวม'){
+    filtered = allData.filter(r =>
+      r.renewed_status === 'อยู่ระหว่างดำเนินการ' || r.renewed_status === 'ดำเนินการแล้ว'
+    );
+    // เรียงให้อยู่ระหว่างดำเนินการขึ้นก่อน
+    filtered.sort((a, b) => {
+      if(a.renewed_status === 'อยู่ระหว่างดำเนินการ' && b.renewed_status === 'ดำเนินการแล้ว') return -1;
+      if(a.renewed_status === 'ดำเนินการแล้ว' && b.renewed_status === 'อยู่ระหว่างดำเนินการ') return 1;
+      return 0;
+    });
+  } else if(filter !== 'ทั้งหมด'){
     filtered = allData.filter(r => r.renewed_status === filter);
   }
 
@@ -166,7 +187,7 @@ function renderTable(){
   }
 
   tb.innerHTML = filtered.map((r,i)=>`
-    <tr>
+    <tr data-status="${r.renewed_status}">
       <td>${i+1}</td>
       <td>${r.brand_name || '-'}</td>
       <td>${r.common_label || '-'}</td>
