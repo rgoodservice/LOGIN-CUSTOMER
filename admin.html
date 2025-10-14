@@ -264,7 +264,8 @@ function renderTable(q=''){
       </td>
 
       <!-- ต่อแล้ววันที่: แสดงคำว่า "ดำเนินการแล้ว" -->
-      <td>${r.renewed_until ? 'ดำเนินการแล้ว' : ''}</td>
+      <td>${r.renewed_status || (r.renewed_until ? 'ดำเนินการแล้ว' : '')}</td>
+
 
       <td>${r.badge}</td>
 
