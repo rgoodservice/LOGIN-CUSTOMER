@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>สรุปสถานะเอกสารลูกค้า</title>
+
+<!-- Supabase (UMD เพื่อรองรับมือถือ/อินแอป) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f172a; --card:#0b1220; --ink:#e2e8f0; --mut:#94a3b8; --border:rgba(148,163,184,.25);
+    --green:#10b981; --green-bg:#052e2b; --green-br:#0b5e51;
+    --amber:#f59e0b; --amber-bg:#2b2005; --amber-br:#6b4b0b;
+    --blue:#38bdf8; --blue-bg:#0a2332; --blue-br:#1e4d6b;
+    --red:#ef4444; --red-bg:#2f0a0a; --red-br:#6b1e1e;
+    --radius:16px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:"Prompt",ui-sans-serif; color:var(--ink);
+    background:
+      radial-gradient(900px 540px at 10% -10%, #0ea5a520 0%, transparent 60%),
+      radial-gradient(800px 480px at 110% 0%, #38bdf820 0%, transparent 60%),
+      var(--bg);
+    font-size:18px; /* ใหญ่ขึ้นอ่านสบาย */
+  }
+  .wrap{max-width:980px;margin:28px auto;padding:0 16px}
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:18px; box-shadow:0 8px 28px rgba(0,0,0,.28); margin-bottom:18px
+  }
+  h1{font-size:24px;margin:0 0 4px}
+  .mut{color:var(--mut)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .spacer{flex:1}
+  a.btn, button.btn{
+    display:inline-block; padding:12px 16px; border-radius:12px; border:1px solid var(--border);
+    background:linear-gradient(135deg,#22d3ee,#60a5fa); color:#0b1220; font-weight:700; cursor:pointer; text-decoration:none
+  }
+  .sec{
+    border-radius:14px; padding:14px; margin:14px 0; border:1px solid;
+  }
+  .sec h2{margin:0 0 8px; font-size:22px}
+  .pill{
+    display:inline-block; padding:6px 10px; border-radius:999px; font-size:14px; font-weight:700; margin-left:8px
+  }
+  .list{display:grid; gap:10px}
+  .item{
+    display:flex; flex-direction:column; gap:6px;
+    padding:12px; border-radius:12px; border:1px solid var(--border); background:#0e1726
+  }
+  .item-title{font-size:18px; font-weight:700}
+  .label{font-size:16px}
+  .tag{font-size:14px; padding:4px 8px; border-radius:999px; border:1px solid transparent; display:inline-block}
+  .tag-note{border-color:var(--border); color:#cbd5e1}
+  .btn-note{
+    align-self:flex-start; margin-top:4px; padding:10px 12px; border-radius:10px; border:1px solid var(--border);
+    background:#1e293b; color:#c7d2fe; font-weight:700; cursor:pointer; font-size:16px;
+  }
+  .btn-note:hover{ background:#334155 }
+
+  /* สีแต่ละหมวด */
+  .near { border-color:var(--amber-br); background:var(--amber-bg) }
+  .near h2{ color:var(--amber) }
+  .near .pill{ background:#4d3b13; color:#fde68a; border:1px solid #b0892e }
+
+  .prog { border-color:var(--blue-br); background:var(--blue-bg) }
+  .prog h2{ color:var(--blue) }
+  .prog .pill{ background:#123548; color:#bae6fd; border:1px solid #25657f }
+
+  .done { border-color:var(--green-br); background:var(--green-bg) }
+  .done h2{ color:var(--green) }
+  .done .pill{ background:#0d3b34; color:#bbf7d0; border:1px solid #1e7b6a }
+
+  .stop { border-color:var(--red-br); background:var(--red-bg) }
+  .stop h2{ color:var(--red) }
+  .stop .pill{ background:#4a1717; color:#fecaca; border:1px solid #a33a3a }
+
+  /* Modal หมายเหตุ */
+  #noteModal{
+    position:fixed; inset:0; display:none; background:rgba(0,0,0,.65);
+    align-items:center; justify-content:center; z-index:999;
+  }
+  #noteBox{
+    background:#0b1220; border:1px solid var(--border); border-radius:18px; padding:20px 22px; width:min(92%,520px);
+    box-shadow:0 10px 36px rgba(0,0,0,.45); font-size:18px
+  }
+  #noteBox h3{margin:0 0 10px; font-size:22px}
+  #closeNote{ margin-top:14px }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="row">
+      <div>
+        <h1>สรุปสถานะเอกสารลูกค้า</h1>
+        <div class="mut" id="companyName">—</div>
+      </div>
+      <div class="spacer"></div>
+      <a id="backBtn" class="btn" href="#">ย้อนกลับ</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="mut">รหัสลูกค้า</div>
+      <div id="codeShow" style="font-weight:700;font-size:20px;margin-left:8px">—</div>
+      <div class="spacer"></div>
+      <button class="btn" id="refreshBtn">รีเฟรชข้อมูล</button>
+    </div>
+    <div class="mut" id="err" style="margin-top:8px;color:#fca5a5"></div>
+  </div>
+
+  <!-- ใกล้หมดอายุ -->
+  <section class="sec near">
+    <h2>ใกล้หมดอายุ <span class="pill" id="cntNear">0 รายการ</span></h2>
+    <div class="list" id="listNear"><div class="mut">— ไม่มีรายการ —</div></div>
+  </section>
+
+  <!-- กำลังดำเนินการ -->
+  <section class="sec prog">
+    <h2>กำลังดำเนินการ <span class="pill" id="cntProg">0 รายการ</span></h2>
+    <div class="list" id="listProg"><div class="mut">— ไม่มีรายการ —</div></div>
+  </section>
+
+  <!-- ดำเนินการแล้ว -->
+  <section class="sec done">
+    <h2>ดำเนินการแล้ว <span class="pill" id="cntDone">0 รายการ</span></h2>
+    <div class="list" id="listDone"><div class="mut">— ไม่มีรายการ —</div></div>
+  </section>
+
+  <!-- ไม่ต่ออายุแล้ว -->
+  <section class="sec stop">
+    <h2>ไม่ต่ออายุแล้ว <span class="pill" id="cntStop">0 รายการ</span></h2>
+    <div class="list" id="listStop"><div class="mut">— ไม่มีรายการ —</div></div>
+  </section>
+</div>
+
+<!-- Modal หมายเหตุ -->
+<div id="noteModal">
+  <div id="noteBox">
+    <h3 id="noteTitle">รายละเอียด</h3>
+    <div id="noteLines" style="line-height:1.6"></div>
+    <button class="btn" id="closeNote">ปิด</button>
+  </div>
+</div>
+
+<script>
+/* ===== Supabase Config (เหมือนหน้า customer) ===== */
+const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ===== Helpers ===== */
+const $ = (id)=> document.getElementById(id);
+const WARNING_DAYS = 90;
+
+function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+function fmtDateBE(d){
+  if(!d) return '-';
+  const t = new Date(d);
+  if (isNaN(t)) return '-';
+  try{
+    return t.toLocaleDateString('th-TH-u-ca-buddhist', { year:'numeric', month:'long', day:'numeric', timeZone:'Asia/Bangkok' });
+  }catch(e){
+    const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+    return `${t.getDate()} ${months[t.getMonth()]} ${t.getFullYear()+543}`;
+  }
+}
+
+/* เปิด Modal หมายเหตุ */
+function openNoteModal(row){
+  $('noteTitle').textContent = row?.brand_name ? `หมายเหตุ — ${row.brand_name}` : 'หมายเหตุ';
+  const lines = [];
+  lines.push(`<div><strong>ชื่อการค้า:</strong> ${escapeHtml(row?.brand_name || '-')}</div>`);
+  lines.push(`<div><strong>ชื่อสามัญ/สูตร:</strong> ${escapeHtml(row?.common_label || '-')}</div>`);
+  lines.push(`<div><strong>สถานะ:</strong> ${escapeHtml(humanStatus(row))}</div>`);
+  if (row?.expiry_date) {
+    lines.push(`<div><strong>หมดอายุเดิม:</strong> ${fmtDateBE(row.expiry_date)}</div>`);
+  }
+  if (row?.renewed_note) {
+    lines.push(`<div class="tag tag-note" style="margin-top:6px"><strong>หมายเหตุ:</strong> ${escapeHtml(row.renewed_note)}</div>`);
+  } else {
+    lines.push(`<div class="tag tag-note" style="margin-top:6px"><strong>หมายเหตุ:</strong> (ไม่มี)</div>`);
+  }
+  $('noteLines').innerHTML = lines.join('');
+  $('noteModal').style.display = 'flex';
+}
+$('closeNote').addEventListener('click', ()=> $('noteModal').style.display='none');
+$('noteModal').addEventListener('click', (e)=>{ if(e.target.id==='noteModal') $('noteModal').style.display='none'; });
+
+/* สถานะเป็นข้อความ */
+function humanStatus(r){
+  switch(r?.renewed_status){
+    case 'in_progress': return 'กำลังดำเนินการ';
+    case 'not_renew':   return 'ไม่ต่ออายุแล้ว';
+    case 'done':        return 'ดำเนินการแล้ว';
+    default:
+      if (r?.renewed_until) return 'ดำเนินการแล้ว';
+      return '—';
+  }
+}
+
+/* วาดรายการในแต่ละหมวด */
+function paintList(elId, arr){
+  const el = $(elId);
+  if(!arr.length){ el.innerHTML = `<div class="mut">— ไม่มีรายการ —</div>`; return; }
+  el.innerHTML = arr.map(r => `
+    <div class="item">
+      <div class="item-title">${escapeHtml(r.brand_name||'-')}</div>
+      <div class="label">ชื่อสามัญ/สูตร: ${escapeHtml(r.common_label||'-')}</div>
+      <div class="label">หมดอายุเดิม: ${fmtDateBE(r.expiry_date)}</div>
+      ${r.renewed_note ? `<div class="tag tag-note">หมายเหตุ: ${escapeHtml(r.renewed_note)}</div>` : ``}
+      <button class="btn-note" data-id="${r.id}">ดูรายละเอียด/หมายเหตุ</button>
+    </div>
+  `).join('');
+  el.querySelectorAll('.btn-note').forEach(btn=>{
+    const id = btn.getAttribute('data-id');
+    const row = arr.find(x=>String(x.id)===String(id));
+    btn.addEventListener('click', ()=> openNoteModal(row));
+  });
+}
+
+/* จัดหมวดหมู่ 4 หมวด */
+function categorize(rows){
+  const near = [], prog = [], done = [], stop = [];
+  const now = new Date();
+
+  rows.forEach(r=>{
+    // หมวดจาก renewed_status ก่อน
+    if (r?.renewed_status === 'in_progress'){ prog.push(r); return; }
+    if (r?.renewed_status === 'not_renew'){   stop.push(r); return; }
+    if (r?.renewed_status === 'done'){        done.push(r); return; }
+
+    // ถ้าไม่มี renewed_status ให้อนุมาน:
+    if (r?.renewed_until){ done.push(r); return; }          // มีวันที่ต่อถึง -> ถือว่าเสร็จแล้ว
+    if (r?.expiry_date){                                     // ยังไม่ต่อ: ประเมินใกล้หมดอายุ
+      const exp = new Date(r.expiry_date);
+      if(!isNaN(exp)){
+        const diff = Math.ceil((exp - now)/86400000);
+        if (diff >= 0 && diff <= WARNING_DAYS) near.push(r);
+      }
+    }
+  });
+
+  return {near, prog, done, stop};
+}
+
+/* โหลดข้อมูลตามรหัสลูกค้า */
+async function loadSummary(code){
+  $('err').textContent = '';
+
+  const nameRes = await sb.rpc('get_company_name_by_code', { p_plain_code: code });
+  if(nameRes.error || !nameRes.data){
+    $('err').textContent = nameRes.error?.message || 'รหัสไม่ถูกต้องหรือถูกปิดใช้งาน';
+    $('companyName').textContent = '—';
+    ['listNear','listProg','listDone','listStop'].forEach(id=> paintList(id, []));
+    ['cntNear','cntProg','cntDone','cntStop'].forEach(id=> $(id).textContent='0 รายการ');
+    return;
+  }
+  $('companyName').textContent = nameRes.data;
+
+  const res = await sb.rpc('get_company_portal', { p_plain_code: code });
+  if(res.error){
+    $('err').textContent = res.error.message || 'โหลดข้อมูลไม่สำเร็จ';
+    return;
+  }
+  const rows = res.data || [];
+
+  const {near, prog, done, stop} = categorize(rows);
+  $('cntNear').textContent = `${near.length.toLocaleString('th-TH')} รายการ`;
+  $('cntProg').textContent = `${prog.length.toLocaleString('th-TH')} รายการ`;
+  $('cntDone').textContent = `${done.length.toLocaleString('th-TH')} รายการ`;
+  $('cntStop').textContent = `${stop.length.toLocaleString('th-TH')} รายการ`;
+
+  paintList('listNear', near);
+  paintList('listProg', prog);
+  paintList('listDone', done);
+  paintList('listStop', stop);
+}
+
+/* เริ่มทำงาน */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const qs = new URLSearchParams(location.search);
+  const code = (qs.get('code')||'').trim().toUpperCase();
+  $('codeShow').textContent = code || '—';
+  $('backBtn').setAttribute('href', `customer.html?code=${encodeURIComponent(code)}`);
+  $('refreshBtn').addEventListener('click', ()=> code && loadSummary(code));
+
+  if(!code){
+    $('err').textContent = 'โปรดเปิดหน้านี้จาก customer.html (ต้องมีพารามิเตอร์ ?code=XXXX)';
+    return;
+  }
+  loadSummary(code);
+});
+</script>
+</body>
+</html>
