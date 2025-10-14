@@ -320,12 +320,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     loadCompanyByCode();
   }
 
-  // ไปหน้า summary
-  $('toSummaryBtn').addEventListener('click', ()=>{
-    const code = ($('code').value || '').trim().toUpperCase();
-    if(!code){ alert('กรุณาใส่รหัสลูกค้าก่อน'); return; }
-    location.href = `summary.html?code=${encodeURIComponent(code)}`;
-  });
+  // ไปหน้า summary$('toSummaryBtn').addEventListener('click', ()=>{
+  if(!CURRENT_CODE){ 
+    alert('กรุณาเข้าสู่ระบบด้วยรหัสลูกค้าก่อน'); 
+    return; 
+  }
+  location.href = `summary.html?code=${encodeURIComponent(CURRENT_CODE)}`;
+});
 });
 </script>
 </body>
