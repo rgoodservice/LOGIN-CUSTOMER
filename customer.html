@@ -115,8 +115,16 @@
       <input id="q" placeholder="ค้นหา: ชื่อการค้า / ชื่อสามัญ" style="min-width:240px">
       <button id="clearBtn" class="btn-ghost">ล้าง</button>
       <button class="btn" id="refreshBtn">รีเฟรช</button>
-      <button class="btn" id="toSummaryBtn">ดูสรุปสถานะทั้งหมด</button>
     </div>
+    <!-- ปุ่มดูสรุปสถานะ -->
+<div style="margin:16px 0;">
+  <a id="summaryLink" target="_blank"
+     style="display:inline-block; padding:12px 18px; background:linear-gradient(135deg,#0ea5a5,#60a5fa);
+            color:white; font-weight:600; border-radius:10px; text-decoration:none;">
+    📄 ดูสรุปสถานะเอกสารทั้งหมด
+  </a>
+</div>
+
     <div class="mut" id="count" style="margin-top:8px">—</div>
 
     <table>
@@ -328,5 +336,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 </script>
+  <script>
+document.addEventListener('DOMContentLoaded', ()=>{
+  // ดึงรหัสลูกค้าจาก URL ของหน้า customer.html
+  const params = new URLSearchParams(window.location.search);
+  const code = (params.get('code') || '').trim();
+
+  // ถ้ามีรหัสลูกค้า → ตั้งลิงก์ไป summary.html พร้อม code
+  if(code){
+    document.getElementById('summaryLink').href = `summary.html?code=${encodeURIComponent(code)}`;
+  }else{
+    document.getElementById('summaryLink').style.display = 'none'; // ซ่อนปุ่มถ้าไม่มี code
+  }
+});
+</script>
+
 </body>
 </html>
