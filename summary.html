@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>สรุปสถานะ (แท็บ 4 ช่อง) — R.Good Service</title>
+<title>สรุปสถานะ (บล็อกแยก) — R.Good Service</title>
 
 <!-- Supabase UMD (รองรับมือถือ/อินแอป) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -46,14 +46,8 @@
   }
   .btn{cursor:pointer; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-weight:700; border:none}
   .btn-ghost{background:#fff; color:#0e7490; border:1px solid #94d5e5}
-  .pill{
-    padding:10px 16px; border-radius:999px; border:1px solid var(--pill-b); background:var(--pill);
-    cursor:pointer; font-weight:700; font-size:18px;
-  }
-  .pill.active{ background:linear-gradient(135deg,#eaf7ff,#f0fdfa); border-color:#9bd5e9 }
-  .pill .count{margin-left:8px; font-weight:700; color:#0ea5a5}
 
-  /* แถบหัวข้อบล็อก (accordion) */
+  /* หัวบล็อก (accordion) */
   .blk-head{
     width:100%; text-align:left; background:#fff; border:1px solid var(--border);
     border-radius:12px; padding:14px 16px; font-size:18px; font-weight:700;
@@ -78,11 +72,10 @@
   .exp{  color:var(--exp);  background:var(--expbg);  border:1px solid #ffc0c0; }
   .note{ color:#334155; background:#f8fafc; border:1px dashed #cbd5e1; padding:12px; border-radius:10px; font-size:18px; white-space:pre-wrap}
 
-  .tab-wrap{display:flex; gap:10px; flex-wrap:wrap; margin:12px 0 4px}
   .empty{color:var(--mut); font-size:18px; padding:14px}
 
   @media (max-width:640px){
-    input,button,.pill{font-size:18px}
+    input,button{font-size:18px}
     .grid{grid-template-columns: 1fr}
     .item h3{font-size:22px}
   }
@@ -90,7 +83,7 @@
 </head>
 <body>
 <header>
-  <div class="logo">🗂️ สรุปสถานะ (แท็บ 4 ช่อง)</div>
+  <div class="logo">🗂️ สรุปสถานะ (บล็อกแยก)</div>
   <div class="spacer"></div>
   <button class="btn-ghost" onclick="history.length>1?history.back():window.close()">ย้อนกลับ</button>
 </header>
@@ -107,46 +100,47 @@
       <button id="refreshBtn" class="btn">รีเฟรช</button>
     </div>
 
-    <div class="tab-wrap">
-      <button class="pill active" data-tab="near"><span>ใกล้/หมดอายุ</span> <span class="count" id="cnt-near">0</span></button>
-      <button class="pill" data-tab="inprog"><span>อยู่ระหว่างดำเนินการ</span> <span class="count" id="cnt-inprog">0</span></button>
-      <button class="pill" data-tab="stopped"><span>ไม่ต่ออายุแล้ว</span> <span class="count" id="cnt-stopped">0</span></button>
-      <button class="pill" data-tab="done"><span>ดำเนินการแล้ว</span> <span class="count" id="cnt-done">0</span></button>
-    </div>
-
     <div id="count" class="mut">—</div>
   </div>
 
-  <!-- ใกล้/หมดอายุ -->
-  <div class="card tab" id="tab-near">
+  <!-- บล็อก: ใกล้/หมดอายุ -->
+  <div class="card" id="blk-near">
     <button class="blk-head" data-collapse="near">
       ใกล้หมดอายุ / หมดอายุ <span class="hint" id="h-near">(แสดง)</span>
     </button>
-    <div class="blk-body" id="list-near"></div>
+    <div class="blk-body">
+      <div id="list-near"></div>
+    </div>
   </div>
 
-  <!-- อยู่ระหว่างดำเนินการ -->
-  <div class="card tab" id="tab-inprog" style="display:none">
+  <!-- บล็อก: อยู่ระหว่างดำเนินการ -->
+  <div class="card" id="blk-inprog">
     <button class="blk-head" data-collapse="inprog">
       อยู่ระหว่างดำเนินการ <span class="hint" id="h-inprog">(แสดง)</span>
     </button>
-    <div class="blk-body" id="list-inprog"></div>
+    <div class="blk-body">
+      <div id="list-inprog"></div>
+    </div>
   </div>
 
-  <!-- ไม่ต่ออายุแล้ว -->
-  <div class="card tab" id="tab-stopped" style="display:none">
+  <!-- บล็อก: ไม่ต่ออายุแล้ว -->
+  <div class="card" id="blk-stopped">
     <button class="blk-head" data-collapse="stopped">
       ไม่ต่ออายุแล้ว <span class="hint" id="h-stopped">(แสดง)</span>
     </button>
-    <div class="blk-body" id="list-stopped"></div>
+    <div class="blk-body">
+      <div id="list-stopped"></div>
+    </div>
   </div>
 
-  <!-- ดำเนินการแล้ว -->
-  <div class="card tab" id="tab-done" style="display:none">
+  <!-- บล็อก: ดำเนินการแล้ว -->
+  <div class="card" id="blk-done">
     <button class="blk-head" data-collapse="done">
       ดำเนินการแล้ว <span class="hint" id="h-done">(แสดง)</span>
     </button>
-    <div class="blk-body" id="list-done"></div>
+    <div class="blk-body">
+      <div id="list-done"></div>
+    </div>
   </div>
 </main>
 
@@ -157,7 +151,7 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ===== Utils ===== */
-const $ = (id)=>document.getElementById(id);
+const $ = id => document.getElementById(id);
 const WARNING_DAYS = 90;
 
 function fmtDateBE(d){
@@ -171,11 +165,11 @@ function fmtDateBE(d){
 }
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
-let FULL = []; // ข้อมูลบริษัทเดียวจาก RPC
+/* ===== Data ===== */
+let FULL = []; // จาก RPC ฝั่งลูกค้า
 let FILTER_Q = '';
-let GROUPS = { near:[], inprog:[], stopped:[], done:[] };
 
-/* ===== ป้ายสถานะ ===== */
+/* ===== Badge Logic ===== */
 function computeBadge(row){
   if (row.renewed_status === 'อยู่ระหว่างดำเนินการ') return `<span class="badge warn">อยู่ระหว่างดำเนินการ</span>`;
   if (row.renewed_status === 'ไม่ต่ออายุแล้ว')     return `<span class="badge exp">ไม่ต่ออายุแล้ว</span>`;
@@ -188,9 +182,8 @@ function computeBadge(row){
   return `<span class="badge ok">ปกติ</span>`;
 }
 
-/* ===== จัดกลุ่มตามแท็บ ===== */
+/* ใกล้/หมดอายุ: ต้องไม่ตกอยู่ใน 3 หมวดหลัก */
 function inNearBucket(row){
-  // ไม่อยู่ 3 หมวดหลัก และใกล้ครบ/หมดอายุ
   if (row.renewed_status === 'อยู่ระหว่างดำเนินการ' ||
       row.renewed_status === 'ไม่ต่ออายุแล้ว' ||
       row.renewed_status === 'ดำเนินการแล้ว' ||
@@ -200,31 +193,10 @@ function inNearBucket(row){
   return (diff <= WARNING_DAYS);
 }
 
-function applyFilterAndGroup(){
-  const q = FILTER_Q.toLowerCase();
-  const rows = FULL.filter(r=>{
-    if(!q) return true;
-    return ( (r.brand_name||'').toLowerCase().includes(q) ||
-             (r.common_label||'').toLowerCase().includes(q) );
-  });
-
-  GROUPS.inprog  = rows.filter(r=> r.renewed_status === 'อยู่ระหว่างดำเนินการ');
-  GROUPS.stopped = rows.filter(r=> r.renewed_status === 'ไม่ต่ออายุแล้ว');
-  GROUPS.done    = rows.filter(r=> r.renewed_status === 'ดำเนินการแล้ว' || r.renewed_until);
-  GROUPS.near    = rows.filter(r=> inNearBucket(r));
-
-  $('cnt-near').textContent    = GROUPS.near.length.toLocaleString('th-TH');
-  $('cnt-inprog').textContent  = GROUPS.inprog.length.toLocaleString('th-TH');
-  $('cnt-stopped').textContent = GROUPS.stopped.length.toLocaleString('th-TH');
-  $('cnt-done').textContent    = GROUPS.done.length.toLocaleString('th-TH');
-
-  const total = GROUPS.near.length + GROUPS.inprog.length + GROUPS.stopped.length + GROUPS.done.length;
-  $('count').textContent = `ผลการค้นหา "${FILTER_Q || '—'}" รวม ${total.toLocaleString('th-TH')} รายการ`;
-}
-
-/* ===== วาดรายการการ์ด ===== */
-function renderList(listId, rows){
-  const box = $(listId);
+/* ===== Render helpers (ไม่แชร์ปลายทางกัน) ===== */
+function renderListInto(containerId, rows){
+  const box = $(containerId);
+  if(!box) return;
   if(rows.length === 0){
     box.innerHTML = `<div class="empty">ไม่มีรายการ</div>`;
     return;
@@ -250,7 +222,30 @@ function renderList(listId, rows){
   }).join('');
 }
 
-/* ===== โหลดข้อมูล ===== */
+function applyFilterAndRender(){
+  const q = FILTER_Q.toLowerCase();
+  const rows = FULL.filter(r=>{
+    if(!q) return true;
+    return ((r.brand_name||'').toLowerCase().includes(q) ||
+            (r.common_label||'').toLowerCase().includes(q));
+  });
+
+  const inprog  = rows.filter(r=> r.renewed_status === 'อยู่ระหว่างดำเนินการ');
+  const stopped = rows.filter(r=> r.renewed_status === 'ไม่ต่ออายุแล้ว');
+  const done    = rows.filter(r=> r.renewed_status === 'ดำเนินการแล้ว' || r.renewed_until);
+  const near    = rows.filter(inNearBucket);
+
+  // เคลียร์และเรนเดอร์ลง "ปลายทางของใครของมัน"
+  renderListInto('list-near',    near);
+  renderListInto('list-inprog',  inprog);
+  renderListInto('list-stopped', stopped);
+  renderListInto('list-done',    done);
+
+  const total = near.length + inprog.length + stopped.length + done.length;
+  $('count').textContent = `คำค้น "${FILTER_Q || '—'}" ทั้งหมด ${total.toLocaleString('th-TH')} รายการ (ใกล้/หมดอายุ ${near.length}, ระหว่างดำเนินการ ${inprog.length}, ไม่ต่ออายุแล้ว ${stopped.length}, ดำเนินการแล้ว ${done.length})`;
+}
+
+/* ===== Load ===== */
 async function loadData(){
   const params = new URLSearchParams(location.search);
   const code = (params.get('code')||'').trim().toUpperCase();
@@ -259,94 +254,52 @@ async function loadData(){
     return;
   }
 
-  // ชื่อบริษัท
   const nameRes = await sb.rpc('get_company_name_by_code', { p_plain_code: code });
   $('companyName').textContent = nameRes.data ? `บริษัท: ${nameRes.data} (รหัสลูกค้า: ${code})` : `รหัสลูกค้า: ${code}`;
 
-  // รายการทั้งหมดของบริษัท (ฝั่งลูกค้า)
   const res = await sb.rpc('get_company_portal', { p_plain_code: code });
   if(res.error){
     $('companyName').textContent += ` — โหลดข้อมูลผิดพลาด: ${res.error.message}`;
     return;
   }
 
-  // map ให้มี renewed_status ถ้าเคยต่อแล้ว (รองรับข้อมูลชุดเก่า)
+  // รองรับข้อมูลเก่า: ถ้ามี renewed_until แต่ยังไม่มี renewed_status ให้ถือว่า "ดำเนินการแล้ว"
   FULL = (res.data||[]).map(x=>({
     ...x,
     renewed_status: x.renewed_status || (x.renewed_until ? 'ดำเนินการแล้ว' : null)
   }));
 
-  applyFilterAndGroup();
-  renderList('list-near',    GROUPS.near);
-  renderList('list-inprog',  GROUPS.inprog);
-  renderList('list-stopped', GROUPS.stopped);
-  renderList('list-done',    GROUPS.done);
-}
-
-/* ===== Tabs ===== */
-function switchTab(key){
-  document.querySelectorAll('.pill').forEach(el=>{
-    el.classList.toggle('active', el.dataset.tab === key);
-  });
-  document.querySelectorAll('.tab').forEach(el=> el.style.display='none');
-  document.getElementById('tab-'+key).style.display='block';
-  // เปิดบล็อกของแท็บนั้นไว้เสมอ
-  const body = document.querySelector('#tab-'+key+' .blk-body');
-  const hint = document.querySelector('#h-'+key);
-  body.style.display = 'block';
-  hint.textContent = '(แสดง)';
-}
-
-/* ===== Collapse (บล็อก) ===== */
-function toggleBlock(key){
-  // .blk-head ตามด้วย .blk-body เสมอ → ใช้ nextElementSibling
-  const head = document.querySelector(`.blk-head[data-collapse="${key}"]`);
-  const body = head?.nextElementSibling;
-  const hint = document.getElementById('h-'+key);
-  if(!body || !hint) return;
-
-  const shown = body.style.display !== 'none';
-  body.style.display = shown ? 'none' : 'block';
-  hint.textContent = shown ? '(ซ่อน)' : '(แสดง)';
+  applyFilterAndRender();
 }
 
 /* ===== Events ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
   loadData();
 
-  // tabs
-  document.querySelectorAll('.pill').forEach(btn=>{
-    btn.addEventListener('click', ()=> switchTab(btn.dataset.tab));
-  });
-
-  // collapse
-  document.querySelectorAll('.blk-head').forEach(btn=>{
-    btn.addEventListener('click', ()=> toggleBlock(btn.dataset.collapse));
-  });
-
-  // search
+  // ค้นหา
   $('q').addEventListener('input', ()=>{
     FILTER_Q = $('q').value.trim();
-    applyFilterAndGroup();
-    renderList('list-near',    GROUPS.near);
-    renderList('list-inprog',  GROUPS.inprog);
-    renderList('list-stopped', GROUPS.stopped);
-    renderList('list-done',    GROUPS.done);
+    applyFilterAndRender();
   });
- $('clearBtn').addEventListener('click', ()=>{
-  $('q').value = '';
-  FILTER_Q = '';
-  loadData(); // รีโหลด + จัดกลุ่มใหม่ จะได้แยก 4 แท็บถูกต้อง
-});
-
-    applyFilterAndGroup();
-    renderList('list-near',    GROUPS.near);
-    renderList('list-inprog',  GROUPS.inprog);
-    renderList('list-stopped', GROUPS.stopped);
-    renderList('list-done',    GROUPS.done);
+  $('clearBtn').addEventListener('click', ()=>{
+    $('q').value = '';
+    FILTER_Q = '';
+    applyFilterAndRender();
   });
 
   $('refreshBtn').addEventListener('click', loadData);
+
+  // พับ/กางบล็อกตาม data-collapse (ทำงานแยกกันจริง ๆ)
+  document.querySelectorAll('.blk-head').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const key = btn.dataset.collapse;
+      const body = btn.parentElement.querySelector('.blk-body');
+      const hint = document.getElementById('h-'+key);
+      const shown = body.style.display !== 'none';
+      body.style.display = shown ? 'none' : 'block';
+      hint.textContent = shown ? '(ซ่อน)' : '(แสดง)';
+    });
+  });
 });
 </script>
 </body>
