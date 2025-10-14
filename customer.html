@@ -118,6 +118,9 @@
       <input id="q" placeholder="พิมพ์ค้นหา ชื่อการค้า / ชื่อสามัญ ..." style="min-width:240px">
       <button id="clearBtn" class="btn" style="background:#0b1220;color:#cbd5e1;border:1px solid var(--border)">ล้าง</button>
       <button class="btn" id="refreshBtn">รีเฟรช</button>
+      <!-- ปุ่มดูสรุป -->
+      <button class="btn" id="toSummaryBtn">ดูสรุปสถานะทั้งหมด</button>
+
     </div>
 
     <div class="mut" id="count" style="margin-top:8px">—</div>
@@ -326,6 +329,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
   $('closeNote').addEventListener('click', ()=> $('noteModal').style.display='none');
   $('noteModal').addEventListener('click', e=>{ if(e.target.id==='noteModal') $('noteModal').style.display='none'; });
 });
+  /* ===== ปุ่มไปหน้าสรุป ===== */
+document.getElementById('toSummaryBtn').addEventListener('click', ()=>{
+  const code = (document.getElementById('code').value || '').trim().toUpperCase();
+  if(!code){
+    alert('กรุณาใส่รหัสลูกค้าก่อน');
+    return;
+  }
+  // ส่งรหัสลูกค้าไป summary.html
+  window.location.href = `summary.html?code=${encodeURIComponent(code)}`;
+});
+
 </script>
 </body>
 </html>
