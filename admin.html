@@ -138,6 +138,8 @@
 
         <div class="spacer"></div>
         <button id="btnDeleteAllCompany" class="btn btn-danger btn-small">ลบทั้งหมดของบริษัทนี้</button>
+        <button id="btnNotePage" class="btn btn-secondary btn-small">📝 หมายเหตุทั้งหมด</button>
+
       </div>
 
       <table>
@@ -705,6 +707,14 @@ $('btnDeleteAllCompany').addEventListener('click', async ()=>{
   toast(`ลบข้อมูลทั้งหมดของบริษัท ${currentCompany} เรียบร้อย ✓`);
   loadDocs(currentCompany);
 });
+  /* ===== ไปยังหน้า note.html (เปิดแท็บใหม่) ===== */
+$('btnNotePage').addEventListener('click', ()=>{
+  if(!currentCompany) return alert('กรุณาเลือกบริษัทก่อน');
+  const url = `note.html?code=${encodeURIComponent(currentCompany)}`;
+  window.open(url, '_blank'); // เปิดในแท็บใหม่
+});
+
 </script>
+  
 </body>
 </html>
