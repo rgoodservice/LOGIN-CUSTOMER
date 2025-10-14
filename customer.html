@@ -4,120 +4,98 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Customer Portal (รหัสลูกค้า)</title>
+
+<!-- ใช้ UMD เพื่อรองรับมือถือ/อินแอปเบราว์เซอร์ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
-
 <style>
-:root {
-  --bg:#0f172a; --card:rgba(30,41,59,.9); --mut:#94a3b8; --ink:#e2e8f0;
-  --border:rgba(148,163,184,.25); --accent:#22d3ee; --accent2:#60a5fa;
-  --radius:16px;
-}
-
-/* พื้นหลังและฟอนต์ */
-body {
-  margin:0;
-  font-family:"Prompt", ui-sans-serif;
-  color:var(--ink);
-  background:
+  :root{
+    --bg:#0f172a; --card:rgba(30,41,59,.86); --mut:#94a3b8; --ink:#e2e8f0; --border:rgba(148,163,184,.25);
+    --accent:#22d3ee; --accent2:#60a5fa; --radius:16px;
+    /* สีสถานะคอนทราสต์สูง */
+    --ok:#0ea5a5;        --ok-bg:rgba(14,165,165,.18);     --ok-bd:rgba(14,165,165,.5);
+    --warn:#b45309;      --warn-bg:rgba(245,158,11,.18);   --warn-bd:rgba(245,158,11,.55);
+    --exp:#b91c1c;       --exp-bg:rgba(239,68,68,.20);     --exp-bd:rgba(239,68,68,.55);
+    --pending:#2563eb;   --pending-bg:rgba(37,99,235,.18); --pending-bd:rgba(37,99,235,.55);
+    --progress:#7c3aed;  --progress-bg:rgba(124,58,237,.18);--progress-bd:rgba(124,58,237,.55);
+    --stop:#9333ea;      --stop-bg:rgba(147,51,234,.18);   --stop-bd:rgba(147,51,234,.55);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:"Prompt",ui-sans-serif; color:var(--ink); background:
     radial-gradient(900px 540px at 10% -10%, #0ea5a520 0%, transparent 60%),
     radial-gradient(800px 480px at 110% 0%, #38bdf820 0%, transparent 60%),
     var(--bg);
-  font-size:18px;
-  line-height:1.5;
-}
+  }
+  .wrap{max-width:960px;margin:30px auto;padding:0 16px}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:18px; box-shadow:0 8px 28px rgba(0,0,0,.25); margin-bottom:16px}
+  input,button{padding:12px; border-radius:12px; border:1px solid var(--border); background:#0b1220; color:var(--ink); font-size:16px}
+  .btn{cursor:pointer; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#0b1220; font-weight:700; border:none}
+  .row{display:flex;gap:10px;flex-wrap:wrap; align-items:center}
+  table{width:100%; border-collapse:collapse; margin-top:12px}
+  th,td{padding:12px 14px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; font-size:16px}
+  th{color:#93c5fd; font-size:17px}
+  .mut{color:var(--mut)}
+  mark{background:#fde68a55; padding:0 2px; border-radius:4px}
+  .spacer{flex:1}
 
-/* การ์ด */
-.wrap{max-width:1000px;margin:30px auto;padding:0 16px}
-.card{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  padding:20px;
-  box-shadow:0 8px 30px rgba(0,0,0,.3);
-  margin-bottom:20px;
-}
+  /* ป้ายสถานะ: ตัวใหญ่ ชัด */
+  .badge{
+    display:inline-block;
+    padding:6px 12px;
+    border-radius:999px;
+    font-size:15px;
+    font-weight:800;
+    letter-spacing:.2px;
+    line-height:1.1;
+    margin-bottom:4px;
+  }
+  .badge-ok{color:var(--ok); background:var(--ok-bg); border:1px solid var(--ok-bd)}
+  .badge-warn{color:var(--warn); background:var(--warn-bg); border:1px solid var(--warn-bd)}
+  .badge-exp{color:var(--exp); background:var(--exp-bg); border:1px solid var(--exp-bd)}
+  .badge-pending{color:var(--pending); background:var(--pending-bg); border:1px solid var(--pending-bd)}
+  .badge-progress{color:var(--progress); background:var(--progress-bg); border:1px solid var(--progress-bd)}
+  .badge-stop{color:var(--stop); background:var(--stop-bg); border:1px solid var(--stop-bd)}
 
-/* ปุ่มและ input */
-input,button{
-  font-size:17px;
-  padding:12px 16px;
-  border-radius:12px;
-  border:1px solid var(--border);
-  background:#0b1220;
-  color:var(--ink);
-}
-.btn{
-  cursor:pointer;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));
-  color:#0b1220;
-  font-weight:700;
-  border:none;
-  transition:all .2s;
-}
-.btn:hover{opacity:.9}
-.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  /* ปุ่มหมายเหตุในตาราง */
+  .btn-note {
+    padding:8px 12px; margin-top:6px;
+    background:#1e293b;
+    color:#e5edff;
+    border:1px solid var(--border);
+    border-radius:10px;
+    cursor:pointer;
+    font-size:14px; font-weight:700;
+  }
+  .btn-note:hover { background:#334155; }
 
-/* ตาราง */
-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:17px}
-th,td{padding:12px;border-bottom:1px solid var(--border);text-align:left}
-th{color:#93c5fd;font-size:18px}
-.mut{color:var(--mut)}
+  /* popup หมายเหตุ */
+  #noteModal { position: fixed; inset: 0; display: none; background: rgba(0,0,0,.6); align-items: center; justify-content: center; z-index: 999; }
+  #noteBox {
+    background: var(--card);
+    padding: 22px 24px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 30px rgba(0,0,0,.4);
+    max-width: 480px; width: 92%;
+  }
+  #noteBox h3 { margin: 0 0 12px; color: #bfdbfe; font-size:20px }
+  #noteBox p { margin: 8px 0; color: var(--ink); font-size:16px }
+  #closeNote {
+    margin-top: 18px; padding: 10px 16px; border: none; border-radius: 10px;
+    background: linear-gradient(135deg,var(--accent),var(--accent2));
+    color: #0b1220; cursor: pointer; font-weight: 800; font-size:15px;
+  }
 
-/* ป้ายสถานะ */
-.badge{
-  display:inline-block;
-  padding:6px 14px;
-  border-radius:999px;
-  font-weight:700;
-  border:2px solid transparent;
-  font-size:17px;
-}
-.badge-ok{color:#065f46;background:#ecfdf5;border-color:#34d399;}
-.badge-warn{color:#92400e;background:#fffbeb;border-color:#fbbf24;}
-.badge-exp{color:#7f1d1d;background:#fef2f2;border-color:#f87171;}
-.badge-progress{color:#1e3a8a;background:#eff6ff;border-color:#60a5fa;}
-.badge-pending{color:#7c2d12;background:#fff7ed;border-color:#f59e0b;}
-.badge-stop{color:#991b1b;background:#fee2e2;border-color:#ef4444;}
-
-/* ปุ่มหมายเหตุ */
-.btn-note{
-  background:#1e293b;
-  color:#c7d2fe;
-  border:1px solid var(--border);
-  border-radius:8px;
-  cursor:pointer;
-  font-size:16px;
-  margin-top:6px;
-}
-.btn-note:hover{background:#334155;}
-
-/* Popup หมายเหตุ */
-#noteModal{
-  position:fixed;inset:0;
-  display:none;
-  background:rgba(0,0,0,.6);
-  align-items:center;justify-content:center;
-  z-index:999;
-}
-#noteBox{
-  background:var(--card);
-  padding:24px;
-  border-radius:18px;
-  border:1px solid var(--border);
-  box-shadow:0 8px 40px rgba(0,0,0,.4);
-  max-width:450px;width:90%;
-  font-size:18px;
-}
-#noteBox h3{margin:0 0 10px;color:#93c5fd;font-size:22px}
-#noteBox p{margin:8px 0}
-#closeNote{
-  margin-top:16px;padding:10px 20px;border:none;border-radius:10px;
-  background:var(--accent);color:#0b1220;cursor:pointer;font-weight:700;font-size:17px;
-}
+  /* มือถือ: ตัวใหญ่ขึ้นอีก */
+  @media (max-width: 480px){
+    th,td,input,button{font-size:17px}
+    .badge{font-size:16px}
+    .btn-note{font-size:15px}
+  }
 </style>
 </head>
-
 <body>
 <div class="wrap">
   <div class="card">
@@ -134,7 +112,7 @@ th{color:#93c5fd;font-size:18px}
     <div class="row" style="justify-content:space-between">
       <div>
         <div class="mut">บริษัทของคุณ</div>
-        <div id="companyName" style="font-weight:700;font-size:20px">—</div>
+        <div id="companyName" style="font-weight:700;font-size:18px">—</div>
       </div>
       <div class="spacer"></div>
       <input id="q" placeholder="พิมพ์ค้นหา ชื่อการค้า / ชื่อสามัญ ..." style="min-width:240px">
@@ -161,7 +139,7 @@ th{color:#93c5fd;font-size:18px}
   </div>
 </div>
 
-<!-- Popup -->
+<!-- Modal สำหรับดูหมายเหตุ -->
 <div id="noteModal">
   <div id="noteBox">
     <h3>รายละเอียดหมายเหตุ</h3>
@@ -173,21 +151,28 @@ th{color:#93c5fd;font-size:18px}
 </div>
 
 <script>
+/* ===== Supabase config ===== */
 const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA"; // anon key
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const $ = id => document.getElementById(id);
 const WARNING_DAYS = 90;
 
-/* ---- Utilities ---- */
-function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
 function fmtDateBE(d){
-  if(!d) return '-'; const t=new Date(d); if(isNaN(t)) return '-';
-  try{return t.toLocaleDateString('th-TH-u-ca-buddhist',{year:'numeric',month:'long',day:'numeric',timeZone:'Asia/Bangkok'});}
-  catch(e){const m=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];return `${t.getDate()} ${m[t.getMonth()]} ${t.getFullYear()+543}`;}
+  if(!d) return '-';
+  const t = new Date(d);
+  if (isNaN(t)) return '-';
+  try{
+    return t.toLocaleDateString('th-TH-u-ca-buddhist', { year:'numeric', month:'long', day:'numeric', timeZone: 'Asia/Bangkok' });
+  }catch(e){
+    const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+    return `${t.getDate()} ${months[t.getMonth()]} ${t.getFullYear()+543}`;
+  }
 }
 
-/* ---- สถานะหลายสี ---- */
+/* ป้ายสถานะ: รองรับข้อความจากหลังบ้าน และ fallback อัตโนมัติ */
 function statusText(row){
   const rawStatus =
     (row?.renewed_status && String(row.renewed_status).trim()) ||
@@ -201,11 +186,18 @@ function statusText(row){
   else if(s.includes('รอ')||s.includes('ลงนาม')) cls='badge-pending';
   else if(s.includes('หมด')) cls='badge-exp';
   else if(s.includes('เหลือ')) cls='badge-warn';
-  else if(s.includes('แล้ว')||s==='ok'||s==='done') cls='badge-ok';
+  else if(s.includes('แล้ว')||s==='ok'||s==='done'||s==='completed') cls='badge-ok';
+
+  // ถ้ามี note แต่ไม่มีสถานะ -> แสดงรอดำเนินการ
+  if(!cls && (row?.renewed_status || row?.renewed_note)) {
+    label = 'รอดำเนินการ';
+    cls = 'badge-pending';
+  }
 
   if(cls) return `<span class="badge ${cls}">${escapeHtml(label)}</span>`;
   if(row?.renewed_until) return `<span class="badge badge-ok">ดำเนินการแล้ว</span>`;
 
+  // ไม่มีสถานะ -> ประเมินจากวันหมดอายุเดิม
   const eff = row?.expiry_date?new Date(row.expiry_date):null;
   if(!eff||isNaN(eff)) return `<span class="badge badge-ok">ปกติ</span>`;
   const diff = Math.ceil((eff - new Date())/86400000);
@@ -214,17 +206,18 @@ function statusText(row){
   return `<span class="badge badge-ok">ปกติ</span>`;
 }
 
-/* ---- ตาราง ---- */
-let CURRENT_CODE='', FULL_ROWS=[], FILTERED=[];
-function bindNoteButtons(rows){
-  document.querySelectorAll('.btn-note').forEach((btn,idx)=>btn.addEventListener('click',()=>showNote(rows[idx])));
-}
+let CURRENT_CODE = '';
+let FULL_ROWS = [];
+let FILTERED = [];
+
+/* วาดตาราง + ใส่ data-idx ให้ปุ่ม เพื่ออ้างอิงแถวได้ถูกต้องเสมอ */
 function render(q=''){
-  const tb=$('tbody'); const rows=FILTERED;
-  if(rows.length===0){
-    tb.innerHTML=`<tr><td colspan="7" class="mut">ไม่พบรายการที่ตรงกับ “${escapeHtml(q)}”</td></tr>`;
+  const tb = $('tbody');
+  const rows = FILTERED;
+  if(rows.length === 0){
+    tb.innerHTML = `<tr><td colspan="7" class="mut">ไม่พบรายการที่ตรงกับ “${escapeHtml(q)}”</td></tr>`;
   }else{
-    tb.innerHTML=rows.map(r=>`
+    tb.innerHTML = rows.map((r, i)=>`
       <tr>
         <td>${escapeHtml(r.company_name||'-')}</td>
         <td>${escapeHtml(r.brand_name||'-')}</td>
@@ -234,65 +227,104 @@ function render(q=''){
         <td>${fmtDateBE(r.expiry_date)}</td>
         <td>
           ${statusText(r)}
-          ${(r.renewed_status||r.renewed_note)?`<br><button class="btn-note">ดูหมายเหตุ</button>`:''}
+          ${(r.renewed_status || r.renewed_note)
+            ? `<br><button class="btn-note" data-idx="${i}">ดูหมายเหตุ</button>`
+            : ``}
         </td>
-      </tr>`).join('');
-    bindNoteButtons(rows);
+      </tr>
+    `).join('');
   }
-  $('count').textContent=`แสดง ${rows.length.toLocaleString('th-TH')} รายการ (ทั้งหมด ${FULL_ROWS.length.toLocaleString('th-TH')})`;
+  $('count').textContent = `แสดง ${rows.length.toLocaleString('th-TH')} รายการ (ทั้งหมด ${FULL_ROWS.length.toLocaleString('th-TH')})`;
 }
 
 function applyFilter(){
-  const raw=$('q').value.trim().toLowerCase();
-  if(!raw){FILTERED=[...FULL_ROWS];}
-  else{
-    FILTERED=FULL_ROWS.filter(r=>
-      (r.brand_name||'').toLowerCase().includes(raw)||
-      (r.common_label||'').toLowerCase().includes(raw)
-    );
+  const raw = $('q').value.trim();
+  const q = raw.toLowerCase();
+  if(!q){
+    FILTERED = [...FULL_ROWS];
+  }else{
+    FILTERED = FULL_ROWS.filter(r=>{
+      const brand  = (r.brand_name   ||'').toLowerCase();
+      const common = (r.common_label ||'').toLowerCase();
+      return brand.includes(q) || common.includes(q);
+    });
   }
   render(raw);
 }
 
-/* ---- โหลดข้อมูลจากรหัสลูกค้า ---- */
+/* โหลดข้อมูลด้วยรหัสลูกค้า */
 async function loadCompanyByCode(){
   if(!CURRENT_CODE) return;
-  const code=CURRENT_CODE.trim().toUpperCase();
+  const codeNorm = CURRENT_CODE.trim().toUpperCase();
 
-  const nameRes=await sb.rpc('get_company_name_by_code',{p_plain_code:code});
-  if(nameRes.error||!nameRes.data){
-    $('err').textContent=nameRes.error?.message||'รหัสไม่ถูกต้องหรือถูกปิดใช้งาน';
-    $('dataCard').style.display='none';return;
+  const nameRes = await sb.rpc('get_company_name_by_code', { p_plain_code: codeNorm });
+  if(nameRes.error || !nameRes.data){
+    $('err').textContent = nameRes.error?.message || 'รหัสไม่ถูกต้องหรือถูกปิดใช้งาน';
+    $('dataCard').style.display = 'none';
+    return;
   }
-  $('companyName').textContent=nameRes.data;
-  const res=await sb.rpc('get_company_portal',{p_plain_code:code});
-  if(res.error){$('err').textContent=res.error.message;$('dataCard').style.display='none';return;}
+  $('companyName').textContent = nameRes.data;
 
-  FULL_ROWS=res.data||[]; $('err').textContent=''; $('dataCard').style.display='block';
-  $('q').value=''; applyFilter();
+  const res = await sb.rpc('get_company_portal', { p_plain_code: codeNorm });
+  if(res.error){
+    $('err').textContent = res.error.message;
+    $('dataCard').style.display='none';
+    return;
+  }
+
+  FULL_ROWS = res.data || [];
+  $('err').textContent = '';
+  $('dataCard').style.display = 'block';
+
+  const qs = new URLSearchParams(location.search);
+  const initQ = qs.get('q') || '';
+  $('q').value = initQ;
+  applyFilter();
 }
 
-/* ---- Popup ---- */
+/* Modal: เปิดด้วยข้อมูลจากแถวที่คลิก */
 function showNote(row){
-  $('noteBrand').textContent=`ชื่อการค้า: ${row?.brand_name||'-'}`;
-  $('noteStatus').textContent=`สถานะ: ${row?.renewed_status||row?.status_text||'-'}`;
-  $('noteText').textContent=`หมายเหตุ: ${row?.renewed_note||'-'}`;
-  $('noteModal').style.display='flex';
+  $('noteBrand').textContent  = `ชื่อการค้า: ${row?.brand_name || '-'}`;
+  $('noteStatus').textContent = `สถานะ: ${row?.renewed_status || row?.status_text || '-'}`;
+  $('noteText').textContent   = `หมายเหตุ: ${row?.renewed_note || '-'}`;
+  $('noteModal').style.display = 'flex';
 }
 
-/* ---- เริ่มทำงาน ---- */
-document.addEventListener('DOMContentLoaded',()=>{
-  $('enterBtn').addEventListener('click',async()=>{
-    const code=$('code').value.trim().toUpperCase();
-    if(!code){$('err').textContent='กรุณาใส่รหัสลูกค้า';return;}
-    $('err').textContent=''; CURRENT_CODE=code; await loadCompanyByCode();
+/* ===== Events ===== */
+document.addEventListener('DOMContentLoaded', ()=>{
+  $('enterBtn').addEventListener('click', async ()=>{
+    const code = $('code').value.trim().toUpperCase();
+    if(!code){ $('err').textContent = 'กรุณาใส่รหัสลูกค้า'; return; }
+    $('err').textContent = '';
+    CURRENT_CODE = code;
+    await loadCompanyByCode();
   });
-  $('code').addEventListener('keydown',e=>{if(e.key==='Enter')$('enterBtn').click();});
-  $('refreshBtn').addEventListener('click',loadCompanyByCode);
-  $('q').addEventListener('input',applyFilter);
-  $('clearBtn').addEventListener('click',()=>{$('q').value='';applyFilter();});
-  $('closeNote').addEventListener('click',()=>$('noteModal').style.display='none');
-  $('noteModal').addEventListener('click',e=>{if(e.target.id==='noteModal')$('noteModal').style.display='none';});
+  $('code').addEventListener('keydown', e=>{ if(e.key==='Enter') $('enterBtn').click(); });
+  $('refreshBtn').addEventListener('click', loadCompanyByCode);
+  $('q').addEventListener('input', applyFilter);
+  $('clearBtn').addEventListener('click', ()=>{ $('q').value=''; applyFilter(); });
+
+  // Auto-fill จาก URL
+  const params = new URLSearchParams(location.search);
+  const code = params.get('code');
+  if(code){
+    $('code').value = code;
+    CURRENT_CODE = code.trim().toUpperCase();
+    loadCompanyByCode();
+  }
+
+  // Event delegation: ให้ tbody จัดการปุ่มหมายเหตุทุกปุ่ม
+  document.getElementById('tbody').addEventListener('click', (e)=>{
+    const btn = e.target.closest('.btn-note');
+    if(!btn) return;
+    const idx = Number(btn.dataset.idx);
+    const row = FILTERED[idx];
+    if(row) showNote(row);
+  });
+
+  // ปิด modal
+  $('closeNote').addEventListener('click', ()=> $('noteModal').style.display='none');
+  $('noteModal').addEventListener('click', e=>{ if(e.target.id==='noteModal') $('noteModal').style.display='none'; });
 });
 </script>
 </body>
