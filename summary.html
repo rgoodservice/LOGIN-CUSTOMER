@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>สรุปสถานะ (แท็บ 4 ช่อง) — R.Good Service</title>
 
-<!-- Supabase UMD (รองรับมือถือ/อินแอป) -->
+<!-- Supabase UMD -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
 
@@ -16,7 +16,7 @@
     --ok:#065f46;   --okbg:#ecfdf5;
     --warn:#b45309; --warnbg:#fff7ed;
     --exp:#b91c1c;  --expbg:#fff1f2;
-    --note:#334155;
+    --noteText:#1e293b; --noteBg:#eef2ff; --noteBorder:#c7d2fe;
   }
   *{box-sizing:border-box}
   body{
@@ -68,7 +68,13 @@
   .ok{ color:var(--ok);   background:var(--okbg);   border:1px solid #a7f3d090; }
   .warn{color:var(--warn); background:var(--warnbg); border:1px solid #fde68a80;}
   .exp{ color:var(--exp);  background:var(--expbg);  border:1px solid #fecaca90;}
-  .note{color:var(--note); background:#f8fafc; border:1px dashed #cbd5e1; padding:10px; border-radius:10px; font-size:16px; white-space:pre-wrap}
+
+  /* กล่องหมายเหตุ: โทนฟ้า/เทา แยกจากส้มของ "กำลังดำเนินการ" ชัดเจน */
+  .note{
+    color:var(--noteText); background:var(--noteBg);
+    border:1px solid var(--noteBorder); padding:12px; border-radius:10px;
+    font-size:16px; white-space:pre-wrap
+  }
 
   .tab-wrap{display:flex; gap:10px; flex-wrap:wrap; margin:12px 0 4px}
   .empty{color:var(--mut); font-size:18px; padding:14px}
@@ -155,11 +161,11 @@ function fmtDateBE(d){
 }
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
-let FULL = []; // ข้อมูลบริษัทเดียวจาก RPC
+let FULL = [];
 let FILTER_Q = '';
 let GROUPS = { near:[], inprog:[], stopped:[], done:[] };
 
-/* ===== Logic ป้ายสถานะ ===== */
+/* ===== ป้ายสถานะ ===== */
 function computeBadge(row){
   if (row.renewed_status === 'อยู่ระหว่างดำเนินการ') return `<span class="badge warn">อยู่ระหว่างดำเนินการ</span>`;
   if (row.renewed_status === 'ไม่ต่ออายุแล้ว')     return `<span class="badge exp">ไม่ต่ออายุแล้ว</span>`;
@@ -172,9 +178,8 @@ function computeBadge(row){
   return `<span class="badge ok">ปกติ</span>`;
 }
 
-/* ===== จัดกลุ่มตามแท็บ ===== */
+/* ===== จัดกลุ่ม ===== */
 function inNearBucket(row){
-  // แท็บ "ใกล้/หมดอายุ" = ไม่ได้อยู่ in-progress/ไม่ต่ออายุ/ดำเนินการแล้ว และใกล้ครบหรือหมดแล้ว
   if (row.renewed_status === 'อยู่ระหว่างดำเนินการ' ||
       row.renewed_status === 'ไม่ต่ออายุแล้ว' ||
       row.renewed_status === 'ดำเนินการแล้ว' ||
@@ -186,11 +191,10 @@ function inNearBucket(row){
 
 function applyFilterAndGroup(){
   const q = FILTER_Q.toLowerCase();
-
   const rows = FULL.filter(r=>{
     if(!q) return true;
-    return ( (r.brand_name||'').toLowerCase().includes(q) ||
-             (r.common_label||'').toLowerCase().includes(q) );
+    return ((r.brand_name||'').toLowerCase().includes(q) ||
+            (r.common_label||'').toLowerCase().includes(q));
   });
 
   GROUPS.inprog  = rows.filter(r=> r.renewed_status === 'อยู่ระหว่างดำเนินการ');
@@ -207,7 +211,7 @@ function applyFilterAndGroup(){
   $('count').textContent = `ผลการค้นหา "${FILTER_Q || '—'}" รวม ${total.toLocaleString('th-TH')} รายการ`;
 }
 
-/* ===== วาดรายการการ์ด ===== */
+/* ===== วาดการ์ด (ตัด “อัปเดตล่าสุด” ออกแล้ว) ===== */
 function renderList(listId, rows){
   const box = $(listId);
   if(rows.length === 0){
@@ -226,7 +230,6 @@ function renderList(listId, rows){
           <div class="kv"><b>ทะเบียน:</b> ${escapeHtml(r.registration_no||'-')}</div>
           <div class="kv"><b>ใบอนุญาต:</b> ${escapeHtml(r.license_no||'-')}</div>
           <div class="kv"><b>หมดอายุเดิม:</b> ${fmtDateBE(r.expiry_date)}</div>
-          <div class="kv"><b>อัปเดตล่าสุด:</b> ${fmtDateBE(r.renewed_on)}</div>
           <div class="kv"><b>สถานะ:</b> ${statusHtml}</div>
         </div>
 
@@ -245,18 +248,15 @@ async function loadData(){
     return;
   }
 
-  // ชื่อบริษัท
   const nameRes = await sb.rpc('get_company_name_by_code', { p_plain_code: code });
   $('companyName').textContent = nameRes.data ? `บริษัท: ${nameRes.data} (รหัสลูกค้า: ${code})` : `รหัสลูกค้า: ${code}`;
 
-  // รายการทั้งหมดของบริษัท (ฝั่งลูกค้า)
   const res = await sb.rpc('get_company_portal', { p_plain_code: code });
   if(res.error){
     $('companyName').textContent += ` — โหลดข้อมูลผิดพลาด: ${res.error.message}`;
     return;
   }
 
-  // map ให้มี renewed_status ถ้าเคยต่อแล้ว (รองรับข้อมูลชุดเก่า)
   FULL = (res.data||[]).map(x=>({
     ...x,
     renewed_status: x.renewed_status || (x.renewed_until ? 'ดำเนินการแล้ว' : null)
@@ -284,12 +284,10 @@ function switchTab(key){
 document.addEventListener('DOMContentLoaded', ()=>{
   loadData();
 
-  // tabs
   document.querySelectorAll('.pill').forEach(btn=>{
     btn.addEventListener('click', ()=> switchTab(btn.dataset.tab));
   });
 
-  // search
   $('q').addEventListener('input', ()=>{
     FILTER_Q = $('q').value.trim();
     applyFilterAndGroup();
