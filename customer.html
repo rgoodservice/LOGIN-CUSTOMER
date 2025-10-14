@@ -116,6 +116,8 @@
       <button id="clearBtn" class="btn-ghost">ล้าง</button>
       <button class="btn" id="refreshBtn">รีเฟรช</button>
       <button class="btn" id="toSummaryBtn">ดูสรุปสถานะทั้งหมด</button>
+      <!-- ✅ ปุ่มใหม่: ลิงก์ไป note.html เดิม -->
+      <button class="btn" id="toNoteBtn">ดูหมายเหตุ / สรุปสถานะ (note)</button>
     </div>
     <div class="mut" id="count" style="margin-top:8px">—</div>
 
@@ -179,17 +181,14 @@ function fmtDateBE(d){
 
 /* ป้ายสถานะ (เหมือนฝั่งแอดมิน แต่ read-only) */
 function statusBadge(row){
-  // ถ้าแอดมินพิมพ์ข้อความสถานะเอง ให้แสดงเป็นป้ายสีส้ม
   if (row?.status_text){
     return `<span class="badge warn">${escapeHtml(row.status_text)}</span>`;
   }
-  // ถ้ามี renewed_status ให้ใช้ค่านั้นแทน
   if (row?.renewed_status){
     if (row.renewed_status.includes('ไม่ต่อ')) return `<span class="badge exp">ไม่ต่ออายุแล้ว</span>`;
     if (row.renewed_status.includes('ระหว่าง')) return `<span class="badge warn">อยู่ระหว่างดำเนินการ</span>`;
     if (row.renewed_status.includes('ดำเนินการแล้ว')) return `<span class="badge ok">ดำเนินการแล้ว</span>`;
   }
-  // else: คำนวณจากวันหมดอายุเดิม
   const eff = row?.expiry_date ? new Date(row.expiry_date) : null;
   if(!eff || isNaN(eff)) return `<span class="badge ok">ปกติ</span>`;
   const diff = Math.ceil((eff - new Date())/86400000);
@@ -199,7 +198,6 @@ function statusBadge(row){
 }
 
 /* ============ Render ตาราง ============ */
-/* ใช้ data-index เพื่อผูกปุ่มหมายเหตุให้ตรงกับแถวเสมอ (หายสลับชื่อแน่นอน) */
 function render(q=''){
   const tb = $('tbody');
   const rows = FILTERED;
@@ -221,7 +219,6 @@ function render(q=''){
         </td>
       </tr>
     `).join('');
-    // bind ปุ่มหมายเหตุด้วย data-index
     tb.querySelectorAll('.btn-note').forEach(btn=>{
       btn.addEventListener('click', (ev)=>{
         const idx = Number(ev.currentTarget.getAttribute('data-index'));
@@ -271,8 +268,6 @@ async function loadCompanyByCode(){
 
   FULL_ROWS = (res.data || []).map(x=>({
     ...x,
-    // กันกรณีฟังก์ชันหลังบ้านยังคืน renewed_until แบบเดิม
-    // แต่เราจะใช้ renewed_status/renewed_note เป็นหลัก
     renewed_status: x.renewed_status || (x.renewed_until ? 'ดำเนินการแล้ว' : null)
   }));
 
@@ -320,11 +315,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
     loadCompanyByCode();
   }
 
-  // ไปหน้า summary
+  // ไปหน้า summary (ลูกค้า)
   $('toSummaryBtn').addEventListener('click', ()=>{
-    const code = ($('code').value || '').trim().toUpperCase();
+    const code = (CURRENT_CODE || $('code').value || '').trim().toUpperCase();
     if(!code){ alert('กรุณาใส่รหัสลูกค้าก่อน'); return; }
     location.href = `summary.html?code=${encodeURIComponent(code)}`;
+  });
+
+  // ✅ ไปหน้า note.html เดิม (โหมดลูกค้า) — เปิดแท็บใหม่/หรือจะใช้ location.href ก็ได้
+  $('toNoteBtn').addEventListener('click', ()=>{
+    const code = (CURRENT_CODE || $('code').value || '').trim().toUpperCase();
+    if(!code){ alert('กรุณาใส่รหัสลูกค้าก่อน'); return; }
+    // เปิดแท็บใหม่:
+    window.open(`note.html?code=${encodeURIComponent(code)}&mode=customer`, '_blank');
+    // ถ้าอยากเปิดหน้าปัจจุบัน ให้ใช้:
+    // location.href = `note.html?code=${encodeURIComponent(code)}&mode=customer`;
   });
 });
 </script>
