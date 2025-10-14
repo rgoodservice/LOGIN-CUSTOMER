@@ -120,7 +120,16 @@ let allData = [];
 async function loadNotes(){
   const params = new URLSearchParams(window.location.search);
   const code = (params.get('code') || '').trim().toUpperCase();
-  document.getElementById('companyName').textContent = code ? `รหัสลูกค้า: ${code}` : '';
+  
+  // ✅ เพิ่มการตรวจสอบ code
+  if(!code){
+    document.getElementById('companyName').textContent = '⚠️ ไม่พบรหัสลูกค้า';
+    document.querySelector('#noteTable tbody').innerHTML = 
+      `<tr><td colspan="5" style="color:#b91c1c">กรุณาระบุรหัสลูกค้าใน URL หรือกลับไปหน้าหลัก</td></tr>`;
+    return;
+  }
+  
+  document.getElementById('companyName').textContent = `รหัสลูกค้า: ${code}`;
 
   const { data, error } = await sb
     .from('product_registrations')
@@ -130,7 +139,8 @@ async function loadNotes(){
     .order('brand_name', { ascending: true });
 
   if(error){
-    document.querySelector('#noteTable tbody').innerHTML = `<tr><td colspan="5">${error.message}</td></tr>`;
+    document.querySelector('#noteTable tbody').innerHTML = 
+      `<tr><td colspan="5" style="color:#b91c1c">เกิดข้อผิดพลาด: ${escapeHtml(error.message)}</td></tr>`;
     return;
   }
 
