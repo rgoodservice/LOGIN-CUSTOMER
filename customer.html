@@ -324,13 +324,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // ✅ ไปหน้า note.html เดิม (โหมดลูกค้า) — เปิดแท็บใหม่/หรือจะใช้ location.href ก็ได้
   $('toNoteBtn').addEventListener('click', ()=>{
-    const code = (CURRENT_CODE || $('code').value || '').trim().toUpperCase();
-    if(!code){ alert('กรุณาใส่รหัสลูกค้าก่อน'); return; }
-    // เปิดแท็บใหม่:
-    window.open(`note.html?code=${encodeURIComponent(code)}&mode=customer`, '_blank');
-    // ถ้าอยากเปิดหน้าปัจจุบัน ให้ใช้:
-    // location.href = `note.html?code=${encodeURIComponent(code)}&mode=customer`;
-  });
+  const code = (CURRENT_CODE || $('code').value || '').trim().toUpperCase();
+  if(!code){ alert('กรุณาใส่รหัสลูกค้าก่อน'); return; }
+  const url = `note.html?code=${encodeURIComponent(code)}&mode=customer`;
+  // เปิดหน้าเดิม (ชัวร์สุด — ไม่โดนบล็อก)
+  window.location.href = url;
 });
 </script>
 </body>
