@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>สถานะเอกสารของลูกค้า — R.Good Service</title>
+<title>summary.html — สรุปสถานะเอกสาร (ลูกค้า)</title>
 
-<!-- ใช้ UMD ให้รองรับมือถือ/อินแอป -->
+<!-- ใช้ UMD เพื่อรองรับมือถือ/อินแอป -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
 
@@ -17,246 +17,263 @@
     --text:#0f172a;
     --muted:#64748b;
     --accent:#0ea5a5;
+    --accent2:#60a5fa;
     --warn:#b45309;
     --danger:#b91c1c;
-    --ok:#047857;
-    --radius:14px;
+    --ok:#0b7a58;
 
-    /* สีพื้นหลังของแถวตามสถานะ (ให้เหมือนอารมณ์แอดมิน) */
-    --bg-inprog:#fff8e1;  /* เหลืองอ่อน */
-    --bg-done:#ecfdf5;    /* เขียวอ่อน */
-    --bg-stop:#ffecec;    /* ชมพูอ่อน */
+    --row-warn:#fff7ed;   /* แถว อยู่ระหว่างดำเนินการ */
+    --row-done:#ecfdf5;   /* แถว ดำเนินการแล้ว */
+    --row-stop:#fef2f2;   /* แถว ไม่ต่ออายุแล้ว */
+
+    --radius:14px;
   }
-  *{box-sizing:border-box;}
+  *{box-sizing:border-box}
   body{
-    margin:0;
-    font-family:"Prompt",sans-serif;
-    color:var(--text);
-    background:var(--bg);
+    margin:0; font-family:"Prompt",ui-sans-serif,system-ui; color:var(--text); background:var(--bg);
   }
   header{
-    padding:20px;
+    padding:18px;
     background:linear-gradient(135deg,#e0f7f5,#f0fdfa);
     border-bottom:1px solid var(--border);
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
   }
-  .logo{font-weight:700;font-size:20px;color:var(--accent);}
-  main{
-    max-width:1000px;
-    margin:30px auto;
-    padding:0 16px;
-  }
+  .logo{font-weight:700; font-size:20px; color:#0b3a4f}
+  main{max-width:1000px; margin:26px auto; padding:0 16px}
   .card{
-    background:var(--card);
-    border:1px solid var(--border);
-    border-radius:var(--radius);
-    padding:20px;
-    margin-bottom:16px;
-    box-shadow:0 3px 10px rgba(0,0,0,.05);
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:18px; margin-bottom:16px; box-shadow:0 6px 20px rgba(10,20,50,.06)
   }
-  h2{margin-top:0;font-size:20px;color:var(--accent);}
-  .note{color:var(--muted);font-size:13px;}
+  h2{margin:0 0 10px; font-size:20px; color:#0b3a4f}
+  .mut{color:var(--muted)}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+  .spacer{flex:1}
 
-  /* SUMMARY (กล่องสรุปด้านบน) */
-  .summary{
-    display:flex; flex-wrap:wrap; gap:10px; margin:12px 0 6px;
+  input, select, button{
+    padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:#fff;
+    font-size:15px; color:var(--text)
   }
-  .chip{
-    padding:10px 14px; border-radius:12px; border:1px solid var(--border); background:#fff;
-    font-weight:700; font-size:14px; display:flex; align-items:center; gap:8px;
-  }
-  .dot{width:10px;height:10px;border-radius:999px;display:inline-block}
-  .dot.inprog{background:#f59e0b}
-  .dot.done{background:#10b981}
-  .dot.stop{background:#ef4444}
-  .chip .num{font-weight:700}
+  .btn{cursor:pointer; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-weight:700; border:none}
+  .btn-ghost{background:#fff; color:#0e7490; border:1px solid #94d5e5; cursor:pointer}
 
-  /* FILTER BAR */
-  .filter-bar{
-    display:flex;
-    gap:10px;
-    align-items:center;
-    margin:10px 0 16px;
-  }
-  select{
-    padding:8px 12px;
-    border-radius:10px;
-    border:1px solid var(--border);
-    font-family:"Prompt";
-    font-size:14px;
-    background:#fff;
+  .filter-bar{display:flex; gap:10px; align-items:center; margin:10px 0 0}
+
+  table{width:100%; border-collapse:collapse; font-size:15px; background:#fff; border:1px solid var(--border); border-radius:12px; overflow:hidden}
+  thead th{background:#f1f5f9; text-align:left; padding:10px}
+  tbody td{padding:10px; border-top:1px solid var(--border); vertical-align:top}
+
+  /* สีพื้นแถวตามสถานะ */
+  tr.row-inprog{ background: var(--row-warn); }
+  tr.row-done{   background: var(--row-done); }
+  tr.row-stop{   background: var(--row-stop); }
+
+  .status{font-weight:700; padding:4px 10px; border-radius:999px; display:inline-block}
+  .status[data-status="อยู่ระหว่างดำเนินการ"]{background:#fff7ed; color:var(--warn); border:1px solid #facc1540}
+  .status[data-status="ดำเนินการแล้ว"]{background:#ecfdf5; color:var(--ok); border:1px solid #34d39955}
+  .status[data-status="ไม่ต่ออายุแล้ว"]{background:#fef2f2; color:var(--danger); border:1px solid #fca5a555}
+
+  /* กล่องหมายเหตุสีน้ำเงินอ่อนให้เด่น */
+  .note-box{
+    background:#e7f0ff; color:#0b3a4f; border:1px solid #bfd6ff;
+    padding:10px 12px; border-radius:10px; white-space:pre-wrap;
   }
 
-  /* TABLE (เหมือนแอดมิน) */
-  table{width:100%;border-collapse:collapse;font-size:15px;}
-  th,td{padding:10px;border-bottom:1px solid var(--border);vertical-align:top;text-align:left;}
-  th{background:#f1f5f9;}
-  tr[data-status="อยู่ระหว่างดำเนินการ"]{background:var(--bg-inprog);}
-  tr[data-status="ดำเนินการแล้ว"]{background:var(--bg-done);}
-  tr[data-status="ไม่ต่ออายุแล้ว"]{background:var(--bg-stop);}
-
-  /* ป้ายสถานะเหมือนฝั่งแอดมิน */
-  .status{font-weight:600;padding:4px 8px;border-radius:8px;display:inline-block;}
-  .status[data-status="อยู่ระหว่างดำเนินการ"]{background:#fff7ed;color:var(--warn);}
-  .status[data-status="ไม่ต่ออายุแล้ว"]{background:#fef2f2;color:var(--danger);}
-  .status[data-status="ดำเนินการแล้ว"]{background:#ecfdf5;color:var(--ok);}
+  /* เส้นคั่นระหว่างกลุ่ม (ตามที่ลูกค้าชอบ) */
+  .section-title{
+    font-weight:700; color:#0ea5a5; margin:6px 0 8px; font-size:16px
+  }
+  .hr{height:1px; background:#e2e8f0; margin:6px 0 10px}
 </style>
 </head>
 <body>
-  <header>
-    <div class="logo">📄 สถานะเอกสารของคุณ</div>
-    <button onclick="history.length>1?history.back():window.close()" style="padding:8px 14px;border:1px solid var(--border);background:white;border-radius:10px;cursor:pointer;">ย้อนกลับ</button>
-  </header>
+<header>
+  <div class="logo">📝 สรุปสถานะเอกสาร (ลูกค้า)</div>
+  <button class="btn-ghost" onclick="history.length>1?history.back():window.close()">ปิด</button>
+</header>
 
-  <main>
-    <div class="card">
-      <h2>รายการสถานะและหมายเหตุ</h2>
-      <div id="companyName" class="note"></div>
+<main>
+  <div class="card">
+    <h2>รายการสถานะและหมายเหตุ</h2>
+    <div id="companyName" class="mut" style="margin-bottom:8px">—</div>
 
-      <!-- SUMMARY -->
-      <div class="summary" id="summaryRow">
-        <div class="chip"><span class="dot inprog"></span> อยู่ระหว่างดำเนินการ <span class="num" id="sumInprog">0</span></div>
-        <div class="chip"><span class="dot done"></span> ดำเนินการแล้ว <span class="num" id="sumDone">0</span></div>
-        <div class="chip"><span class="dot stop"></span> ไม่ต่ออายุแล้ว <span class="num" id="sumStop">0</span></div>
-        <div class="chip">รวมทั้งหมด <span class="num" id="sumAll">0</span></div>
-      </div>
-
-      <!-- FILTER -->
-      <div class="filter-bar">
-        <label for="statusFilter">แสดงเฉพาะ:</label>
-        <select id="statusFilter">
-          <option value="ทั้งหมด">ทั้งหมด</option>
-          <option value="ดำเนินการรวม">ดำเนินการแล้ว + อยู่ระหว่างดำเนินการ</option>
-          <option value="อยู่ระหว่างดำเนินการ">เฉพาะอยู่ระหว่างดำเนินการ</option>
-          <option value="ดำเนินการแล้ว">เฉพาะดำเนินการแล้ว</option>
-          <option value="ไม่ต่ออายุแล้ว">ไม่ต่ออายุแล้ว</option>
-        </select>
-      </div>
-
-      <!-- TABLE -->
-      <table id="noteTable">
-        <thead>
-          <tr>
-            <th>ลำดับ</th>
-            <th>ชื่อการค้า</th>
-            <th>ชื่อสามัญ/สูตร</th>
-            <th>สถานะ</th>
-            <th>หมายเหตุ</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td colspan="5" style="color:var(--muted)">กำลังโหลดข้อมูล...</td></tr>
-        </tbody>
-      </table>
+    <div class="row">
+      <div class="spacer"></div>
+      <div id="summaryLine" class="mut"></div>
     </div>
-  </main>
+
+    <div class="filter-bar">
+      <label for="statusFilter">แสดงเฉพาะ:</label>
+      <select id="statusFilter">
+        <option value="ทั้งหมด">ทั้งหมด</option>
+        <option value="ดำเนินการ+กำลังดำเนินการ">ดำเนินการแล้ว + อยู่ระหว่างดำเนินการ</option>
+        <option value="ไม่ต่ออายุแล้ว">ไม่ต่ออายุแล้ว</option>
+      </select>
+
+      <div class="spacer"></div>
+      <input id="q" placeholder="ค้นหา: ชื่อการค้า / ชื่อสามัญ" style="min-width:240px">
+      <button id="clearBtn" class="btn-ghost">ล้าง</button>
+      <button id="refreshBtn" class="btn">รีเฟรช</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <table id="noteTable">
+      <thead>
+        <tr>
+          <th style="width:64px">ลำดับ</th>
+          <th>ชื่อการค้า</th>
+          <th>ชื่อสามัญ/สูตร</th>
+          <th style="width:180px">สถานะ</th>
+          <th>หมายเหตุ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="5" class="mut" style="padding:14px">กำลังโหลดข้อมูล...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
 
 <script>
-/* ===== Supabase ===== */
+/* ===== Supabase config ===== */
 const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let allData = [];
+const $ = id => document.getElementById(id);
+let RAW = [];   // ดิบทั้งหมด
+let VIEW = [];  // หลังฟิลเตอร์/ค้นหา
 
-/* โหลดข้อมูลตาม code= ใน URL */
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]) )}
+
+/* ===== โหลดข้อมูล: รองรับ code เป็น "รหัสลูกค้า" (RPC) หรือ "รหัสบริษัท" (query ตรง) ===== */
 async function loadNotes(){
-  const params = new URLSearchParams(window.location.search);
-  const code = (params.get('code')||'').trim().toUpperCase();
-  document.getElementById('companyName').textContent = code ? `รหัสลูกค้า: ${code}` : 'ไม่ได้ส่งรหัสลูกค้ามา (?code=...)';
+  const params = new URLSearchParams(location.search);
+  const codeRaw = (params.get('code')||'').trim();
+  const code = codeRaw.toUpperCase();
 
-  // ดึงเฉพาะรายการที่มีสถานะ 3 แบบนี้ (เหมือนของแอดมิน)
-  const { data, error } = await sb
-    .from('product_registrations')
-    .select('id,brand_name,common_label,renewed_status,renewed_note')
-    .eq('company_code', code)
-    .in('renewed_status', ['อยู่ระหว่างดำเนินการ', 'ดำเนินการแล้ว', 'ไม่ต่ออายุแล้ว']);
-
-  if(error){
-    document.querySelector('#noteTable tbody').innerHTML = `<tr><td colspan="5">${error.message}</td></tr>`;
+  if(!code){
+    $('companyName').textContent = 'ไม่ได้ส่ง code ใน URL (?code=...)';
     return;
   }
 
-  allData = (data || []).map(r => ({
-    ...r,
-    // เผื่อข้อมูลเก่าไม่มีค่า แต่ห้ามโชว์ในเพจนี้อยู่ดี เพราะเรากรองแล้ว
-    renewed_status: r.renewed_status
+  // พยายามแบบลูกค้าก่อน (RPC)
+  let rows = [];
+  try{
+    const nameRes = await sb.rpc('get_company_name_by_code', { p_plain_code: code });
+    if(nameRes?.data){
+      $('companyName').textContent = `บริษัท: ${nameRes.data} (รหัสลูกค้า: ${code})`;
+      const res = await sb.rpc('get_company_portal', { p_plain_code: code });
+      if(res.error){ throw res.error; }
+      rows = res.data || [];
+    }else{
+      // fallback: ใช้ code เป็น company_code ตรง
+      $('companyName').textContent = `รหัสบริษัท: ${code}`;
+      const res2 = await sb
+        .from('product_registrations')
+        .select('brand_name,common_label,renewed_status,renewed_note')
+        .eq('company_code', code)
+        .order('brand_name', {ascending:true});
+      if(res2.error){ throw res2.error; }
+      rows = res2.data || [];
+    }
+  }catch(err){
+    document.querySelector('#noteTable tbody').innerHTML =
+      `<tr><td colspan="5" style="color:#b91c1c;padding:14px">${escapeHtml(err.message||err)}</td></tr>`;
+    return;
+  }
+
+  // มาตรฐานสถานะ: ถ้ามี renewed_until แต่ยังไม่มี renewed_status ให้ถือว่า "ดำเนินการแล้ว"
+  RAW = rows.map(r => ({
+    brand_name: r.brand_name || '',
+    common_label: r.common_label || '',
+    renewed_status: r.renewed_status || (r.renewed_until ? 'ดำเนินการแล้ว' : null),
+    renewed_note: r.renewed_note || ''
   }));
 
-  // เรียงเริ่มต้น: อยู่ระหว่างดำเนินการ -> ดำเนินการแล้ว -> ไม่ต่ออายุแล้ว (เหมือน UX ฝั่งแอดมิน)
-  sortDefault(allData);
-
-  renderCounts(allData);
-  renderTable();
+  applyFilter();
 }
 
-/* เรียงแบบดีฟอลต์ให้เหมือนแอดมิน */
-function sortDefault(arr){
-  const rank = { 'อยู่ระหว่างดำเนินการ': 0, 'ดำเนินการแล้ว': 1, 'ไม่ต่ออายุแล้ว': 2 };
-  arr.sort((a,b)=>{
-    const ra = rank[a.renewed_status] ?? 99;
-    const rb = rank[b.renewed_status] ?? 99;
-    if(ra !== rb) return ra - rb;
-    // รองมา: ชื่อการค้า A→Z เพื่อผลลัพธ์นิ่ง
-    return (a.brand_name||'').localeCompare(b.brand_name||'', 'th');
+/* ===== ฟิลเตอร์ + ค้นหา ===== */
+function applyFilter(){
+  const mode = $('statusFilter').value;
+  const q = ($('q').value||'').trim().toLowerCase();
+
+  // 1) ฟิลเตอร์สถานะ
+  let pool = RAW.filter(r=>{
+    const s = r.renewed_status || '';
+    if(mode === 'ทั้งหมด') return true;
+    if(mode === 'ดำเนินการ+กำลังดำเนินการ') return (s === 'ดำเนินการแล้ว' || s === 'อยู่ระหว่างดำเนินการ');
+    if(mode === 'ไม่ต่ออายุแล้ว') return (s === 'ไม่ต่ออายุแล้ว');
+    return true;
   });
-}
 
-/* สรุปตัวเลขบนหัว */
-function renderCounts(rows){
-  const inprog = rows.filter(x=>x.renewed_status==='อยู่ระหว่างดำเนินการ').length;
-  const done   = rows.filter(x=>x.renewed_status==='ดำเนินการแล้ว').length;
-  const stop   = rows.filter(x=>x.renewed_status==='ไม่ต่ออายุแล้ว').length;
-
-  document.getElementById('sumInprog').textContent = inprog.toLocaleString('th-TH');
-  document.getElementById('sumDone').textContent   = done.toLocaleString('th-TH');
-  document.getElementById('sumStop').textContent   = stop.toLocaleString('th-TH');
-  document.getElementById('sumAll').textContent    = (inprog+done+stop).toLocaleString('th-TH');
-}
-
-/* วาดตารางตามตัวกรอง */
-function renderTable(){
-  const filter = document.getElementById('statusFilter').value;
-  let filtered = [...allData];
-
-  if(filter === 'ดำเนินการรวม'){
-    filtered = filtered.filter(r => r.renewed_status==='อยู่ระหว่างดำเนินการ' || r.renewed_status==='ดำเนินการแล้ว');
-    // ให้ "อยู่ระหว่างดำเนินการ" โผล่ก่อนเสมอ
-    sortDefault(filtered);
-  }else if(filter !== 'ทั้งหมด'){
-    filtered = filtered.filter(r => r.renewed_status === filter);
-    sortDefault(filtered);
-  }else{
-    // ทั้งหมดก็เรียงดีฟอลต์
-    sortDefault(filtered);
+  // 2) ค้นหา
+  if(q){
+    pool = pool.filter(r =>
+      (r.brand_name||'').toLowerCase().includes(q) ||
+      (r.common_label||'').toLowerCase().includes(q)
+    );
   }
 
+  // 3) เรียง: กลุ่ม “ดำเนินการแล้ว/กำลังดำเนินการ” มาก่อน, ต่อด้วย “ไม่ต่ออายุแล้ว”
+  const rank = s => (s==='ดำเนินการแล้ว'||s==='อยู่ระหว่างดำเนินการ') ? 0 : (s==='ไม่ต่ออายุแล้ว'?1:2);
+  pool.sort((a,b)=>{
+    const ra = rank(a.renewed_status||''), rb = rank(b.renewed_status||'');
+    if(ra !== rb) return ra - rb;
+    return (a.brand_name||'').localeCompare(b.brand_name||'', 'th');
+  });
+
+  VIEW = pool;
+  renderTable();
+  renderSummary();
+}
+
+/* ===== เรนเดอร์ตาราง ===== */
+function renderTable(){
   const tb = document.querySelector('#noteTable tbody');
-  if(filtered.length === 0){
-    tb.innerHTML = `<tr><td colspan="5" style="color:var(--muted)">ไม่มีรายการในหมวดนี้</td></tr>`;
+  if(VIEW.length === 0){
+    tb.innerHTML = `<tr><td colspan="5" class="mut" style="padding:14px">ไม่มีรายการตรงตามเงื่อนไข</td></tr>`;
     return;
   }
 
-  tb.innerHTML = filtered.map((r,i)=>`
-    <tr data-status="${r.renewed_status}">
-      <td>${i+1}</td>
-      <td>${escapeHtml(r.brand_name) || '-'}</td>
-      <td>${escapeHtml(r.common_label) || '-'}</td>
-      <td><span class="status" data-status="${r.renewed_status}">${r.renewed_status}</span></td>
-      <td>${r.renewed_note ? escapeHtml(r.renewed_note).replace(/\n/g,'<br>') : '-'}</td>
-    </tr>
-  `).join('');
+  tb.innerHTML = VIEW.map((r,i)=>{
+    const status = r.renewed_status || '-';
+    const rowCls =
+      status==='อยู่ระหว่างดำเนินการ' ? 'row-inprog' :
+      status==='ดำเนินการแล้ว'       ? 'row-done'   :
+      status==='ไม่ต่ออายุแล้ว'       ? 'row-stop'   : '';
+    const noteHtml = r.renewed_note ? `<div class="note-box">${escapeHtml(r.renewed_note)}</div>` : '-';
+
+    return `
+      <tr class="${rowCls}">
+        <td>${i+1}</td>
+        <td>${escapeHtml(r.brand_name||'-')}</td>
+        <td>${escapeHtml(r.common_label||'-')}</td>
+        <td><span class="status" data-status="${escapeHtml(status)}">${escapeHtml(status)}</span></td>
+        <td>${noteHtml}</td>
+      </tr>
+    `;
+  }).join('');
 }
 
-/* utils */
-function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+/* ===== สรุปตัวเลขด้านบน ===== */
+function renderSummary(){
+  const all = VIEW.length;
+  const inprog = VIEW.filter(r=>r.renewed_status==='อยู่ระหว่างดำเนินการ').length;
+  const done   = VIEW.filter(r=>r.renewed_status==='ดำเนินการแล้ว').length;
+  const stop   = VIEW.filter(r=>r.renewed_status==='ไม่ต่ออายุแล้ว').length;
+  $('summaryLine').textContent =
+    `รวม ${all.toLocaleString('th-TH')} รายการ • ดำเนินการแล้ว ${done.toLocaleString('th-TH')} • กำลังดำเนินการ ${inprog.toLocaleString('th-TH')} • ไม่ต่ออายุแล้ว ${stop.toLocaleString('th-TH')}`;
+}
 
-/* start */
+/* ===== Events ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
   loadNotes();
-  document.getElementById('statusFilter').addEventListener('change', renderTable);
+  $('statusFilter').addEventListener('change', applyFilter);
+  $('q').addEventListener('input', applyFilter);
+  $('clearBtn').addEventListener('click', ()=>{ $('q').value=''; applyFilter(); });
+  $('refreshBtn').addEventListener('click', loadNotes);
 });
 </script>
 </body>
