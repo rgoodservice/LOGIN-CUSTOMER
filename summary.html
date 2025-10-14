@@ -3,10 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>หมายเหตุสถานะเอกสาร (ลูกค้า) — R.Good Service</title>
+<title>สรุปสถานะเอกสาร (ลูกค้า) — R.Good Service</title>
 
-<!-- ใช้ Supabase แบบ UMD ให้รองรับมือถือ/อินแอป -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
@@ -53,8 +52,8 @@
   .note{color:var(--muted);font-size:13px;}
   .status{font-weight:600;padding:4px 8px;border-radius:8px;display:inline-block;}
   .status[data-status="อยู่ระหว่างดำเนินการ"]{background:#fff7ed;color:var(--warn);}
-  .status[data-status="ไม่ต่ออายุแล้ว"]{background:#fef2f2;color:var(--danger);}
   .status[data-status="ดำเนินการแล้ว"]{background:#ecfdf5;color:#047857;}
+  .status[data-status="ไม่ต่ออายุแล้ว"]{background:#fef2f2;color:var(--danger);}
   .filter-bar{
     display:flex;
     gap:10px;
@@ -74,7 +73,7 @@
 </head>
 <body>
   <header>
-    <div class="logo">📝 หมายเหตุสถานะเอกสาร (ลูกค้า)</div>
+    <div class="logo">📄 สรุปสถานะเอกสารของคุณ</div>
     <button onclick="history.length>1?history.back():window.close()" style="padding:8px 14px;border:1px solid var(--border);background:white;border-radius:10px;cursor:pointer;">ย้อนกลับ</button>
   </header>
 
@@ -87,7 +86,7 @@
         <label for="statusFilter">แสดงเฉพาะ:</label>
         <select id="statusFilter">
           <option value="ทั้งหมด">ทั้งหมด</option>
-          <option value="กำลัง+แล้ว">อยู่ระหว่างดำเนินการ + ดำเนินการแล้ว (รวม)</option>
+          <option value="กำลัง+แล้ว">อยู่ระหว่างดำเนินการ + ดำเนินการแล้ว</option>
           <option value="อยู่ระหว่างดำเนินการ">อยู่ระหว่างดำเนินการ</option>
           <option value="ดำเนินการแล้ว">ดำเนินการแล้ว</option>
           <option value="ไม่ต่ออายุแล้ว">ไม่ต่ออายุแล้ว</option>
@@ -112,58 +111,44 @@
   </main>
 
 <script>
-/* ===== Supabase config ===== */
 const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let ALL = [];
+let allData = [];
 
-/* โหลดข้อมูลตามรหัสลูกค้าในพารามิเตอร์ ?code=XXXX */
 async function loadNotes(){
   const params = new URLSearchParams(window.location.search);
   const code = (params.get('code') || '').trim().toUpperCase();
+  document.getElementById('companyName').textContent = code ? `รหัสลูกค้า: ${code}` : '';
 
-  // ชื่อบริษัท (โชว์บนหัว)
-  if(code){
-    const nameRes = await sb.rpc('get_company_name_by_code', { p_plain_code: code });
-    document.getElementById('companyName').textContent =
-      nameRes.data ? `บริษัท: ${nameRes.data} (รหัสลูกค้า: ${code})` : `รหัสลูกค้า: ${code}`;
-  }else{
-    document.getElementById('companyName').textContent = 'ไม่ได้ส่งรหัสลูกค้ามา (?code=...)';
-  }
-
-  // ดึงเฉพาะ 3 สถานะที่ต้องโชว์ลูกค้า และเรียงตามชื่อการค้า/ชื่อสามัญ
   const { data, error } = await sb
     .from('product_registrations')
     .select('id,brand_name,common_label,renewed_status,renewed_note')
     .eq('company_code', code)
-    .in('renewed_status', ['อยู่ระหว่างดำเนินการ', 'ดำเนินการแล้ว', 'ไม่ต่ออายุแล้ว'])
-    .order('brand_name', { ascending: true })
-    .order('common_label', { ascending: true });
+    .in('renewed_status', ['อยู่ระหว่างดำเนินการ','ดำเนินการแล้ว','ไม่ต่ออายุแล้ว'])
+    .order('brand_name', { ascending: true });
 
   if(error){
     document.querySelector('#noteTable tbody').innerHTML = `<tr><td colspan="5">${error.message}</td></tr>`;
     return;
   }
 
-  // กันข้อมูลเก่า: ถ้า renewed_status ว่างแต่เคยต่อแล้ว ให้ถือว่า "ดำเนินการแล้ว"
-  ALL = (data || []).map(r => ({
+  allData = (data || []).map(r => ({
     ...r,
     renewed_status: r.renewed_status || 'ดำเนินการแล้ว'
   }));
-
   renderTable();
 }
 
 function renderTable(){
   const filter = document.getElementById('statusFilter').value;
-  let filtered = ALL;
+  let filtered = allData;
 
   if(filter === 'กำลัง+แล้ว'){
-    filtered = ALL.filter(r => r.renewed_status === 'อยู่ระหว่างดำเนินการ' || r.renewed_status === 'ดำเนินการแล้ว');
+    filtered = allData.filter(r => ['อยู่ระหว่างดำเนินการ','ดำเนินการแล้ว'].includes(r.renewed_status));
   }else if(filter !== 'ทั้งหมด'){
-    filtered = ALL.filter(r => r.renewed_status === filter);
+    filtered = allData.filter(r => r.renewed_status === filter);
   }
 
   const tb = document.querySelector('#noteTable tbody');
@@ -184,7 +169,7 @@ function renderTable(){
 }
 
 function escapeHtml(s){
-  return String(s ?? '-').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  return String(s ?? '-').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
