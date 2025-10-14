@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>สรุปสถานะ (แท็บ 4 ช่อง) — R.Good Service</title>
 
-<!-- Supabase UMD -->
+<!-- Supabase UMD (รองรับมือถือ/อินแอป) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
 
@@ -13,17 +13,18 @@
   :root{
     --bg:#f6fbff; --card:#ffffff; --border:#e6eef5; --ink:#0f172a; --mut:#64748b;
     --accent:#0ea5a5; --accent2:#60a5fa; --radius:16px;
-    --ok:#065f46;   --okbg:#ecfdf5;
-    --warn:#b45309; --warnbg:#fff7ed;
-    --exp:#b91c1c;  --expbg:#fff1f2;
-    --noteText:#1e293b; --noteBg:#eef2ff; --noteBorder:#c7d2fe;
+    --ok:#0b7a58;   --okbg:#e9fbf3;
+    --warn:#b45309; --warnbg:#fff3e6;
+    --exp:#b91c1c;  --expbg:#ffecec;
+    --pill:#0ea5a51a; --pill-b:#94d5e5;
   }
   *{box-sizing:border-box}
   body{
-    margin:0; font-family:"Prompt",ui-sans-serif,system-ui; color:var(--ink); background:
-    radial-gradient(1000px 500px at 10% -10%, #e6f7ff 0%, transparent 60%),
-    radial-gradient(900px 450px at 110% 0%, #e8fff6 0%, transparent 60%),
-    #f6fbff;
+    margin:0; font-family:"Prompt",ui-sans-serif,system-ui;
+    color:var(--ink); background:
+      radial-gradient(1000px 500px at 10% -10%, #e6f7ff 0%, transparent 60%),
+      radial-gradient(900px 450px at 110% 0%, #e8fff6 0%, transparent 60%),
+      #f6fbff;
   }
   header{
     padding:18px; background:linear-gradient(135deg,#e0f7f5,#f0fdfa);
@@ -39,50 +40,51 @@
   .mut{color:var(--mut)}
   .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
   .spacer{flex:1}
-  input, select, button{
+  input, button{
     padding:12px; border-radius:12px; border:1px solid var(--border); background:#fff;
     font-size:18px; color:var(--ink)
   }
   .btn{cursor:pointer; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-weight:700; border:none}
   .btn-ghost{background:#fff; color:#0e7490; border:1px solid #94d5e5}
   .pill{
-    padding:8px 14px; border-radius:999px; border:1px solid var(--border); background:#fff;
+    padding:10px 16px; border-radius:999px; border:1px solid var(--pill-b); background:var(--pill);
     cursor:pointer; font-weight:700; font-size:18px;
   }
   .pill.active{ background:linear-gradient(135deg,#eaf7ff,#f0fdfa); border-color:#9bd5e9 }
   .pill .count{margin-left:8px; font-weight:700; color:#0ea5a5}
 
+  /* แถบหัวข้อบล็อก (accordion) */
+  .blk-head{
+    width:100%; text-align:left; background:#fff; border:1px solid var(--border);
+    border-radius:12px; padding:14px 16px; font-size:18px; font-weight:700;
+    display:flex; align-items:center; justify-content:space-between; cursor:pointer;
+  }
+  .blk-head .hint{font-weight:600; color:#0ea5a5}
+  .blk-body{padding:10px 0 2px}
+
   /* การ์ดรายการ */
   .item{
-    border:1px solid var(--border); border-radius:14px; padding:14px; margin:10px 0;
+    border:1px solid var(--border); border-radius:14px; padding:16px; margin:12px 0;
     background:#fff; box-shadow:0 3px 14px rgba(10,30,60,.05)
   }
-  .item h3{margin:0 0 6px; font-size:20px}
-  .sub{color:#475569; font-size:17px; margin-bottom:8px}
-  .grid{
-    display:grid; grid-template-columns: 1fr 1fr; gap:8px 14px; margin-top:8px
-  }
-  .kv{font-size:16px}
-  .kv b{display:inline-block; min-width:110px; color:#334155}
-  .badge{padding:6px 12px; border-radius:999px; font-weight:700; display:inline-block; font-size:16px}
-  .ok{ color:var(--ok);   background:var(--okbg);   border:1px solid #a7f3d090; }
-  .warn{color:var(--warn); background:var(--warnbg); border:1px solid #fde68a80;}
-  .exp{ color:var(--exp);  background:var(--expbg);  border:1px solid #fecaca90;}
-
-  /* กล่องหมายเหตุ: โทนฟ้า/เทา แยกจากส้มของ "กำลังดำเนินการ" ชัดเจน */
-  .note{
-    color:var(--noteText); background:var(--noteBg);
-    border:1px solid var(--noteBorder); padding:12px; border-radius:10px;
-    font-size:16px; white-space:pre-wrap
-  }
+  .item h3{margin:0 0 8px; font-size:22px}
+  .sub{color:#475569; font-size:18px; margin-bottom:10px}
+  .grid{display:grid; grid-template-columns: 1fr 1fr; gap:10px 16px}
+  .kv{font-size:18px}
+  .kv b{display:inline-block; min-width:120px; color:#334155}
+  .badge{padding:8px 14px; border-radius:999px; font-weight:700; display:inline-block; font-size:18px}
+  .ok{   color:var(--ok);   background:var(--okbg);   border:1px solid #b6f0d0; }
+  .warn{ color:var(--warn); background:var(--warnbg); border:1px solid #ffd7a6; }
+  .exp{  color:var(--exp);  background:var(--expbg);  border:1px solid #ffc0c0; }
+  .note{ color:#334155; background:#f8fafc; border:1px dashed #cbd5e1; padding:12px; border-radius:10px; font-size:18px; white-space:pre-wrap}
 
   .tab-wrap{display:flex; gap:10px; flex-wrap:wrap; margin:12px 0 4px}
   .empty{color:var(--mut); font-size:18px; padding:14px}
 
   @media (max-width:640px){
-    input,select,button,.pill{font-size:18px}
+    input,button,.pill{font-size:18px}
     .grid{grid-template-columns: 1fr}
-    .item h3{font-size:20px}
+    .item h3{font-size:22px}
   }
 </style>
 </head>
@@ -116,27 +118,35 @@
   </div>
 
   <!-- ใกล้/หมดอายุ -->
-  <div class="card" id="tab-near">
-    <h2>ใกล้หมดอายุ / หมดอายุ</h2>
-    <div id="list-near" class="list"></div>
+  <div class="card tab" id="tab-near">
+    <button class="blk-head" data-collapse="near">
+      ใกล้หมดอายุ / หมดอายุ <span class="hint" id="h-near">(แสดง)</span>
+    </button>
+    <div class="blk-body" id="list-near"></div>
   </div>
 
   <!-- อยู่ระหว่างดำเนินการ -->
-  <div class="card" id="tab-inprog" style="display:none">
-    <h2>อยู่ระหว่างดำเนินการ</h2>
-    <div id="list-inprog" class="list"></div>
+  <div class="card tab" id="tab-inprog" style="display:none">
+    <button class="blk-head" data-collapse="inprog">
+      อยู่ระหว่างดำเนินการ <span class="hint" id="h-inprog">(แสดง)</span>
+    </button>
+    <div class="blk-body" id="list-inprog"></div>
   </div>
 
   <!-- ไม่ต่ออายุแล้ว -->
-  <div class="card" id="tab-stopped" style="display:none">
-    <h2>ไม่ต่ออายุแล้ว</h2>
-    <div id="list-stopped" class="list"></div>
+  <div class="card tab" id="tab-stopped" style="display:none">
+    <button class="blk-head" data-collapse="stopped">
+      ไม่ต่ออายุแล้ว <span class="hint" id="h-stopped">(แสดง)</span>
+    </button>
+    <div class="blk-body" id="list-stopped"></div>
   </div>
 
   <!-- ดำเนินการแล้ว -->
-  <div class="card" id="tab-done" style="display:none">
-    <h2>ดำเนินการแล้ว</h2>
-    <div id="list-done" class="list"></div>
+  <div class="card tab" id="tab-done" style="display:none">
+    <button class="blk-head" data-collapse="done">
+      ดำเนินการแล้ว <span class="hint" id="h-done">(แสดง)</span>
+    </button>
+    <div class="blk-body" id="list-done"></div>
   </div>
 </main>
 
@@ -154,45 +164,23 @@ function fmtDateBE(d){
   if(!d) return '-';
   const t = new Date(d); if(isNaN(t)) return '-';
   try{
-    return t.toLocaleDateString('th-TH-u-ca-buddhist',{year:'numeric',month:'short',day:'numeric',timeZone:'Asia/Bangkok'});
+    return t.toLocaleDateString('th-TH-u-ca-buddhist', {year:'numeric', month:'short', day:'numeric', timeZone:'Asia/Bangkok'});
   }catch(e){
     return `${t.getDate()}/${t.getMonth()+1}/${t.getFullYear()+543}`;
   }
 }
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
-/* ===== ทำมาตรฐานสถานะ ===== */
-function normalizeStatus(raw, renewed_until){
-  // ถ้าไม่ได้ใส่สถานะแต่มี renewed_until ถือว่า "done"
-  if((!raw || !String(raw).trim()) && renewed_until) return {code:'done', label:'ดำเนินการแล้ว'};
-
-  const txt = String(raw||'').trim().replace(/\s+/g,' ').toLowerCase();
-
-  // คำพ้อง/พิมพ์ผิดที่พบบ่อย
-  const inprogWords  = ['อยู่ระหว่างดำเนินการ','อยู่ ระหว่าง ดำเนินการ','ดำเนินการอยู่','กำลังดำเนินการ'];
-  const stoppedWords = ['ไม่ต่ออายุแล้ว','ไม่ ต่อ อายุ แล้ว','เลิก','ยุติ','ไม่ต่อแล้ว'];
-  const doneWords    = ['ดำเนินการแล้ว','ต่ออายุแล้ว','เสร็จสิ้น'];
-
-  if(inprogWords.some(w=>txt.includes(w.replace(/\s+/g,' ').toLowerCase())))  return {code:'inprog',  label:'อยู่ระหว่างดำเนินการ'};
-  if(stoppedWords.some(w=>txt.includes(w.replace(/\s+/g,' ').toLowerCase()))) return {code:'stopped', label:'ไม่ต่ออายุแล้ว'};
-  if(doneWords.some(w=>txt.includes(w.replace(/\s+/g,' ').toLowerCase())))    return {code:'done',    label:'ดำเนินการแล้ว'};
-
-  // ไม่รู้จัก/ว่าง
-  return {code:null, label:null};
-}
-
-let FULL = [];
+let FULL = []; // ข้อมูลบริษัทเดียวจาก RPC
 let FILTER_Q = '';
 let GROUPS = { near:[], inprog:[], stopped:[], done:[] };
 
-/* ===== ป้ายสถานะ (ใช้รหัสมาตรฐาน) ===== */
+/* ===== ป้ายสถานะ ===== */
 function computeBadge(row){
-  const code = row._status_code;
-  if (code === 'inprog')  return `<span class="badge warn">อยู่ระหว่างดำเนินการ</span>`;
-  if (code === 'stopped') return `<span class="badge exp">ไม่ต่ออายุแล้ว</span>`;
-  if (code === 'done')    return `<span class="badge ok">ดำเนินการแล้ว</span>`;
+  if (row.renewed_status === 'อยู่ระหว่างดำเนินการ') return `<span class="badge warn">อยู่ระหว่างดำเนินการ</span>`;
+  if (row.renewed_status === 'ไม่ต่ออายุแล้ว')     return `<span class="badge exp">ไม่ต่ออายุแล้ว</span>`;
+  if (row.renewed_status === 'ดำเนินการแล้ว' || row.renewed_until) return `<span class="badge ok">ดำเนินการแล้ว</span>`;
 
-  // ไม่มีสถานะ → ประเมินจากวันหมดอายุ
   if(!row.expiry_date) return `<span class="badge ok">ปกติ</span>`;
   const diff = Math.ceil((new Date(row.expiry_date) - new Date())/86400000);
   if(diff < 0) return `<span class="badge exp">หมดอายุ</span>`;
@@ -200,44 +188,41 @@ function computeBadge(row){
   return `<span class="badge ok">ปกติ</span>`;
 }
 
-/* ===== จัดกลุ่ม (กันปนแน่ ๆ) ===== */
+/* ===== จัดกลุ่มตามแท็บ ===== */
 function inNearBucket(row){
-  // ใกล้/หมดอายุ = ต้อง "ไม่มี" สถานะมาตรฐาน และไม่มี renewed_until
-  if (row._status_code || row.renewed_until) return false;
+  // ไม่อยู่ 3 หมวดหลัก และใกล้ครบ/หมดอายุ
+  if (row.renewed_status === 'อยู่ระหว่างดำเนินการ' ||
+      row.renewed_status === 'ไม่ต่ออายุแล้ว' ||
+      row.renewed_status === 'ดำเนินการแล้ว' ||
+      row.renewed_until) return false;
   if (!row.expiry_date) return false;
   const diff = Math.ceil((new Date(row.expiry_date) - new Date())/86400000);
-  return diff <= WARNING_DAYS;
+  return (diff <= WARNING_DAYS);
 }
 
 function applyFilterAndGroup(){
   const q = FILTER_Q.toLowerCase();
   const rows = FULL.filter(r=>{
     if(!q) return true;
-    return ((r.brand_name||'').toLowerCase().includes(q) ||
-            (r.common_label||'').toLowerCase().includes(q));
+    return ( (r.brand_name||'').toLowerCase().includes(q) ||
+             (r.common_label||'').toLowerCase().includes(q) );
   });
 
-  GROUPS.inprog  = rows.filter(r=> r._status_code === 'inprog');
-  GROUPS.stopped = rows.filter(r=> r._status_code === 'stopped');
-  GROUPS.done    = rows.filter(r=> r._status_code === 'done');
+  GROUPS.inprog  = rows.filter(r=> r.renewed_status === 'อยู่ระหว่างดำเนินการ');
+  GROUPS.stopped = rows.filter(r=> r.renewed_status === 'ไม่ต่ออายุแล้ว');
+  GROUPS.done    = rows.filter(r=> r.renewed_status === 'ดำเนินการแล้ว' || r.renewed_until);
   GROUPS.near    = rows.filter(r=> inNearBucket(r));
 
-  // ตัวเลขบนปุ่ม + KPI
   $('cnt-near').textContent    = GROUPS.near.length.toLocaleString('th-TH');
   $('cnt-inprog').textContent  = GROUPS.inprog.length.toLocaleString('th-TH');
   $('cnt-stopped').textContent = GROUPS.stopped.length.toLocaleString('th-TH');
   $('cnt-done').textContent    = GROUPS.done.length.toLocaleString('th-TH');
 
-  $('kpi-near').textContent    = GROUPS.near.length.toLocaleString('th-TH');
-  $('kpi-inprog').textContent  = GROUPS.inprog.length.toLocaleString('th-TH');
-  $('kpi-stopped').textContent = GROUPS.stopped.length.toLocaleString('th-TH');
-  $('kpi-done').textContent    = GROUPS.done.length.toLocaleString('th-TH');
-
   const total = GROUPS.near.length + GROUPS.inprog.length + GROUPS.stopped.length + GROUPS.done.length;
   $('count').textContent = `ผลการค้นหา "${FILTER_Q || '—'}" รวม ${total.toLocaleString('th-TH')} รายการ`;
 }
 
-/* ===== วาดการ์ด (ไม่มีวันที่อัปเดต) ===== */
+/* ===== วาดรายการการ์ด ===== */
 function renderList(listId, rows){
   const box = $(listId);
   if(rows.length === 0){
@@ -278,18 +263,18 @@ async function loadData(){
   const nameRes = await sb.rpc('get_company_name_by_code', { p_plain_code: code });
   $('companyName').textContent = nameRes.data ? `บริษัท: ${nameRes.data} (รหัสลูกค้า: ${code})` : `รหัสลูกค้า: ${code}`;
 
-  // ข้อมูลหลัก
+  // รายการทั้งหมดของบริษัท (ฝั่งลูกค้า)
   const res = await sb.rpc('get_company_portal', { p_plain_code: code });
   if(res.error){
     $('companyName').textContent += ` — โหลดข้อมูลผิดพลาด: ${res.error.message}`;
     return;
   }
 
-  // ทำมาตรฐานสถานะไว้ในฟิลด์ภายใน (_status_code/_status_label)
-  FULL = (res.data||[]).map(x=>{
-    const n = normalizeStatus(x.renewed_status, x.renewed_until);
-    return { ...x, _status_code:n.code, _status_label:n.label };
-  });
+  // map ให้มี renewed_status ถ้าเคยต่อแล้ว (รองรับข้อมูลชุดเก่า)
+  FULL = (res.data||[]).map(x=>({
+    ...x,
+    renewed_status: x.renewed_status || (x.renewed_until ? 'ดำเนินการแล้ว' : null)
+  }));
 
   applyFilterAndGroup();
   renderList('list-near',    GROUPS.near);
@@ -298,24 +283,44 @@ async function loadData(){
   renderList('list-done',    GROUPS.done);
 }
 
-/* ===== Tabs & Events ===== */
+/* ===== Tabs ===== */
 function switchTab(key){
   document.querySelectorAll('.pill').forEach(el=>{
     el.classList.toggle('active', el.dataset.tab === key);
   });
-  $('tab-near').style.display    = (key==='near')?'block':'none';
-  $('tab-inprog').style.display  = (key==='inprog')?'block':'none';
-  $('tab-stopped').style.display = (key==='stopped')?'block':'none';
-  $('tab-done').style.display    = (key==='done')?'block':'none';
+  document.querySelectorAll('.tab').forEach(el=> el.style.display='none');
+  document.getElementById('tab-'+key).style.display='block';
+  // เปิดบล็อกของแท็บนั้นไว้เสมอ
+  const body = document.querySelector('#tab-'+key+' .blk-body');
+  const hint = document.querySelector('#h-'+key);
+  body.style.display = 'block';
+  hint.textContent = '(แสดง)';
 }
 
+/* ===== Collapse (บล็อก) ===== */
+function toggleBlock(key){
+  const body = document.querySelector('#list-'+key).parentElement.querySelector('.blk-body');
+  const hint = document.getElementById('h-'+key);
+  const shown = body.style.display !== 'none';
+  body.style.display = shown ? 'none' : 'block';
+  hint.textContent = shown ? '(ซ่อน)' : '(แสดง)';
+}
+
+/* ===== Events ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
   loadData();
 
+  // tabs
   document.querySelectorAll('.pill').forEach(btn=>{
     btn.addEventListener('click', ()=> switchTab(btn.dataset.tab));
   });
 
+  // collapse
+  document.querySelectorAll('.blk-head').forEach(btn=>{
+    btn.addEventListener('click', ()=> toggleBlock(btn.dataset.collapse));
+  });
+
+  // search
   $('q').addEventListener('input', ()=>{
     FILTER_Q = $('q').value.trim();
     applyFilterAndGroup();
@@ -324,7 +329,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     renderList('list-stopped', GROUPS.stopped);
     renderList('list-done',    GROUPS.done);
   });
-
   $('clearBtn').addEventListener('click', ()=>{
     $('q').value=''; FILTER_Q='';
     applyFilterAndGroup();
@@ -337,6 +341,5 @@ document.addEventListener('DOMContentLoaded', ()=>{
   $('refreshBtn').addEventListener('click', loadData);
 });
 </script>
-
 </body>
 </html>
