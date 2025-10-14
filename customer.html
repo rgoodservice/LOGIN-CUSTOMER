@@ -28,6 +28,49 @@
   .exp{color:#ef4444;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4)}
   mark{background:#fde68a55; padding:0 2px; border-radius:4px}
   .spacer{flex:1}
+  /* เพิ่มตรงนี้ */
+  .btn-note {
+    padding: 6px 10px;
+    background: #1e293b;
+    color: #93c5fd;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .btn-note:hover { background: #334155; }
+
+  /* popup หมายเหตุ */
+  #noteModal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: none;
+    background: rgba(0,0,0,.6);
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+  }
+  #noteBox {
+    background: var(--card);
+    padding: 20px 24px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 30px rgba(0,0,0,.4);
+    max-width: 400px;
+    width: 90%;
+  }
+  #noteBox h3 { margin: 0 0 10px; color: #93c5fd; }
+  #noteBox p { margin: 6px 0; color: var(--ink); }
+  #closeNote {
+    margin-top: 16px;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #0b1220;
+    cursor: pointer;
+    font-weight: 600;
+  }
 </style>
 </head>
 <body>
@@ -137,6 +180,7 @@ function highlight(text, q){
   return `${escapeHtml(s.slice(0,i))}<mark>${escapeHtml(s.slice(i,i+q.length))}</mark>${escapeHtml(s.slice(i+q.length))}`;
 }
 
+/* ===== ปรับฟังก์ชัน render() เดิมนิดเดียว ===== */
 function render(q=''){
   const tb = $('tbody');
   const rows = FILTERED;
@@ -151,12 +195,16 @@ function render(q=''){
         <td>${escapeHtml(r.registration_no||'-')}</td>
         <td>${escapeHtml(r.license_no||'-')}</td>
         <td>${fmtDateBE(r.expiry_date)}</td>
-        <td>${statusText(r)}</td>
+        <td>
+          ${statusText(r)}
+          ${r.renewed_status || r.renewed_note ? `<br><button class="btn-note" onclick='showNote(${JSON.stringify(r)})'>ดูหมายเหตุ</button>` : ''}
+        </td>
       </tr>
     `).join('');
   }
   $('count').textContent = `แสดง ${rows.length.toLocaleString('th-TH')} รายการ (ทั้งหมด ${FULL_ROWS.length.toLocaleString('th-TH')})`;
 }
+
 
 function applyFilter(){
   const raw = $('q').value.trim();
@@ -226,7 +274,36 @@ document.addEventListener('DOMContentLoaded', ()=>{
     CURRENT_CODE = code.trim().toUpperCase();
     loadCompanyByCode();
   }
+/* ========= เพิ่มใน <script> ตอนท้าย ========= */
+
+/* ฟังก์ชันเปิด popup */
+function showNote(row) {
+  $('noteBrand').textContent = `ชื่อการค้า: ${row.brand_name || '-'}`;
+  $('noteStatus').textContent = `สถานะ: ${row.renewed_status || '-'}`;
+  $('noteText').textContent = `หมายเหตุ: ${row.renewed_note || '-'}`;
+  $('noteModal').style.display = 'flex';
+}
+
+/* ปิด popup */
+$('closeNote').addEventListener('click', () => {
+  $('noteModal').style.display = 'none';
 });
+$('noteModal').addEventListener('click', e => {
+  if (e.target.id === 'noteModal') $('noteModal').style.display = 'none';
+});
+
+  
 </script>
+  <!-- วางเพิ่มต่อท้ายส่วน <body> ก่อนปิด </body> -->
+<div id="noteModal">
+  <div id="noteBox">
+    <h3>รายละเอียดหมายเหตุ</h3>
+    <p id="noteBrand">ชื่อการค้า: —</p>
+    <p id="noteStatus">สถานะ: —</p>
+    <p id="noteText">หมายเหตุ: —</p>
+    <button id="closeNote">ปิด</button>
+  </div>
+</div>
+
 </body>
 </html>
