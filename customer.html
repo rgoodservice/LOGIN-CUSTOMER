@@ -115,10 +115,8 @@
       <input id="q" placeholder="ค้นหา: ชื่อการค้า / ชื่อสามัญ" style="min-width:240px">
       <button id="clearBtn" class="btn-ghost">ล้าง</button>
       <button class="btn" id="refreshBtn">รีเฟรช</button>
-     <a id="summaryBtn" class="btn" href="#" target="_blank" style="display:none; text-decoration:none;">
-    ดูสรุปสถานะ (4 แท็บ)
-  </a>
-</div>
+      <button class="btn" id="toSummaryBtn">ดูสรุปสถานะทั้งหมด</button>
+    </div>
     <div class="mut" id="count" style="margin-top:8px">—</div>
 
     <table>
@@ -286,13 +284,6 @@ async function loadCompanyByCode(){
   $('q').value = initQ;
   applyFilter();
 }
-  // หลังจากโหลดชื่อบริษัท + ตารางสำเร็จแล้ว (ภายใน loadCompanyByCode())
-const btn = document.getElementById('summaryBtn');
-if (btn && CURRENT_CODE) {
-  btn.href = 'summary_tabs.html?code=' + encodeURIComponent(CURRENT_CODE);
-  btn.style.display = 'inline-block';
-}
-
 
 /* ============ Modal หมายเหตุ ============ */
 function showNote(row){
@@ -336,7 +327,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     location.href = `summary.html?code=${encodeURIComponent(code)}`;
   });
 });
-  
 </script>
 </body>
 </html>
