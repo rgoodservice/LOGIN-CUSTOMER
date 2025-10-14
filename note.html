@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Admin — หมายเหตุเอกสารทั้งหมด</title>
+
+<!-- Supabase & SheetJS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f6fbff; --ink:#0f172a; --muted:#64748b; --border:#e6eef5;
+  --accent:#0ea5a5; --accent-2:#60a5fa;
+  --ok:#0f766e; --ok-bg:#ecfdf5;
+  --warn:#b45309; --warn-bg:#fff7ed;
+}
+body { margin:0; font-family:"Prompt",ui-sans-serif,system-ui; color:var(--ink); background:var(--bg); }
+header { padding:16px 20px; background:linear-gradient(180deg,#e8fff6,#f0fbff); font-weight:600; font-size:20px; border-bottom:1px solid var(--border); }
+.container { max-width:1100px; margin:20px auto; padding:0 16px; }
+select, button, input { padding:9px 12px; border-radius:8px; font-size:15px; border:1px solid var(--border); background:#fff; }
+button.btn-primary { background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:white; border:none; }
+.controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+.controls .line2 { display:flex; gap:10px; flex-wrap:wrap; align-items:center; width:100%; }
+#search { min-width:260px; }
+#msg { font-size:14px; color:#0f766e; }
+#count { color:var(--muted); font-size:14px; }
+.summary { display:flex; gap:8px; align-items:center; color:var(--muted); font-size:13px; }
+.badge { padding:3px 8px; border-radius:999px; background:#eef2ff; color:#334155; border:1px solid #e5e7eb; }
+.badge.ok { background:var(--ok-bg); color:var(--ok); border-color:#a7f3d0; }
+.badge.warn { background:var(--warn-bg); color:var(--warn); border-color:#fde68a; }
+table { width:100%; border-collapse:collapse; background:white; border-radius:10px; margin-top:10px; overflow:hidden; }
+th, td { padding:10px 12px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; }
+th { background:#f7fbff; position:sticky; top:0; }
+td.editable { cursor:text; }
+td.editing { background:#fffbe6; }
+.badge-ok { background:var(--ok-bg); color:var(--ok); padding:4px 8px; border-radius:6px; font-size:12px; }
+.badge-warn { background:var(--warn-bg); color:var(--warn); padding:4px 8px; border-radius:6px; font-size:12px; }
+mark { background:#fde68a80; padding:0 2px; border-radius:3px; }
+.toggle { display:flex; gap:6px; align-items:center; }
+</style>
+</head>
+<body>
+<header>📋 หมายเหตุรายการทั้งหมด (ต่อแล้ว & ยังไม่ต่อ)</header>
+
+<div class="container">
+  <div class="controls">
+    <div class="line1" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; width:100%;">
+      <select id="companySelect"><option value="">— เลือกบริษัท —</option></select>
+      <input id="search" placeholder="ค้นหา: ชื่อการค้า / ชื่อสามัญ / หมายเหตุ">
+      <select id="statusFilter" title="ตัวกรองสถานะ">
+        <option value="all">สถานะ: ทั้งหมด</option>
+        <option value="done">เฉพาะ ดำเนินการแล้ว</option>
+        <option value="pending">เฉพาะ ยังไม่ดำเนินการ</option>
+      </select>
+      <label class="toggle">
+        <input type="checkbox" id="onlyNote"> เฉพาะที่มีหมายเหตุ
+      </label>
+      <button id="clearBtn">ล้าง</button>
+      <button id="refreshBtn">🔄 โหลดใหม่</button>
+      <button id="exportBtn" class="btn-primary">📤 ส่งออก Excel</button>
+      <div class="spacer" style="flex:1"></div>
+      <div id="count"></div>
+    </div>
+    <div class="line2">
+      <div class="summary">
+        <span>สรุป:</span>
+        <span id="sumAll" class="badge">ทั้งหมด 0</span>
+        <span id="sumDone" class="badge ok">ดำเนินการแล้ว 0</span>
+        <span id="sumPending" class="badge warn">ยังไม่ดำเนินการ 0</span>
+      </div>
+      <div id="msg" style="margin-left:auto"></div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ลำดับ</th>
+        <th>ชื่อการค้า</th>
+        <th>ชื่อสามัญ/สูตร</th>
+        <th>ต่อถึง (พ.ศ.)</th>
+        <th>หมายเหตุ</th>
+        <th>สถานะ</th>
+      </tr>
+    </thead>
+    <tbody id="tbody">
+      <tr><td colspan="6" style="color:var(--muted)">กรุณาเลือกบริษัท</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+/* ===== Supabase ===== */
+const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = id => document.getElementById(id);
+let allRows = [];     // ทั้งหมดจาก DB
+let filtered = [];    // หลังกรอง
+let currentCompany = '';
+
+/* ===== Utils ===== */
+function fmtDateBE(d){
+  if(!d) return '—';
+  const t = new Date(d);
+  if(isNaN(t)) return '—';
+  try{
+    return t.toLocaleDateString('th-TH-u-ca-buddhist',{year:'numeric',month:'short',day:'numeric'});
+  }catch{ return `${t.getDate()}/${t.getMonth()+1}/${t.getFullYear()+543}`; }
+}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));}
+function escapeRegExp(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+function highlight(text, q){
+  const s = String(text ?? '');
+  if(!q) return escapeHtml(s);
+  const re = new RegExp(escapeRegExp(q), 'gi');
+  return escapeHtml(s).replace(re, m=>`<mark>${m}</mark>`);
+}
+function applyCount(){
+  $('count').textContent = `แสดง ${filtered.length.toLocaleString('th-TH')} รายการ (ทั้งหมด ${allRows.length.toLocaleString('th-TH')})`;
+  const done = allRows.filter(r=> !!r.renewed_until).length;
+  const pending = allRows.length - done;
+  $('sumAll').textContent = `ทั้งหมด ${allRows.length.toLocaleString('th-TH')}`;
+  $('sumDone').textContent = `ดำเนินการแล้ว ${done.toLocaleString('th-TH')}`;
+  $('sumPending').textContent = `ยังไม่ดำเนินการ ${pending.toLocaleString('th-TH')}`;
+}
+
+/* ===== Load companies ===== */
+async function loadCompanies(){
+  const {data,error}=await sb.from('companies').select('code').order('code');
+  if(error){ alert(error.message); return; }
+  $('companySelect').innerHTML = '<option value="">— เลือกบริษัท —</option>' + (data||[]).map(c=>`<option>${c.code}</option>`).join('');
+}
+
+/* ===== Fetch rows ===== */
+async function loadRows(){
+  const code = $('companySelect').value;
+  currentCompany = code;
+  if(!code){
+    allRows = []; filtered = [];
+    $('tbody').innerHTML = '<tr><td colspan="6" style="color:#64748b">กรุณาเลือกบริษัท</td></tr>';
+    applyCount();
+    return;
+  }
+  const {data,error}=await sb.from('product_registrations')
+    .select('id,brand_name,common_label,renewed_until,note')
+    .eq('company_code',code)
+    .order('renewed_until',{ascending:true,nullsFirst:false});
+  if(error){ alert(error.message); return; }
+  allRows = data||[];
+  applyFilter(); // จะ render + count ให้เอง
+}
+
+/* ===== Filter (search + status + onlyNote) ===== */
+function applyFilter(){
+  const q = $('search').value.trim().toLowerCase();
+  const status = $('statusFilter').value;     // all | done | pending
+  const onlyNote = $('onlyNote').checked;     // true | false
+
+  filtered = allRows.filter(r=>{
+    // text search
+    const passSearch = !q ||
+      (r.brand_name||'').toLowerCase().includes(q) ||
+      (r.common_label||'').toLowerCase().includes(q) ||
+      (r.note||'').toLowerCase().includes(q);
+
+    // status filter
+    const isDone = !!r.renewed_until;
+    const passStatus = (status==='all') || (status==='done' && isDone) || (status==='pending' && !isDone);
+
+    // only with note
+    const passNote = !onlyNote || !!(r.note && r.note.trim());
+
+    return passSearch && passStatus && passNote;
+  });
+
+  render(q);
+}
+
+/* ===== Render ===== */
+function render(q=''){
+  const tb = $('tbody');
+  if(!filtered.length){
+    tb.innerHTML = `<tr><td colspan="6" style="color:#64748b">ไม่พบรายการที่ตรงกับเงื่อนไข</td></tr>`;
+    applyCount();
+    return;
+  }
+  tb.innerHTML = filtered.map((r,i)=>{
+    const status = r.renewed_until ? `<span class="badge-ok">ดำเนินการแล้ว</span>` : `<span class="badge-warn">ยังไม่ดำเนินการ</span>`;
+    return `
+      <tr>
+        <td>${i+1}</td>
+        <td>${highlight(r.brand_name||'', q)}</td>
+        <td>${highlight(r.common_label||'', q)}</td>
+        <td>${r.renewed_until ? fmtDateBE(r.renewed_until) : '—'}</td>
+        <td class="editable" data-id="${r.id}">${r.note ? highlight(r.note, q) : '<span style="color:#999">—</span>'}</td>
+        <td>${status}</td>
+      </tr>
+    `;
+  }).join('');
+  applyCount();
+}
+
+/* ===== Inline edit: note ===== */
+$('tbody').addEventListener('dblclick', async e=>{
+  const td=e.target.closest('.editable'); if(!td) return;
+  if(td.classList.contains('editing')) return;
+  const id=td.dataset.id;
+  const plain = td.textContent === '—' ? '' : td.textContent;
+  td.classList.add('editing');
+  const input=document.createElement('input');
+  input.type='text'; input.value=plain; input.style.width='100%';
+  td.innerHTML=''; td.appendChild(input); input.focus(); input.select();
+
+  const finish = async(commit)=>{
+    const val=input.value.trim();
+    td.classList.remove('editing');
+    if(!commit){ td.textContent = plain || '—'; return; }
+    const {error}=await sb.from('product_registrations').update({note:val||null}).eq('id',id);
+    if(error){ alert(error.message); td.textContent=plain||'—'; return; }
+    // sync caches
+    const ix = allRows.findIndex(x=>x.id===id);
+    if(ix>-1){ allRows[ix].note = val || null; }
+    applyFilter(); // re-render + count
+    $('msg').textContent='บันทึกหมายเหตุแล้ว ✓';
+    setTimeout(()=>{$('msg').textContent='';},1800);
+  };
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Enter') finish(true);
+    if(e.key==='Escape') finish(false);
+  });
+  input.addEventListener('blur',()=>finish(true));
+});
+
+/* ===== Export Excel (ตามตัวกรองปัจจุบัน) ===== */
+$('exportBtn').onclick=()=>{
+  if(!filtered.length) return alert('ไม่มีข้อมูลให้ส่งออก');
+  const aoa=[['บริษัท','ชื่อการค้า','ชื่อสามัญ/สูตร','ต่อถึง (พ.ศ.)','หมายเหตุ','สถานะ']];
+  filtered.forEach(r=>{
+    aoa.push([
+      currentCompany,
+      r.brand_name||'',
+      r.common_label||'',
+      r.renewed_until ? fmtDateBE(r.renewed_until) : '—',
+      r.note||'',
+      r.renewed_until ? 'ดำเนินการแล้ว' : 'ยังไม่ดำเนินการ'
+    ]);
+  });
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,(currentCompany||'All').slice(0,31));
+  XLSX.writeFile(wb,`หมายเหตุทั้งหมด_${currentCompany||'ALL'}.xlsx`);
+};
+
+/* ===== Events ===== */
+$('companySelect').addEventListener('change', loadRows);
+$('refreshBtn').addEventListener('click', loadRows);
+$('search').addEventListener('input', applyFilter);
+$('statusFilter').addEventListener('change', applyFilter);
+$('onlyNote').addEventListener('change', applyFilter);
+$('clearBtn').addEventListener('click', ()=>{
+  $('search').value='';
+  $('statusFilter').value='all';
+  $('onlyNote').checked=false;
+  applyFilter();
+});
+
+/* ===== Start ===== */
+loadCompanies();
+</script>
+</body>
+</html>
