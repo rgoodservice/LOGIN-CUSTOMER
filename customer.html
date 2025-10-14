@@ -5,129 +5,124 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Customer Portal (รหัสลูกค้า)</title>
 
-<!-- ใช้ UMD เพื่อรองรับมือถือ/อินแอปเบราว์เซอร์ -->
+<!-- Supabase UMD: รองรับมือถือ/อินแอปเบราว์เซอร์ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0f172a; --card:rgba(30,41,59,.86); --mut:#94a3b8; --ink:#e2e8f0; --border:rgba(148,163,184,.25);
-    --accent:#22d3ee; --accent2:#60a5fa; --radius:16px;
-    /* สีสถานะคอนทราสต์สูง */
-    --ok:#0ea5a5;        --ok-bg:rgba(14,165,165,.18);     --ok-bd:rgba(14,165,165,.5);
-    --warn:#b45309;      --warn-bg:rgba(245,158,11,.18);   --warn-bd:rgba(245,158,11,.55);
-    --exp:#b91c1c;       --exp-bg:rgba(239,68,68,.20);     --exp-bd:rgba(239,68,68,.55);
-    --pending:#2563eb;   --pending-bg:rgba(37,99,235,.18); --pending-bd:rgba(37,99,235,.55);
-    --progress:#7c3aed;  --progress-bg:rgba(124,58,237,.18);--progress-bd:rgba(124,58,237,.55);
-    --stop:#9333ea;      --stop-bg:rgba(147,51,234,.18);   --stop-bd:rgba(147,51,234,.55);
+    --bg:#f6fbff; --ink:#0f172a; --mut:#64748b; --card:#ffffff; --border:#e6eef5;
+    --accent:#0ea5a5; --accent2:#60a5fa; --radius:16px;
+    --ok:#065f46; --okbg:#ecfdf5;
+    --warn:#b45309; --warnbg:#fff7ed;
+    --exp:#b91c1c; --expbg:#fff1f2;
   }
   *{box-sizing:border-box}
   body{
-    margin:0; font-family:"Prompt",ui-sans-serif; color:var(--ink); background:
-    radial-gradient(900px 540px at 10% -10%, #0ea5a520 0%, transparent 60%),
-    radial-gradient(800px 480px at 110% 0%, #38bdf820 0%, transparent 60%),
-    var(--bg);
+    margin:0; font-family:"Prompt",ui-sans-serif,system-ui; color:var(--ink); background:
+    radial-gradient(1000px 500px at 10% -10%, #e6f7ff 0%, transparent 60%),
+    radial-gradient(900px 450px at 110% 0%, #e8fff6 0%, transparent 60%),
+    #f6fbff;
+    -webkit-text-size-adjust:100%;
   }
-  .wrap{max-width:960px;margin:30px auto;padding:0 16px}
-  .card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:18px; box-shadow:0 8px 28px rgba(0,0,0,.25); margin-bottom:16px}
-  input,button{padding:12px; border-radius:12px; border:1px solid var(--border); background:#0b1220; color:var(--ink); font-size:16px}
-  .btn{cursor:pointer; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#0b1220; font-weight:700; border:none}
-  .row{display:flex;gap:10px;flex-wrap:wrap; align-items:center}
-  table{width:100%; border-collapse:collapse; margin-top:12px}
-  th,td{padding:12px 14px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; font-size:16px}
-  th{color:#93c5fd; font-size:17px}
+  .wrap{max-width:1100px;margin:22px auto;padding:0 14px}
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:18px; box-shadow:0 8px 28px rgba(10,30,60,.06); margin-bottom:14px
+  }
+  h2{margin:0 0 10px; font-size:22px}
   .mut{color:var(--mut)}
-  mark{background:#fde68a55; padding:0 2px; border-radius:4px}
+  input,button{
+    padding:14px 14px; border-radius:12px; border:1px solid var(--border);
+    background:#fff; color:var(--ink); font-size:16px
+  }
+  input{min-width:260px}
+  .btn{
+    cursor:pointer; background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff; font-weight:700; border:none
+  }
+  .btn-ghost{background:#fff; color:#0e7490; border:1px solid #94d5e5}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
   .spacer{flex:1}
 
-  /* ป้ายสถานะ: ตัวใหญ่ ชัด */
-  .badge{
-    display:inline-block;
-    padding:6px 12px;
-    border-radius:999px;
-    font-size:15px;
-    font-weight:800;
-    letter-spacing:.2px;
-    line-height:1.1;
-    margin-bottom:4px;
-  }
-  .badge-ok{color:var(--ok); background:var(--ok-bg); border:1px solid var(--ok-bd)}
-  .badge-warn{color:var(--warn); background:var(--warn-bg); border:1px solid var(--warn-bd)}
-  .badge-exp{color:var(--exp); background:var(--exp-bg); border:1px solid var(--exp-bd)}
-  .badge-pending{color:var(--pending); background:var(--pending-bg); border:1px solid var(--pending-bd)}
-  .badge-progress{color:var(--progress); background:var(--progress-bg); border:1px solid var(--progress-bd)}
-  .badge-stop{color:var(--stop); background:var(--stop-bg); border:1px solid var(--stop-bd)}
+  /* ตารางใหญ่ขึ้น อ่านง่าย */
+  table{width:100%; border-collapse:collapse; margin-top:10px; background:#fff; border-radius:12px; overflow:hidden}
+  th,td{padding:12px 14px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; font-size:16px}
+  th{background:linear-gradient(180deg,#f7fbff,#f2f8ff); color:#0b3a4f; font-weight:700; position:sticky; top:0; z-index:1}
 
-  /* ปุ่มหมายเหตุในตาราง */
-  .btn-note {
-    padding:8px 12px; margin-top:6px;
-    background:#1e293b;
-    color:#e5edff;
-    border:1px solid var(--border);
-    border-radius:10px;
-    cursor:pointer;
-    font-size:14px; font-weight:700;
+  /* ป้ายสถานะหลายสี */
+  .badge{
+    padding:6px 12px; border-radius:999px; font-size:14px; font-weight:700; display:inline-block
   }
-  .btn-note:hover { background:#334155; }
+  .ok{ color:var(--ok); background:var(--okbg); border:1px solid #a7f3d090;}
+  .warn{ color:var(--warn); background:var(--warnbg); border:1px solid #fde68a80;}
+  .exp{ color:var(--exp); background:var(--expbg); border:1px solid #fecaca90;}
+
+  /* ปุ่มหมายเหตุ */
+  .btn-note{
+    padding:8px 10px; background:#0ea5a510; color:#0e7490; border:1px solid #94d5e5;
+    border-radius:10px; cursor:pointer; font-size:14px; margin-top:6px
+  }
+  .btn-note:hover{background:#0ea5a520}
 
   /* popup หมายเหตุ */
-  #noteModal { position: fixed; inset: 0; display: none; background: rgba(0,0,0,.6); align-items: center; justify-content: center; z-index: 999; }
-  #noteBox {
-    background: var(--card);
-    padding: 22px 24px;
-    border-radius: 16px;
-    border: 1px solid var(--border);
-    box-shadow: 0 8px 30px rgba(0,0,0,.4);
-    max-width: 480px; width: 92%;
+  #noteModal{
+    position:fixed; inset:0; display:none; background:rgba(0,0,0,.5);
+    align-items:center; justify-content:center; z-index:9999
   }
-  #noteBox h3 { margin: 0 0 12px; color: #bfdbfe; font-size:20px }
-  #noteBox p { margin: 8px 0; color: var(--ink); font-size:16px }
-  #closeNote {
-    margin-top: 18px; padding: 10px 16px; border: none; border-radius: 10px;
-    background: linear-gradient(135deg,var(--accent),var(--accent2));
-    color: #0b1220; cursor: pointer; font-weight: 800; font-size:15px;
+  #noteBox{
+    background:#fff; color:#0f172a; padding:20px 22px; border-radius:16px;
+    border:1px solid var(--border); box-shadow:0 10px 32px rgba(10,20,40,.15);
+    max-width:520px; width:92%
+  }
+  #noteBox h3{margin:0 0 10px; color:#0b3a4f}
+  #noteBox p{margin:6px 0; font-size:16px}
+  #closeNote{
+    margin-top:14px; padding:10px 14px; border:none; border-radius:10px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; cursor:pointer; font-weight:700
   }
 
-  /* มือถือ: ตัวใหญ่ขึ้นอีก */
+  /* มือถือ: ขยายตัวหนังสือ/ปุ่ม */
   @media (max-width: 480px){
-    th,td,input,button{font-size:17px}
-    .badge{font-size:16px}
+    th,td{font-size:17px}
+    input,button{font-size:17px}
+    .btn, .btn-ghost{padding:14px 16px}
     .btn-note{font-size:15px}
   }
 </style>
 </head>
 <body>
 <div class="wrap">
+  <!-- กล่องกรอกรหัส -->
   <div class="card">
-    <h2 style="margin:0 0 10px">เข้าสู่พอร์ทัลลูกค้า</h2>
-    <p class="mut" style="margin:0 0 12px">กรอกรหัสที่ได้รับจากเจ้าหน้าที่ (ไม่ต้องใช้อีเมล)</p>
+    <h2>เข้าสู่พอร์ทัลลูกค้า</h2>
+    <p class="mut" style="margin:0 0 10px">กรอกรหัสที่ได้รับจากเจ้าหน้าที่ (ไม่ต้องใช้อีเมล)</p>
     <div class="row">
-      <input id="code" placeholder="ใส่รหัสลูกค้า เช่น RG-1234" style="min-width:260px" autocomplete="one-time-code" inputmode="text">
+      <input id="code" placeholder="ใส่รหัสลูกค้า เช่น RG-1234" autocomplete="one-time-code" inputmode="text">
       <button class="btn" id="enterBtn">เข้าดูข้อมูล</button>
     </div>
-    <div id="err" class="mut" style="color:#fca5a5;margin-top:8px"></div>
+    <div id="err" class="mut" style="color:#b91c1c;margin-top:8px"></div>
   </div>
 
+  <!-- กล่องข้อมูลบริษัท + ค้นหา + ปุ่มสรุป -->
   <div class="card" id="dataCard" style="display:none">
     <div class="row" style="justify-content:space-between">
       <div>
         <div class="mut">บริษัทของคุณ</div>
-        <div id="companyName" style="font-weight:700;font-size:18px">—</div>
+        <div id="companyName" style="font-weight:700;font-size:20px">—</div>
       </div>
       <div class="spacer"></div>
-      <input id="q" placeholder="พิมพ์ค้นหา ชื่อการค้า / ชื่อสามัญ ..." style="min-width:240px">
-      <button id="clearBtn" class="btn" style="background:#0b1220;color:#cbd5e1;border:1px solid var(--border)">ล้าง</button>
+      <input id="q" placeholder="ค้นหา: ชื่อการค้า / ชื่อสามัญ" style="min-width:240px">
+      <button id="clearBtn" class="btn-ghost">ล้าง</button>
       <button class="btn" id="refreshBtn">รีเฟรช</button>
-      <!-- ปุ่มดูสรุป -->
       <button class="btn" id="toSummaryBtn">ดูสรุปสถานะทั้งหมด</button>
-
     </div>
-
     <div class="mut" id="count" style="margin-top:8px">—</div>
 
     <table>
       <thead>
         <tr>
+          <th>ลำดับ</th>
           <th>บริษัท</th>
           <th>ชื่อการค้า</th>
           <th>ชื่อสามัญ/สูตร</th>
@@ -137,14 +132,16 @@
           <th>สถานะ / หมายเหตุ</th>
         </tr>
       </thead>
-      <tbody id="tbody"><tr><td colspan="7" class="mut">—</td></tr></tbody>
+      <tbody id="tbody">
+        <tr><td colspan="8" class="mut">—</td></tr>
+      </tbody>
     </table>
   </div>
 </div>
 
-<!-- Modal สำหรับดูหมายเหตุ -->
-<div id="noteModal">
-  <div id="noteBox">
+<!-- Modal: หมายเหตุ -->
+<div id="noteModal" aria-hidden="true">
+  <div id="noteBox" role="dialog" aria-modal="true" aria-label="รายละเอียดหมายเหตุ">
     <h3>รายละเอียดหมายเหตุ</h3>
     <p id="noteBrand">ชื่อการค้า: —</p>
     <p id="noteStatus">สถานะ: —</p>
@@ -156,72 +153,62 @@
 <script>
 /* ===== Supabase config ===== */
 const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA"; // anon key
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const $ = id => document.getElementById(id);
+const $ = (id)=> document.getElementById(id);
 const WARNING_DAYS = 90;
 
+let CURRENT_CODE = '';
+let FULL_ROWS = [];
+let FILTERED = [];
+
 function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+
 function fmtDateBE(d){
   if(!d) return '-';
   const t = new Date(d);
   if (isNaN(t)) return '-';
   try{
-    return t.toLocaleDateString('th-TH-u-ca-buddhist', { year:'numeric', month:'long', day:'numeric', timeZone: 'Asia/Bangkok' });
+    return t.toLocaleDateString('th-TH-u-ca-buddhist', { year:'numeric', month:'long', day:'numeric', timeZone:'Asia/Bangkok' });
   }catch(e){
     const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
     return `${t.getDate()} ${months[t.getMonth()]} ${t.getFullYear()+543}`;
   }
 }
 
-/* ป้ายสถานะ: รองรับข้อความจากหลังบ้าน และ fallback อัตโนมัติ */
-function statusText(row){
-  const rawStatus =
-    (row?.renewed_status && String(row.renewed_status).trim()) ||
-    (row?.status_text && String(row.status_text).trim()) || '';
-
-  const s = rawStatus.toLowerCase();
-  let label = rawStatus, cls = '';
-
-  if(s.includes('ไม่ต่อ')||s.includes('ยกเลิก')) cls='badge-stop';
-  else if(s.includes('กำลัง')||s.includes('ดำเนิน')) cls='badge-progress';
-  else if(s.includes('รอ')||s.includes('ลงนาม')) cls='badge-pending';
-  else if(s.includes('หมด')) cls='badge-exp';
-  else if(s.includes('เหลือ')) cls='badge-warn';
-  else if(s.includes('แล้ว')||s==='ok'||s==='done'||s==='completed') cls='badge-ok';
-
-  // ถ้ามี note แต่ไม่มีสถานะ -> แสดงรอดำเนินการ
-  if(!cls && (row?.renewed_status || row?.renewed_note)) {
-    label = 'รอดำเนินการ';
-    cls = 'badge-pending';
+/* ป้ายสถานะ (เหมือนฝั่งแอดมิน แต่ read-only) */
+function statusBadge(row){
+  // ถ้าแอดมินพิมพ์ข้อความสถานะเอง ให้แสดงเป็นป้ายสีส้ม
+  if (row?.status_text){
+    return `<span class="badge warn">${escapeHtml(row.status_text)}</span>`;
   }
-
-  if(cls) return `<span class="badge ${cls}">${escapeHtml(label)}</span>`;
-  if(row?.renewed_until) return `<span class="badge badge-ok">ดำเนินการแล้ว</span>`;
-
-  // ไม่มีสถานะ -> ประเมินจากวันหมดอายุเดิม
-  const eff = row?.expiry_date?new Date(row.expiry_date):null;
-  if(!eff||isNaN(eff)) return `<span class="badge badge-ok">ปกติ</span>`;
+  // ถ้ามี renewed_status ให้ใช้ค่านั้นแทน
+  if (row?.renewed_status){
+    if (row.renewed_status.includes('ไม่ต่อ')) return `<span class="badge exp">ไม่ต่ออายุแล้ว</span>`;
+    if (row.renewed_status.includes('ระหว่าง')) return `<span class="badge warn">อยู่ระหว่างดำเนินการ</span>`;
+    if (row.renewed_status.includes('ดำเนินการแล้ว')) return `<span class="badge ok">ดำเนินการแล้ว</span>`;
+  }
+  // else: คำนวณจากวันหมดอายุเดิม
+  const eff = row?.expiry_date ? new Date(row.expiry_date) : null;
+  if(!eff || isNaN(eff)) return `<span class="badge ok">ปกติ</span>`;
   const diff = Math.ceil((eff - new Date())/86400000);
-  if(diff < 0) return `<span class="badge badge-exp">หมดอายุ</span>`;
-  if(diff <= WARNING_DAYS) return `<span class="badge badge-warn">เหลือ ${diff} วัน</span>`;
-  return `<span class="badge badge-ok">ปกติ</span>`;
+  if(diff < 0) return `<span class="badge exp">หมดอายุ</span>`;
+  if(diff <= WARNING_DAYS) return `<span class="badge warn">เหลือ ${diff} วัน</span>`;
+  return `<span class="badge ok">ปกติ</span>`;
 }
 
-let CURRENT_CODE = '';
-let FULL_ROWS = [];
-let FILTERED = [];
-
-/* วาดตาราง + ใส่ data-idx ให้ปุ่ม เพื่ออ้างอิงแถวได้ถูกต้องเสมอ */
+/* ============ Render ตาราง ============ */
+/* ใช้ data-index เพื่อผูกปุ่มหมายเหตุให้ตรงกับแถวเสมอ (หายสลับชื่อแน่นอน) */
 function render(q=''){
   const tb = $('tbody');
   const rows = FILTERED;
   if(rows.length === 0){
-    tb.innerHTML = `<tr><td colspan="7" class="mut">ไม่พบรายการที่ตรงกับ “${escapeHtml(q)}”</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="8" class="mut">ไม่พบรายการที่ตรงกับ “${escapeHtml(q)}”</td></tr>`;
   }else{
-    tb.innerHTML = rows.map((r, i)=>`
+    tb.innerHTML = rows.map((r,i)=>`
       <tr>
+        <td>${i+1}</td>
         <td>${escapeHtml(r.company_name||'-')}</td>
         <td>${escapeHtml(r.brand_name||'-')}</td>
         <td>${escapeHtml(r.common_label||'-')}</td>
@@ -229,13 +216,19 @@ function render(q=''){
         <td>${escapeHtml(r.license_no||'-')}</td>
         <td>${fmtDateBE(r.expiry_date)}</td>
         <td>
-          ${statusText(r)}
-          ${(r.renewed_status || r.renewed_note)
-            ? `<br><button class="btn-note" data-idx="${i}">ดูหมายเหตุ</button>`
-            : ``}
+          ${statusBadge(r)}
+          ${(r.renewed_status || r.renewed_note) ? `<br><button class="btn-note" data-index="${i}">ดูหมายเหตุ</button>` : ``}
         </td>
       </tr>
     `).join('');
+    // bind ปุ่มหมายเหตุด้วย data-index
+    tb.querySelectorAll('.btn-note').forEach(btn=>{
+      btn.addEventListener('click', (ev)=>{
+        const idx = Number(ev.currentTarget.getAttribute('data-index'));
+        const row = rows[idx];
+        showNote(row);
+      });
+    });
   }
   $('count').textContent = `แสดง ${rows.length.toLocaleString('th-TH')} รายการ (ทั้งหมด ${FULL_ROWS.length.toLocaleString('th-TH')})`;
 }
@@ -249,13 +242,14 @@ function applyFilter(){
     FILTERED = FULL_ROWS.filter(r=>{
       const brand  = (r.brand_name   ||'').toLowerCase();
       const common = (r.common_label ||'').toLowerCase();
-      return brand.includes(q) || common.includes(q);
+      const reg    = (r.registration_no||'').toLowerCase();
+      return brand.includes(q) || common.includes(q) || reg.includes(q);
     });
   }
   render(raw);
 }
 
-/* โหลดข้อมูลด้วยรหัสลูกค้า */
+/* ============ โหลดข้อมูลด้วยรหัสลูกค้า ============ */
 async function loadCompanyByCode(){
   if(!CURRENT_CODE) return;
   const codeNorm = CURRENT_CODE.trim().toUpperCase();
@@ -275,7 +269,13 @@ async function loadCompanyByCode(){
     return;
   }
 
-  FULL_ROWS = res.data || [];
+  FULL_ROWS = (res.data || []).map(x=>({
+    ...x,
+    // กันกรณีฟังก์ชันหลังบ้านยังคืน renewed_until แบบเดิม
+    // แต่เราจะใช้ renewed_status/renewed_note เป็นหลัก
+    renewed_status: x.renewed_status || (x.renewed_until ? 'ดำเนินการแล้ว' : null)
+  }));
+
   $('err').textContent = '';
   $('dataCard').style.display = 'block';
 
@@ -285,15 +285,15 @@ async function loadCompanyByCode(){
   applyFilter();
 }
 
-/* Modal: เปิดด้วยข้อมูลจากแถวที่คลิก */
+/* ============ Modal หมายเหตุ ============ */
 function showNote(row){
   $('noteBrand').textContent  = `ชื่อการค้า: ${row?.brand_name || '-'}`;
   $('noteStatus').textContent = `สถานะ: ${row?.renewed_status || row?.status_text || '-'}`;
   $('noteText').textContent   = `หมายเหตุ: ${row?.renewed_note || '-'}`;
-  $('noteModal').style.display = 'flex';
+  $('noteModal').style.display='flex';
 }
 
-/* ===== Events ===== */
+/* ============ Events ============ */
 document.addEventListener('DOMContentLoaded', ()=>{
   $('enterBtn').addEventListener('click', async ()=>{
     const code = $('code').value.trim().toUpperCase();
@@ -307,7 +307,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   $('q').addEventListener('input', applyFilter);
   $('clearBtn').addEventListener('click', ()=>{ $('q').value=''; applyFilter(); });
 
-  // Auto-fill จาก URL
+  // ปิด modal
+  $('closeNote').addEventListener('click', ()=> $('noteModal').style.display='none');
+  $('noteModal').addEventListener('click', e=>{ if(e.target.id==='noteModal') $('noteModal').style.display='none'; });
+
+  // Autofill code จาก URL
   const params = new URLSearchParams(location.search);
   const code = params.get('code');
   if(code){
@@ -316,30 +320,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     loadCompanyByCode();
   }
 
-  // Event delegation: ให้ tbody จัดการปุ่มหมายเหตุทุกปุ่ม
-  document.getElementById('tbody').addEventListener('click', (e)=>{
-    const btn = e.target.closest('.btn-note');
-    if(!btn) return;
-    const idx = Number(btn.dataset.idx);
-    const row = FILTERED[idx];
-    if(row) showNote(row);
+  // ไปหน้า summary
+  $('toSummaryBtn').addEventListener('click', ()=>{
+    const code = ($('code').value || '').trim().toUpperCase();
+    if(!code){ alert('กรุณาใส่รหัสลูกค้าก่อน'); return; }
+    location.href = `summary.html?code=${encodeURIComponent(code)}`;
   });
-
-  // ปิด modal
-  $('closeNote').addEventListener('click', ()=> $('noteModal').style.display='none');
-  $('noteModal').addEventListener('click', e=>{ if(e.target.id==='noteModal') $('noteModal').style.display='none'; });
 });
-  /* ===== ปุ่มไปหน้าสรุป ===== */
-document.getElementById('toSummaryBtn').addEventListener('click', ()=>{
-  const code = (document.getElementById('code').value || '').trim().toUpperCase();
-  if(!code){
-    alert('กรุณาใส่รหัสลูกค้าก่อน');
-    return;
-  }
-  // ส่งรหัสลูกค้าไป summary.html
-  window.location.href = `summary.html?code=${encodeURIComponent(code)}`;
-});
-
 </script>
 </body>
 </html>
