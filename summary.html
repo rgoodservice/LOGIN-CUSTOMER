@@ -203,11 +203,17 @@ function computeBadge(row){
 
 
 function inNearBucket(row){
-  if (row._derived_status) return false;
+  // ไม่ให้อยู่ในหมวดนี้ ถ้าอยู่ระหว่างดำเนินการ / ไม่ต่ออายุแล้ว / ดำเนินการแล้ว / มี renewed_until แล้ว
+  if (row._bucket === 'inprog' || row._bucket === 'stopped' || row._bucket === 'done' || row.renewed_until) return false;
+
+  // ถ้าไม่มีวันหมดอายุไม่ต้องแสดง
   if (!row.expiry_date) return false;
+
+  // ถ้าเหลือวันหมดอายุน้อยกว่าเกณฑ์ → แสดงใน "ใกล้หมดอายุ"
   const diff = Math.ceil((new Date(row.expiry_date) - new Date())/86400000);
-  return (diff <= WARNING_DAYS);
+  return diff <= WARNING_DAYS;
 }
+
 
 let FULL = [];
 let FILTER_Q = '';
