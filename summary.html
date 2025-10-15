@@ -283,6 +283,10 @@ function switchTab(key){
 /* ===== Events ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
   loadData();
+// หลัง loadData(); ด้านล่างสุดของ DOMContentLoaded
+const p2 = new URLSearchParams(location.search);
+const tab = p2.get('tab'); // 'near' | 'inprog' | 'stopped' | 'done'
+if(tab){ switchTab(tab); }
 
   // tabs
   document.querySelectorAll('.pill').forEach(btn=>{
