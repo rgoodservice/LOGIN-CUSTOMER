@@ -90,11 +90,6 @@
       <button id="clearBtn" class="btn-ghost">ล้าง</button>
       <div class="spacer"></div>
       <button id="refreshBtn" class="btn">รีเฟรช</button>
-      <label style="display:flex;align-items:center;gap:8px;font-size:14px">
-  <input type="checkbox" id="showRenewingInNear">
-  แสดงรายการที่กำลัง/ดำเนินการแล้วใน “ใกล้/หมดอายุ”
-</label>
-
     </div>
 
     <div class="tab-wrap">
@@ -129,14 +124,6 @@
 </main>
 
 <script>
-  let INCLUDE_RENEWING_IN_NEAR = false; // toggle โหมดโปร่งใส
-
-function isNearByDate(row){
-  if (!row.expiry_date) return false;
-  const diff = Math.ceil((new Date(row.expiry_date) - new Date())/86400000);
-  return diff <= WARNING_DAYS;
-}
-
 /* ===== Supabase ===== */
 const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
@@ -197,59 +184,22 @@ function deriveStatus(row){
   // 4) อื่น ๆ → ยังไม่ระบุ (ไปแท็บใกล้/หมดอายุด้วยวันหมดอายุ)
   return null;
 }
-// ช่วย normalize + เช็คคำพ้อง
-const norm = s => String(s||'').replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/\s+/g,'').toLowerCase();
-const hasAny = (hay, keys) => keys.some(k => hay.includes(norm(k)));
-
-const STOP_KEYS   = ['ไม่ต่ออายุ']; // = stopped
-const DONE_KEYS   = [
-  'ดำเนินการแล้ว','ต่ออายุแล้ว',
-  'ยื่นคำขอ','ยื่นขอ','ยื่นต่ออายุ','ยื่นเอกสาร','ส่งคำขอ','ส่งเอกสาร',
-  'รับเรื่อง','รับคำขอ','พิจารณา','กำลังพิจารณา',
-  'ตรวจสอบเอกสาร','กำลังตรวจสอบ','อยู่ระหว่างตรวจสอบ',
-  'รออนุมัติ','รอผลตรวจ','รอออกใบอนุญาต','รอลงนาม',
-  'อนุมัติแล้ว','ออกใบอนุญาตแล้ว'
-]; // = done
-const INPROG_KEYS = [
-  'รอตอบกลับ','รอการตอบกลับ','รอตอบกลับการต่ออายุ',
-  'บริการตอบกลับการต่ออายุ','รอยืนยัน','รอคอนเฟิร์ม','รอชำระ',
-  'อยู่ระหว่างติดต่อ','กำลังติดต่อ','ติดต่อลูกค้า','แจ้งลูกค้าแล้วรอตอบ'
-]; // = in progress
-
-// ตัดสิน bucket ครั้งเดียว แล้วใช้ต่อทั้งหน้า
-function judgeBucket(row){
-  const all = norm(row.renewed_status) + '|' + norm(row.status_text) + '|' + norm(row.renewed_note);
-
-  // 1) ไม่ต่ออายุแล้ว (ชนะทุกกรณี)
-  if (hasAny(all, STOP_KEYS)) return 'stopped';
-
-  // 2) ต่ออายุเรียบร้อยแล้ว (มี renewed_until หรือเข้ากลุ่ม DONE_KEYS)
-  if (row.renewed_until || hasAny(all, DONE_KEYS)) return 'done';
-
-  // 3) อยู่ระหว่างดำเนินการ (เฉพาะ “รอลูกค้าตอบ/ติดต่อแล้วรอ”)
-  if (hasAny(all, INPROG_KEYS)) return 'inprog';
-
-  // 4) ถ้าไม่เข้า 3 กลุ่มบน → พิจารณา near ตามวันหมดอายุ
-  if (row.expiry_date){
-    const diff = Math.ceil((new Date(row.expiry_date) - new Date())/86400000);
-    if (diff <= WARNING_DAYS) return 'near';
-  }
-  return null;
-}
 
 
 
 function computeBadge(row){
+  // ถ้ามี bucket แล้ว ให้เชื่อถือ bucket เป็นหลัก
   if (row._bucket === 'inprog')  return `<span class="badge warn">อยู่ระหว่างดำเนินการ</span>`;
   if (row._bucket === 'stopped') return `<span class="badge exp">ไม่ต่ออายุแล้ว</span>`;
   if (row._bucket === 'done')    return `<span class="badge ok">ดำเนินการแล้ว</span>`;
+
+  // ถ้ายังไม่เข้าหมวด ใข้วันหมดอายุช่วยบอก
   if(!row.expiry_date) return `<span class="badge ok">ปกติ</span>`;
   const diff = Math.ceil((new Date(row.expiry_date) - new Date())/86400000);
   if(diff < 0) return `<span class="badge exp">หมดอายุ</span>`;
   if(diff <= WARNING_DAYS) return `<span class="badge warn">เหลือ ${diff} วัน</span>`;
   return `<span class="badge ok">ปกติ</span>`;
 }
-
 
 
 function inNearBucket(row){
@@ -274,45 +224,56 @@ let COMPANY_CODE_REAL = null; // code จริงของบริษัท (�
 function applyFilterAndGroup(){
   const q = FILTER_Q.toLowerCase();
 
-  // 1) กรองตามคำค้น
+  // 1) คัดกรองตามคำค้น
   const rows = FULL.filter(r=>{
     if(!q) return true;
     return ((r.brand_name||'').toLowerCase().includes(q) ||
             (r.common_label||'').toLowerCase().includes(q));
   });
 
-  // 2) ตัดสิน bucket หลักให้ทุกแถว (ใช้ judgeBucket/derive ตามที่ตั้งไว้)
-  rows.forEach(r=> r._bucket = judgeBucket ? judgeBucket(r) : r._bucket || null);
+  // 2) คำนวณ bucket ให้ "ตัดสินใจครั้งเดียว" แล้วใช้ต่อทุกที่
+  const norm = s => String(s||'').replace(/\s+/g,'');
+  rows.forEach(r=>{
+    const ds  = deriveStatus(r);                 // สถานะที่ตีความตามกติกาใหม่
+    const raw = norm(r.renewed_status);          // สถานะดิบจากฐาน
+    const hasUntil = !!r.renewed_until;
 
-  // 3) กลุ่มหลัก (เอกสิทธิ์: ไม่ซ้ำกัน)
-  const baseInprog  = rows.filter(r=> r._bucket === 'inprog');
-  const baseStopped = rows.filter(r=> r._bucket === 'stopped');
-  const baseDone    = rows.filter(r=> r._bucket === 'done');
-  const baseNear    = rows.filter(r=> r._bucket === 'near');
+    const stopped = (ds === 'ไม่ต่ออายุแล้ว') || /ไม่ต่ออายุแล้ว/.test(raw);
+    const done    = hasUntil || (ds === 'ดำเนินการแล้ว') || /ดำเนินการแล้ว/.test(raw);
+    const inprog  = !stopped && !done && (ds === 'อยู่ระหว่างดำเนินการ' || /อยู่ระหว่างดำเนินการ/.test(raw));
 
-  // 4) โหมดโปร่งใส: ดึง inprog/done ที่ "ใกล้หมดอายุ" มาขึ้นใน near "ด้วย" (สำเนา)
-  let nearMerged = baseNear;
-  if (INCLUDE_RENEWING_IN_NEAR) {
-    const extraFromInprog = baseInprog.filter(isNearByDate);
-    const extraFromDone   = baseDone.filter(isNearByDate);
-    nearMerged = [...baseNear, ...extraFromInprog, ...extraFromDone];
-  }
+    if (stopped) {
+      r._bucket = 'stopped';
+    } else if (done) {
+      r._bucket = 'done';          // 👉 จัดเป็น done ก่อน จะได้ไม่ไป near
+    } else if (inprog) {
+      r._bucket = 'inprog';
+    } else {
+      // ยังไม่เข้าหมวด ใช้วันหมดอายุช่วย
+      if (!r.expiry_date) {
+        r._bucket = null;
+      } else {
+        const diff = Math.ceil((new Date(r.expiry_date) - new Date())/86400000);
+        // ใกล้หมดอายุ/หมดอายุ (รวม diff < 0 ด้วย) เฉพาะที่ "ยังไม่ได้ดำเนินการ"
+        r._bucket = (diff <= WARNING_DAYS) ? 'near' : null;
+      }
+    }
+  });
 
-  // 5) อัปเดตก้อน GROUPS
-  GROUPS.inprog  = baseInprog;
-  GROUPS.stopped = baseStopped;
-  GROUPS.done    = baseDone;
-  GROUPS.near    = nearMerged;
+  // 3) จัดกลุ่มตาม bucket ที่ตัดสินใจแล้ว
+  GROUPS.inprog  = rows.filter(r=> r._bucket === 'inprog');
+  GROUPS.stopped = rows.filter(r=> r._bucket === 'stopped');
+  GROUPS.done    = rows.filter(r=> r._bucket === 'done');
+  GROUPS.near    = rows.filter(r=> r._bucket === 'near');
 
-  // 6) ตัวเลขสรุป
-  document.getElementById('cnt-near').textContent    = GROUPS.near.length.toLocaleString('th-TH');
-  document.getElementById('cnt-inprog').textContent  = GROUPS.inprog.length.toLocaleString('th-TH');
-  document.getElementById('cnt-stopped').textContent = GROUPS.stopped.length.toLocaleString('th-TH');
-  document.getElementById('cnt-done').textContent    = GROUPS.done.length.toLocaleString('th-TH');
-
-  const total = rows.length;
-  document.getElementById('count').textContent = `ผลการค้นหา "${FILTER_Q || '—'}" รวม ${total.toLocaleString('th-TH')} รายการ`;
+  // 4) อัปเดตตัวเลข/สรุป
+  $('cnt-near').textContent    = GROUPS.near.length.toLocaleString('th-TH');
+  $('cnt-inprog').textContent  = GROUPS.inprog.length.toLocaleString('th-TH');
+  $('cnt-stopped').textContent = GROUPS.stopped.length.toLocaleString('th-TH');
+  $('cnt-done').textContent    = GROUPS.done.length.toLocaleString('th-TH');
+  $('count').textContent = `ผลการค้นหา "${FILTER_Q || '—'}" รวม ${rows.length.toLocaleString('th-TH')} รายการ`;
 }
+
 
 function renderList(listId, rows){
   const box = $(listId);
