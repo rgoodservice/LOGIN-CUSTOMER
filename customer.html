@@ -115,10 +115,7 @@
       <input id="q" placeholder="ค้นหา: ชื่อการค้า / ชื่อสามัญ" style="min-width:240px">
       <button id="clearBtn" class="btn-ghost">ล้าง</button>
       <button class="btn" id="refreshBtn">รีเฟรช</button>
-      <!-- ปุ่มเปิดหน้า Summary (หมายเหตุสถานะเอกสาร) -->
-<button id="openNotes" style="padding:10px 14px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;cursor:pointer;font-family:Prompt">
-  📝 ดูหมายเหตุสถานะเอกสาร
-</button>
+      <button class="btn" id="toSummaryBtn">ดูสรุปสถานะทั้งหมด</button>
     </div>
     <div class="mut" id="count" style="margin-top:8px">—</div>
 
@@ -323,26 +320,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
     loadCompanyByCode();
   }
 
- <script>
-function getCustomerCode(){
-  // 1) ดึงจาก URL ของ customer.html (เช่น customer.html?code=RGOOD01)
-  const p = new URLSearchParams(location.search);
-  let code = p.get('code');
-
-  // 2) ถ้ามีตัวแปร global ในเพจ
-  if(!code && typeof window.COMPANY_CODE === 'string'){ code = window.COMPANY_CODE; }
-
-  // 3) เก็บลง localStorage ให้หน้าถัดไปใช้ต่อก็ได้
-  if(code){ localStorage.setItem('company_code', code); }
-
-  return (code||'').trim().toUpperCase();
-}
-
-document.getElementById('openNotes').addEventListener('click', ()=>{
-  const code = getCustomerCode();
-  if(!code){ alert('ต้องมีรหัสลูกค้า (code) ในหน้า customer.html ก่อน'); return; }
-  // ปรับ path ของ summary.html ตามโครงโปรเจกต์จริง
-  window.open(`summary.html?code=${encodeURIComponent(code)}`, '_blank');
+  // ไปหน้า summary
+  $('toSummaryBtn').addEventListener('click', ()=>{
+    const code = ($('code').value || '').trim().toUpperCase();
+    if(!code){ alert('กรุณาใส่รหัสลูกค้าก่อน'); return; }
+    location.href = `summary.html?code=${encodeURIComponent(code)}`;
+  });
 });
 </script>
 </body>
