@@ -212,26 +212,54 @@ let GROUPS = { near:[], inprog:[], stopped:[], done:[] };
 let REALTIME_CH = null;       // ช่อง realtime
 let COMPANY_CODE_REAL = null; // code จริงของบริษัท (จาก v2 RPC)
 
-/* ===== Grouping/Rendering ===== */
 function applyFilterAndGroup(){
   const q = FILTER_Q.toLowerCase();
-  const rows = FULL.filter(r => !q ||
-      (r.brand_name||'').toLowerCase().includes(q) ||
-      (r.common_label||'').toLowerCase().includes(q)
-  );
 
-  GROUPS.inprog  = rows.filter(r=> r._derived_status === 'อยู่ระหว่างดำเนินการ');
-  GROUPS.stopped = rows.filter(r=> r._derived_status === 'ไม่ต่ออายุแล้ว');
-  GROUPS.done    = rows.filter(r=> r._derived_status === 'ดำเนินการแล้ว');
-  GROUPS.near    = rows.filter(r=> inNearBucket(r));
+  // คัดกรองตามคำค้น
+  const rows = FULL.filter(r=>{
+    if(!q) return true;
+    return ( (r.brand_name||'').toLowerCase().includes(q) ||
+             (r.common_label||'').toLowerCase().includes(q) );
+  });
 
-  $('cnt-near').textContent    = GROUPS.near.length;
-  $('cnt-inprog').textContent  = GROUPS.inprog.length;
-  $('cnt-stopped').textContent = GROUPS.stopped.length;
-  $('cnt-done').textContent    = GROUPS.done.length;
+  // ใช้สถานะจากฐานข้อมูลเป็นหลัก + มีกติกาเสริมจาก deriveStatus
+  const norm = s => String(s||'').replace(/\s+/g,'');
+  const isInprog = (r)=>{
+    const ds  = deriveStatus(r);
+    const raw = norm(r.renewed_status);
+    return ds === 'อยู่ระหว่างดำเนินการ' || /อยู่ระหว่างดำเนินการ/.test(raw);
+  };
+  const isStopped = (r)=>{
+    const ds  = deriveStatus(r);
+    const raw = norm(r.renewed_status);
+    return ds === 'ไม่ต่ออายุแล้ว' || /ไม่ต่ออายุแล้ว/.test(raw);
+  };
+  const isDone = (r)=>{
+    const ds  = deriveStatus(r);
+    const raw = norm(r.renewed_status);
+    return ds === 'ดำเนินการแล้ว' || /ดำเนินการแล้ว/.test(raw) || !!r.renewed_until;
+  };
+  const inNearBucket = (r)=>{
+    if (isInprog(r) || isStopped(r) || isDone(r)) return false;
+    if (!r.expiry_date) return false;
+    const diff = Math.ceil((new Date(r.expiry_date) - new Date())/86400000);
+    return (diff <= WARNING_DAYS);
+  };
 
-  $('count').textContent = `ผลการค้นหา "${FILTER_Q || '—'}" รวม ${rows.length} รายการ`;
+  GROUPS.inprog  = rows.filter(isInprog);
+  GROUPS.stopped = rows.filter(isStopped);
+  GROUPS.done    = rows.filter(isDone);
+  GROUPS.near    = rows.filter(inNearBucket);
+
+  $('cnt-near').textContent    = GROUPS.near.length.toLocaleString('th-TH');
+  $('cnt-inprog').textContent  = GROUPS.inprog.length.toLocaleString('th-TH');
+  $('cnt-stopped').textContent = GROUPS.stopped.length.toLocaleString('th-TH');
+  $('cnt-done').textContent    = GROUPS.done.length.toLocaleString('th-TH');
+
+  const total = rows.length;
+  $('count').textContent = `ผลการค้นหา "${FILTER_Q || '—'}" รวม ${total.toLocaleString('th-TH')} รายการ`;
 }
+
 
 function renderList(listId, rows){
   const box = $(listId);
