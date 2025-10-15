@@ -39,14 +39,9 @@
     border-bottom:1px solid var(--border);
     display:flex;
     align-items:center;
-    gap:10px;
+    justify-content:space-between;
   }
-  .spacer{flex:1}
   .logo{font-weight:700;font-size:20px;color:var(--accent);}
-  .btn{
-    padding:8px 14px;border:1px solid var(--border);background:white;border-radius:10px;cursor:pointer;
-    font-family:"Prompt"; font-size:14px;
-  }
   main{
     max-width:1000px;
     margin:30px auto;
@@ -90,10 +85,7 @@
 <body>
   <header>
     <div class="logo">📝 หมายเหตุสถานะเอกสาร</div>
-    <div class="spacer"></div>
-    <!-- ปุ่มกลับไปหน้า customer ด้วย code เดิม -->
-    <button id="backToCustomer" class="btn">กลับไปหน้า Customer</button>
-    <button class="btn" onclick="window.close()">ปิดหน้านี้</button>
+    <button onclick="window.close()" style="padding:8px 14px;border:1px solid var(--border);background:white;border-radius:10px;cursor:pointer;">ปิดหน้านี้</button>
   </header>
 
   <main>
@@ -131,14 +123,11 @@
   </main>
 
 <script>
-/* ===== Supabase Config ===== */
 const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
 let allData = [];
 
-/* ===== Utils ===== */
 function fmtDateBE(d){
   if(!d) return '-';
   const t = new Date(d);
@@ -152,58 +141,10 @@ function fmtDateBE(d){
   }
 }
 
-/** จุดเชื่อมหลัก: ดึง company_code จากหลายแหล่ง เพื่อรองรับการเรียกจากหน้า customer.html */
-async function resolveCompanyCode(){
-  const p = new URLSearchParams(window.location.search);
-  let code = p.get('code');
-
-  // 1) ถ้า customer.html เซ็ตตัวแปร global มาให้
-  if(!code && typeof window.COMPANY_CODE === 'string'){
-    code = window.COMPANY_CODE;
-  }
-
-  // 2) ถ้าเคยเก็บไว้ใน localStorage
-  if(!code){
-    const ls = localStorage.getItem('company_code');
-    if(ls) code = ls;
-  }
-
-  // 3) ถ้ามีการล็อกอิน Supabase และเก็บ code ไว้ใน user metadata
-  if(!code){
-    try{
-      const { data } = await sb.auth.getUser();
-      const metaCode = data?.user?.user_metadata?.company_code || data?.user?.app_metadata?.company_code;
-      if(metaCode) code = metaCode;
-    }catch(e){}
-  }
-
-  // ทำให้เป็นฟอร์แมตสวย ๆ
-  return (code||'').trim().toUpperCase();
-}
-
 async function loadNotes(){
-  const code = await resolveCompanyCode();
-
-  // อัปเดต UI ปุ่มกลับไปหน้า customer
-  const backBtn = document.getElementById('backToCustomer');
-  backBtn.onclick = ()=> {
-    if(code){
-      // ปรับชื่อไฟล์ตามโปรเจกต์จริงของคุณ
-      location.href = `customer.html?code=${encodeURIComponent(code)}`;
-    }else{
-      alert('ไม่พบรหัสลูกค้า (code) ให้เปิดผ่าน customer.html หรือระบุ ?code= ใน URL');
-    }
-  };
-
-  if(!code){
-    document.getElementById('companyName').textContent =
-      'ไม่ได้ส่งรหัสลูกค้ามา (?code=...) และไม่พบในแหล่งอื่น (global/localStorage/Auth)';
-    document.querySelector('#noteTable tbody').innerHTML =
-      `<tr><td colspan="6" style="color:#b91c1c">กรุณาเปิดผ่านหน้า customer.html หรือใส่พารามิเตอร์ ?code=ABC</td></tr>`;
-    return;
-  }
-
-  document.getElementById('companyName').textContent = `รหัสลูกค้า: ${code}`;
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  document.getElementById('companyName').textContent = code ? `บริษัท: ${code}` : '';
 
   const { data, error } = await sb
     .from('product_registrations')
