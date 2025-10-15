@@ -129,7 +129,7 @@ const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* ===== Utils ===== */
+/* ===== Utils & State ===== */
 const $ = (id)=>document.getElementById(id);
 const WARNING_DAYS = 90;
 
@@ -144,37 +144,21 @@ function fmtDateBE(d){
 }
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
-/* ===== คิดสถานะสุดท้ายแบบเดียวกันทั้งหน้า ===== */
 function deriveStatus(row){
-  // normalize
   const raw = (row.renewed_status||'').trim();
-  const s = raw.replace(/\s+/g,''); // ตัดช่องว่างในคำไทยที่ต่างกันนิดหน่อย
   const hasUntil = !!row.renewed_until;
-
-  // 1) ไม่ต่ออายุแล้ว ชนะทุกกรณี
   if (/ไม่ต่ออายุ/.test(raw)) return 'ไม่ต่ออายุแล้ว';
-
-  // 2) มี renewed_until = ถือว่าดำเนินการแล้ว (แม้สถานะจะยังเขียนว่าอยู่ระหว่าง)
-  if (hasUntil) return 'ดำเนินการแล้ว';
-
-  // 3) ดำเนินการแล้ว
-  if (/ดำเนินการแล้ว/.test(raw)) return 'ดำเนินการแล้ว';
-
-  // 4) อยู่ระหว่างดำเนินการ
-  if (/อยู่ระหว่างดำเนินการ/.test(raw) || /ระหว่างดำเนินการ/.test(raw)) return 'อยู่ระหว่างดำเนินการ';
-
-  // 5) ยังไม่กำหนด
+  if (hasUntil)                return 'ดำเนินการแล้ว';
+  if (/ดำเนินการแล้ว/.test(raw))  return 'ดำเนินการแล้ว';
+  if (/อยู่ระหว่างดำเนินการ|ระหว่างดำเนินการ/.test(raw)) return 'อยู่ระหว่างดำเนินการ';
   return null;
 }
 
-/* ===== ป้ายสถานะ ===== */
 function computeBadge(row){
   const st = row._derived_status;
   if (st === 'อยู่ระหว่างดำเนินการ') return `<span class="badge warn">อยู่ระหว่างดำเนินการ</span>`;
   if (st === 'ไม่ต่ออายุแล้ว')       return `<span class="badge exp">ไม่ต่ออายุแล้ว</span>`;
   if (st === 'ดำเนินการแล้ว')         return `<span class="badge ok">ดำเนินการแล้ว</span>`;
-
-  // ยังไม่กำหนด ใช้วันหมดอายุช่วยบอก
   if(!row.expiry_date) return `<span class="badge ok">ปกติ</span>`;
   const diff = Math.ceil((new Date(row.expiry_date) - new Date())/86400000);
   if(diff < 0) return `<span class="badge exp">หมดอายุ</span>`;
@@ -182,49 +166,44 @@ function computeBadge(row){
   return `<span class="badge ok">ปกติ</span>`;
 }
 
-/* ===== จัดกลุ่มตามแท็บ โดยใช้สถานะที่ derive แล้วเท่านั้น ===== */
 function inNearBucket(row){
-  if (row._derived_status) return false; // ถ้ารู้สถานะแล้ว ไม่อยู่แท็บนี้
+  if (row._derived_status) return false;
   if (!row.expiry_date) return false;
   const diff = Math.ceil((new Date(row.expiry_date) - new Date())/86400000);
   return (diff <= WARNING_DAYS);
 }
 
-let FULL = []; // ข้อมูลบริษัทเดียวจาก RPC (พร้อม _derived_status)
+let FULL = [];
 let FILTER_Q = '';
 let GROUPS = { near:[], inprog:[], stopped:[], done:[] };
+let REALTIME_CH = null;       // ช่อง realtime
+let COMPANY_CODE_REAL = null; // code จริงของบริษัท (จาก v2 RPC)
 
+/* ===== Grouping/Rendering ===== */
 function applyFilterAndGroup(){
   const q = FILTER_Q.toLowerCase();
-
-  const rows = FULL.filter(r=>{
-    if(!q) return true;
-    return ( (r.brand_name||'').toLowerCase().includes(q) ||
-             (r.common_label||'').toLowerCase().includes(q) );
-  });
+  const rows = FULL.filter(r => !q ||
+      (r.brand_name||'').toLowerCase().includes(q) ||
+      (r.common_label||'').toLowerCase().includes(q)
+  );
 
   GROUPS.inprog  = rows.filter(r=> r._derived_status === 'อยู่ระหว่างดำเนินการ');
   GROUPS.stopped = rows.filter(r=> r._derived_status === 'ไม่ต่ออายุแล้ว');
   GROUPS.done    = rows.filter(r=> r._derived_status === 'ดำเนินการแล้ว');
   GROUPS.near    = rows.filter(r=> inNearBucket(r));
 
-  $('cnt-near').textContent    = GROUPS.near.length.toLocaleString('th-TH');
-  $('cnt-inprog').textContent  = GROUPS.inprog.length.toLocaleString('th-TH');
-  $('cnt-stopped').textContent = GROUPS.stopped.length.toLocaleString('th-TH');
-  $('cnt-done').textContent    = GROUPS.done.length.toLocaleString('th-TH');
+  $('cnt-near').textContent    = GROUPS.near.length;
+  $('cnt-inprog').textContent  = GROUPS.inprog.length;
+  $('cnt-stopped').textContent = GROUPS.stopped.length;
+  $('cnt-done').textContent    = GROUPS.done.length;
 
-  const total = rows.length;
-  $('count').textContent = `ผลการค้นหา "${FILTER_Q || '—'}" รวม ${total.toLocaleString('th-TH')} รายการ`;
+  $('count').textContent = `ผลการค้นหา "${FILTER_Q || '—'}" รวม ${rows.length} รายการ`;
 }
 
-/* ===== วาดการ์ด ===== */
 function renderList(listId, rows){
   const box = $(listId);
-  if(rows.length === 0){
-    box.innerHTML = `<div class="empty">ไม่มีรายการ</div>`;
-    return;
-  }
-  // เรียงให้ดูง่าย: inprog/done ตาม renewed_on ใหม่ก่อน, near ตามวันหมดอายุใกล้ก่อน, stopped ล่าสุดก่อน
+  if(rows.length === 0){ box.innerHTML = `<div class="empty">ไม่มีรายการ</div>`; return; }
+
   const sorted = [...rows].sort((a,b)=>{
     const tA = a.renewed_on ? new Date(a.renewed_on).getTime() : 0;
     const tB = b.renewed_on ? new Date(b.renewed_on).getTime() : 0;
@@ -241,7 +220,6 @@ function renderList(listId, rows){
     <div class="item">
       <h3>${escapeHtml(r.brand_name||'-')}</h3>
       <div class="sub">${escapeHtml(r.common_label||'-')}</div>
-
       <div class="grid">
         <div class="kv"><b>ทะเบียน:</b> ${escapeHtml(r.registration_no||'-')}</div>
         <div class="kv"><b>ใบอนุญาต:</b> ${escapeHtml(r.license_no||'-')}</div>
@@ -249,43 +227,71 @@ function renderList(listId, rows){
         <div class="kv"><b>อัปเดตล่าสุด:</b> ${fmtDateBE(r.renewed_on)}</div>
         <div class="kv"><b>สถานะ:</b> ${computeBadge(r)}</div>
       </div>
-
       ${ r.renewed_note ? `<div class="note" style="margin-top:10px"><b>หมายเหตุ:</b>\n${escapeHtml(r.renewed_note)}</div>` : ``}
     </div>
   `).join('');
 }
 
-/* ===== โหลดข้อมูล (เรียก v2 เสมอ) ===== */
-async function loadData(){
-  const params = new URLSearchParams(location.search);
-  const code = (params.get('code')||'').trim().toUpperCase();
-  if(!code){
-    $('companyName').textContent = 'ไม่ได้ส่งรหัสลูกค้ามา (?code=...)';
-    return;
-  }
-
-  // ชื่อบริษัท
+/* ===== โหลดข้อมูล (RPC v2 เสมอ) ===== */
+async function fetchAndRender(code){
+  // ชื่อบริษัท + company_code จริง (จาก v2)
   const nameRes = await sb.rpc('get_company_name_by_code_v2', { p_plain_code: code });
-  $('companyName').textContent = nameRes.data ? `บริษัท: ${nameRes.data} (รหัสลูกค้า: ${code})` : `รหัสลูกค้า: ${code}`;
+  COMPANY_CODE_REAL = nameRes.data || null; // ในสคีมา v2 คืน c.code (= company_code จริง)
+  $('companyName').textContent = COMPANY_CODE_REAL
+    ? `บริษัท: ${COMPANY_CODE_REAL} (รหัสลูกค้า: ${code})`
+    : `รหัสลูกค้า: ${code}`;
 
-  // รายการทั้งหมดของบริษัท (ฝั่งลูกค้า)
+  // ข้อมูลสินค้า/ทะเบียนทั้งหมด
   const res = await sb.rpc('get_company_portal_v2', { p_plain_code: code });
   if(res.error){
     $('companyName').textContent += ` — โหลดข้อมูลผิดพลาด: ${res.error.message}`;
     return;
   }
 
-  // ใส่สถานะที่ derive แล้วลงไปในแต่ละแถว
-  FULL = (res.data||[]).map(x=>{
-    const _derived_status = deriveStatus(x);
-    return { ...x, _derived_status };
-  });
-
+  FULL = (res.data||[]).map(x => ({ ...x, _derived_status: deriveStatus(x) }));
   applyFilterAndGroup();
   renderList('list-near',    GROUPS.near);
   renderList('list-inprog',  GROUPS.inprog);
   renderList('list-stopped', GROUPS.stopped);
   renderList('list-done',    GROUPS.done);
+}
+
+/* ===== Realtime: subscribe table changes for this company ===== */
+function setupRealtime(){
+  // เคลียร์ของเดิมก่อนกันซ้ำ
+  if(REALTIME_CH){
+    sb.removeChannel(REALTIME_CH);
+    REALTIME_CH = null;
+  }
+  if(!COMPANY_CODE_REAL) return; // ยังไม่รู้ company_code จริง
+
+  REALTIME_CH = sb.channel('cust-portal-' + COMPANY_CODE_REAL)
+    .on('postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'product_registrations',
+        filter: `company_code=eq.${COMPANY_CODE_REAL}`
+      },
+      (payload) => {
+        // เมื่อมี insert/update/delete → ดึงข้อมูลใหม่ทันที
+        // ใช้ code ลูกค้าจาก URL เดิม
+        const params = new URLSearchParams(location.search);
+        const code = (params.get('code')||'').trim().toUpperCase();
+        fetchAndRender(code);
+      }
+    )
+    .subscribe();
+}
+
+/* ===== Flow หลัก ===== */
+async function loadData(){
+  const params = new URLSearchParams(location.search);
+  const code = (params.get('code')||'').trim().toUpperCase();
+  if(!code){ $('companyName').textContent = 'ไม่ได้ส่งรหัสลูกค้ามา (?code=...)'; return; }
+
+  await fetchAndRender(code);  // ดึงข้อมูลรอบแรก
+  setupRealtime();             // ตั้ง realtime สำหรับบริษัทนี้
 }
 
 /* ===== Tabs & Events ===== */
@@ -326,7 +332,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   $('refreshBtn').addEventListener('click', loadData);
 });
-</script>
 
+// เคลียร์ realtime channel ตอนออกจากหน้า
+window.addEventListener('beforeunload', ()=>{
+  if(REALTIME_CH) sb.removeChannel(REALTIME_CH);
+});
+</script>
 </body>
 </html>
