@@ -145,14 +145,46 @@ function fmtDateBE(d){
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
 function deriveStatus(row){
-  const raw = (row.renewed_status||'').trim();
-  const hasUntil = !!row.renewed_until;
-  if (/ไม่ต่ออายุ/.test(raw)) return 'ไม่ต่ออายุแล้ว';
-  if (hasUntil)                return 'ดำเนินการแล้ว';
-  if (/ดำเนินการแล้ว/.test(raw))  return 'ดำเนินการแล้ว';
-  if (/อยู่ระหว่างดำเนินการ|ระหว่างดำเนินการ/.test(raw)) return 'อยู่ระหว่างดำเนินการ';
+  // helper: ทำความสะอาดข้อความให้เทียบง่าย
+  const norm = (s)=> String(s||'')
+    .replace(/[\u200B-\u200D\uFEFF]/g,'') // ลบ zero-width
+    .replace(/\s+/g,'')                   // ลบช่องว่างทั้งหมด
+    .toLowerCase();
+
+  const s1 = norm(row.renewed_status);
+  const s2 = norm(row.status_text);
+  const s3 = norm(row.renewed_note);
+  const all = s1 + '|' + s2 + '|' + s3;
+
+  // 0) ไม่ต่ออายุแล้ว ชนะทุกกรณี
+  if (all.includes('ไม่ต่ออายุ')) return 'ไม่ต่ออายุแล้ว';
+
+  // 1) มี renewed_until = ดำเนินการแล้ว
+  if (row.renewed_until) return 'ดำเนินการแล้ว';
+
+  // 2) คำพ้องที่ถือว่า "ดำเนินการแล้ว"
+  const DONE_KEYS = [
+    'ดำเนินการแล้ว','ต่ออายุแล้ว',
+    'ยื่นคำขอ','ยื่นขอ','ยื่นต่ออายุ','ยื่นเอกสาร','ส่งคำขอ','ส่งเอกสาร',
+    'รับเรื่อง','รับคำขอ','พิจารณา','กำลังพิจารณา',
+    'ตรวจสอบเอกสาร','กำลังตรวจสอบ','อยู่ระหว่างตรวจสอบ',
+    'รออนุมัติ','รอผลตรวจ','รอออกใบอนุญาต','รอลงนาม',
+    'อนุมัติแล้ว','ออกใบอนุญาตแล้ว'
+  ];
+  if (DONE_KEYS.some(k => all.includes(norm(k)))) return 'ดำเนินการแล้ว';
+
+  // 3) เฉพาะเคส "รอลูกค้าตอบกลับ/ติดต่อแล้วรอ" = อยู่ระหว่างดำเนินการ
+  const INPROG_KEYS = [
+    'รอตอบกลับ','รอการตอบกลับ','รอตอบกลับการต่ออายุ',
+    'บริการตอบกลับการต่ออายุ','รอยืนยัน','รอคอนเฟิร์ม','รอชำระ',
+    'อยู่ระหว่างติดต่อ','กำลังติดต่อ','ติดต่อลูกค้า','แจ้งลูกค้าแล้วรอตอบ'
+  ];
+  if (INPROG_KEYS.some(k => all.includes(norm(k)))) return 'อยู่ระหว่างดำเนินการ';
+
+  // 4) อื่น ๆ → ยังไม่ระบุ (ไปแท็บใกล้/หมดอายุด้วยวันหมดอายุ)
   return null;
 }
+
 
 function computeBadge(row){
   const st = row._derived_status;
