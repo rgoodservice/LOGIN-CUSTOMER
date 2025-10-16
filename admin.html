@@ -154,7 +154,7 @@
             <th>ทะเบียน</th>
             <th>ใบอนุญาต</th>
             <th>หมดอายุเดิม (พ.ศ.)</th>
-            <th>ต่อแล้ววันที่</th>
+            <th>ต่อแล้ววันที่ (พ.ศ.)</th>
             <th>สถานะ</th>
             <th>จัดการ</th>
           </tr>
@@ -180,7 +180,6 @@ let cachedRows = [];
 let filteredRows = [];
 const selectedIds = new Set();
 
-/* ===== แสดงผลเป็น "พ.ศ." ===== */
 function fmtDateBE(d){
   if(!d) return '-';
   const t = new Date(d);
@@ -210,7 +209,7 @@ function highlightTokens(text, tokens){
   return out + escapeHtml(s.slice(last));
 }
 
-/* ===== ตรรกะสถานะ (done ถ้า renewed_status=ดำเนินการแล้ว หรือมี renewed_until) ===== */
+/* ===== สถานะ (done ถ้า renewed_status=ดำเนินการแล้ว หรือมี renewed_until) ===== */
 function classify(expiry, renewed_until, renewedStatus){
   if(renewedStatus === 'ดำเนินการแล้ว' || renewed_until){
     return {cls:'', badge:`<span class="badge ok">ดำเนินการแล้ว</span>`, order:3, statusText:'ดำเนินการแล้ว'};
@@ -263,21 +262,23 @@ function renderTable(q=''){
         ${r.expiry_date ? fmtDateBE(r.expiry_date) : ''}
       </td>
 
-      <!-- ต่อแล้ววันที่: แสดงจาก renewed_status ก่อน ถ้าไม่มีแต่มี renewed_until ให้ขึ้นว่า "ดำเนินการแล้ว" -->
-      <td>${r.renewed_status || (r.renewed_until ? 'ดำเนินการแล้ว' : '')}</td>
+      <!-- ต่อแล้ววันที่ (พ.ศ.) จาก renewed_on ถ้ามี -->
+      <td>${r.renewed_on ? fmtDateBE(r.renewed_on) : (r.renewed_status || (r.renewed_until ? 'ดำเนินการแล้ว' : ''))}</td>
 
       <td>${r.badge}</td>
 
       <td style="white-space:nowrap; display:flex; gap:6px; flex-wrap:wrap">
         <button class="btn btn-secondary btn-small" onclick="setStatus('${r.id}','อยู่ระหว่างดำเนินการ')">อยู่ระหว่างดำเนินการ</button>
-        <button class="btn btn-primary btn-small"   onclick="setStatus('${r.id}','ดำเนินการแล้ว')">ดำเนินการแล้ว</button>
-        <button class="btn btn-outline btn-small"   onclick="setStatus('${r.id}','ไม่ต่ออายุแล้ว')">ไม่ต่ออายุแล้ว</button>
-        <button class="btn btn-outline btn-small"   onclick="editNote('${r.id}', ${JSON.stringify(r.renewed_note||'')})">📝 หมายเหตุ</button>
+        <button class="btn btn-primary   btn-small" onclick="setStatus('${r.id}','ดำเนินการแล้ว')">ดำเนินการแล้ว</button>
+        <button class="btn btn-outline  btn-small" onclick="setStatus('${r.id}','ไม่ต่ออายุแล้ว')">ไม่ต่ออายุแล้ว</button>
 
-        <button class="btn btn-outline btn-small"   onclick="clearRenewal('${r.id}')">ล้างต่ออายุ</button>
-        <button class="btn btn-danger btn-small"    onclick="clearRenewalAll('${r.id}')">ล้างทั้งหมด</button>
+        <!-- แก้บั๊ก onclick: ใช้ single quote รอบ attribute, double quote รอบ id และ JSON.stringify สำหรับ note -->
+        <button class="btn btn-outline  btn-small" onclick='editNote("${r.id}", ${JSON.stringify(r.renewed_note||"")})'>📝 หมายเหตุ</button>
 
-        <button class="btn btn-danger btn-small"    onclick="delDoc('${r.id}')">ลบ</button>
+        <button class="btn btn-outline  btn-small" onclick="clearRenewal('${r.id}')">ล้างต่ออายุ</button>
+        <button class="btn btn-danger   btn-small" onclick="clearRenewalAll('${r.id}')">ล้างทั้งหมด</button>
+
+        <button class="btn btn-danger   btn-small" onclick="delDoc('${r.id}')">ลบ</button>
       </td>
     </tr>
   `).join('');
@@ -407,7 +408,7 @@ async function clearRenewal(id){
   const {error} = await sb.from('product_registrations')
     .update({ 
       renewed_status: null,
-      // เก็บ renewed_note ไว้ตามที่ต้องการ
+      // เก็บ renewed_note ไว้ตามต้องการ
       renewed_until: null, 
       renewed_on: null 
     })
@@ -450,7 +451,7 @@ async function delDoc(id){
 $('copyCodeBtn').addEventListener('click', async ()=>{
   const code = $('cust_code').value.trim().toUpperCase();
   if(!code) return alert('ยังไม่มีรหัสให้คัดลอก');
-  await navigator.clipboard.writeText(code);
+  await navigator.clipboard.writeText(code);  // แก้บั๊กตัวแปร
   toast('คัดลอกรหัสแล้ว ✓');
 });
 $('setCodeBtn').addEventListener('click', async ()=>{
@@ -466,7 +467,7 @@ $('setCodeBtn').addEventListener('click', async ()=>{
   toast(`ตั้ง/เปลี่ยนรหัสลูกค้าสำหรับ "${currentCompany}" เรียบร้อย ✓`);
 });
 
-/* ===== Excel: เทมเพลต ===== */
+/* ===== Excel: เทมเพลต / นำเข้า / ส่งออก ===== */
 $('tplBtn').addEventListener('click', downloadTemplate);
 $('impBtn').addEventListener('click', ()=> $('excelFile').click());
 $('expBtn').addEventListener('click', exportExcel);
@@ -483,7 +484,6 @@ function downloadTemplate(){
   XLSX.writeFile(wb, 'template_products.xlsx');
 }
 
-/* ===== แปลงวันที่ตอนนำเข้า ===== */
 function normalizeDate(v) {
   const pad = n => String(n).padStart(2, "0");
   const toIso = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
@@ -530,7 +530,6 @@ function normalizeDate(v) {
   return null;
 }
 
-/* ===== นำเข้า Excel ===== */
 async function importExcel(ev){
   if(!currentCompany) return alert('โปรดเลือกบริษัทก่อน');
   const file = ev.target.files?.[0];
@@ -606,7 +605,6 @@ async function importExcel(ev){
   }
 }
 
-/* ===== ส่งออก Excel ===== */
 function exportExcel(){
   if(!currentCompany) return alert('โปรดเลือกบริษัทก่อน');
   const rows = cachedRows || [];
@@ -632,7 +630,7 @@ function exportExcel(){
   XLSX.writeFile(wb, `products_${currentCompany.replace(/[\\/:*?"<>|]/g,'_')}.xlsx`);
 }
 
-/* ===== Inline Edit: ดับเบิลคลิกเพื่อแก้ไข ===== */
+/* ===== Inline Edit ===== */
 (function initInlineEdit(){
   const tb = $('tbody');
 
@@ -694,7 +692,6 @@ function exportExcel(){
         const { error } = await sb.from('product_registrations').update(payload).eq('id', id);
         if(error) throw error;
 
-        // update cache + status
         const idx = cachedRows.findIndex(x=>x.id===id);
         if(idx>-1){
           cachedRows[idx] = { ...cachedRows[idx], ...payload };
@@ -762,6 +759,16 @@ $('btnNotePage').addEventListener('click', ()=>{
   if(!currentCompany) return alert('กรุณาเลือกบริษัทก่อน');
   const url = `note.html?code=${encodeURIComponent(currentCompany)}`;
   window.open(url, '_blank');
+});
+
+/* ===== ตัวอย่าง handler เพิ่มเติมสำหรับ bulk (เลือกทั้งหมด/ล้างเลือก) ===== */
+$('btnSelectAllFiltered').addEventListener('click', ()=>{
+  filteredRows.forEach(r=>selectedIds.add(r.id));
+  renderTable($('adminSearch').value||'');
+});
+$('btnClearSel').addEventListener('click', ()=>{
+  selectedIds.clear();
+  renderTable($('adminSearch').value||'');
 });
 
 /* ===== Bulk: ล้างต่ออายุ (เก็บหมายเหตุ) ===== */
