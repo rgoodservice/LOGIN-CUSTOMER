@@ -188,30 +188,45 @@ let CURRENT_CODE = '';
 let FULL_ROWS = [];
 let FILTERED = [];
 
-function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
-function highlightHazard2(text){
-  if (!text) return '';
-  // หนี HTML ก่อนเพื่อความปลอดภัย
-  const escaped = escapeHtml(text);
-  // จับคำว่า "วัตถุอันตราย ชนิด ที่ 2/๒" (เว้นวรรคได้)
-  const re = /(วัตถุอันตราย\s*ชนิด\s*ที่\s*[2๒])/gi;
-  return escaped.replace(re, (m)=>`<span class="hazard-flag">⚠️ ${m}</span>`);
+// มีแค่ตัวเดียว ห้ามซ้ำ
+function escapeHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, m=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
 }
 
+// วัตถุอันตราย ชนิดที่ 2
 function hasHazard2(text){
   return /(วัตถุอันตราย\s*ชนิด\s*ที่\s*[2๒])/i.test(String(text||''));
 }
-// ตรวจว่าเป็น “ใบอนุญาตครอบครอง” จากช่อง license_no (ไม่สนเลข)
-function hasPossession(lic){
-  const s = String(lic || '').toLowerCase();
-  // ครอบคลุมคำสะกด/ช่องไฟหลากหลาย
-  return /(ใบ\s*อนุญาต\s*ครอบครอง|ครอบครอง)/i.test(s);
+function highlightHazard2(text){
+  if (!text) return '';
+  return escapeHtml(text).replace(
+    /(วัตถุอันตราย\s*ชนิด\s*ที่\s*[2๒])/gi,
+    m => `<span class="hazard-flag">⚠️ ${m}</span>`
+  );
 }
 
-// ถ้าต้องการโชว์รายละเอียดเลขใบครอบครองในโมดัล (ตอนกด "ดูหมายเหตุ")
-function possessionLabel(lic){
-  if(!hasPossession(lic)) return '';
-  return ` (เลข: ${escapeHtml(String(lic))})`;
+// ใบอนุญาตครอบครอง (เช็คจากหมายเหตุหรือเลขใน license_no)
+function hasPossession(note, licenseNo){
+  const re = /(ใบ\s*อนุญาต\s*ครอบครอง|ครอบครอง)/i;
+  const txt = String(note||'');
+  const lic = String(licenseNo||'');
+
+  if (re.test(txt) || re.test(lic)) return true;
+
+  // เผื่อเคสเลขครอบครองยาวๆ (มัก >=16 หลัก)
+  const digitCount = (lic.match(/\d/g)||[]).length;
+  return digitCount >= 16;
+}
+
+// ใช้ในโมดัล: ไฮไลท์สองแบบรวมกัน
+function highlightAllNotes(text){
+  if (!text) return '-';
+  let out = escapeHtml(text);
+  out = out.replace(/(วัตถุอันตราย\s*ชนิด\s*ที่\s*[2๒])/gi, m=>`<span class="hazard-flag">⚠️ ${m}</span>`);
+  out = out.replace(/(ใบ\s*อนุญาต\s*ครอบครอง|ครอบครอง)/gi,       m=>`<span class="possession-flag">📘 ${m}</span>`);
+  return out;
 }
 
 
@@ -267,10 +282,11 @@ function render(q=''){
         <td>${fmtDateBE(r.expiry_date)}</td>
      <td>
   ${statusBadge(r)}
-  ${hasPossession(r.license_no) ? `<span class="possession-flag">📘 ใบอนุญาตครอบครอง</span>` : ``}
+  ${hasPossession(r.renewed_note, r.license_no) ? `<span class="possession-flag">📘 ใบอนุญาตครอบครอง</span>` : ``}
   ${hasHazard2(r.renewed_note) ? `<span class="hazard-flag">⚠️ วัตถุอันตรายชนิดที่ 2</span>` : ``}
   ${(r.renewed_status || r.renewed_note) ? `<br><button class="btn-note" data-index="${i}">ดูหมายเหตุ</button>` : ``}
 </td>
+
 
 
       </tr>
@@ -343,7 +359,8 @@ async function loadCompanyByCode(){
 function showNote(row){
   $('noteBrand').textContent  = `ชื่อการค้า: ${row?.brand_name || '-'}`;
   $('noteStatus').textContent = `สถานะ: ${row?.renewed_status || row?.status_text || '-'}`;
-  $('noteText').innerHTML = `หมายเหตุ: ${ row?.renewed_note ? highlightHazard2(row.renewed_note) : '-' }`;
+   $('noteText').innerHTML = `หมายเหตุ: ${ row?.renewed_note ? highlightAllNotes(row.renewed_note) : '-' }`;
+
   $('noteModal').style.display='flex';
 }
 
