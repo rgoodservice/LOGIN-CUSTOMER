@@ -201,17 +201,18 @@ function highlightHazard2(text){
 function hasHazard2(text){
   return /(วัตถุอันตราย\s*ชนิด\s*ที่\s*[2๒])/i.test(String(text||''));
 }
-// ตรวจว่าเป็น “ใบอนุญาตครอบครอง” จากช่อง license_no (ไม่สนเลข)
-function hasPossession(lic){
-  const s = String(lic || '').toLowerCase();
-  // ครอบคลุมคำสะกด/ช่องไฟหลากหลาย
-  return /(ใบ\s*อนุญาต\s*ครอบครอง|ครอบครอง)/i.test(s);
+function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+function highlightPossession(text){
+  if (!text) return '';
+  // หนี HTML ก่อนเพื่อความปลอดภัย
+  const escaped = escapeHtml(text);
+  // จับคำว่า "ใบอนุญาต ครอบ ครอง" (เว้นวรรคได้)
+  const re = /(ใบอนุญาต\s*ครอบ\s*ที่ครอง)/gi;
+  return escaped.replace(re, (m)=>`<span class="Possession-flag">🟦 ${m}</span>`);
 }
 
-// ถ้าต้องการโชว์รายละเอียดเลขใบครอบครองในโมดัล (ตอนกด "ดูหมายเหตุ")
-function possessionLabel(lic){
-  if(!hasPossession(lic)) return '';
-  return ` (เลข: ${escapeHtml(String(lic))})`;
+function Possession(text){
+  return /(ใบอนุญาต\s*ครอบ\s*ที่ครอง)/i.test(String(text||''));
 }
 
 
@@ -267,7 +268,7 @@ function render(q=''){
         <td>${fmtDateBE(r.expiry_date)}</td>
      <td>
   ${statusBadge(r)}
-  ${hasPossession(r.license_no) ? `<span class="possession-flag">📘 ใบอนุญาตครอบครอง</span>` : ``}
+  ${hasPossession(r.renewed_note) ? `<span class="possession-flag">📘 ใบอนุญาตครอบครอง</span>` : ``}
   ${hasHazard2(r.renewed_note) ? `<span class="hazard-flag">⚠️ วัตถุอันตรายชนิดที่ 2</span>` : ``}
   ${(r.renewed_status || r.renewed_note) ? `<br><button class="btn-note" data-index="${i}">ดูหมายเหตุ</button>` : ``}
 </td>
