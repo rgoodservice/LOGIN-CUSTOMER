@@ -137,7 +137,7 @@
         <div id="companyName" style="font-weight:700;font-size:20px">—</div>
       </div>
       <div class="spacer"></div>
-      <input id="q" placeholder="ค้นหา: ชื่อการค้า / ชื่อสามัญ" style="min-width:240px">
+      <input id="q" placeholder="ค้นหา: บริษัท/ชื่อการค้า/ชื่อสามัญ/ทะเบียน/ใบอนุญาต/หมายเหตุ" style="min-width:240px">
       <button id="clearBtn" class="btn-ghost">ล้าง</button>
       <button class="btn" id="refreshBtn">รีเฟรช</button>
       <button class="btn" id="toSummaryBtn">ดูสรุปสถานะทั้งหมด</button>
@@ -303,21 +303,48 @@ function render(q=''){
   $('count').textContent = `แสดง ${rows.length.toLocaleString('th-TH')} รายการ (ทั้งหมด ${FULL_ROWS.length.toLocaleString('th-TH')})`;
 }
 
+// วางไว้เหนือ applyFilter()
+function tokenize(q){
+  return (q||'').trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+function normalize(s){
+  const thDigits = '๐๑๒๓๔๕๖๗๘๙';
+  return String(s||'')
+    .toLowerCase()
+    .replace(/[๐-๙]/g, d => thDigits.indexOf(d)) // แปลงเลขไทยเป็นอารบิก
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+// แทนที่ applyFilter เดิมทั้งหมดด้วยอันนี้
 function applyFilter(){
-  const raw = $('q').value.trim();
-  const q = raw.toLowerCase();
-  if(!q){
+  const raw = $('q').value || '';
+  const tokens = tokenize(raw).map(normalize);
+
+  if(tokens.length === 0){
     FILTERED = [...FULL_ROWS];
   }else{
     FILTERED = FULL_ROWS.filter(r=>{
-      const brand  = (r.brand_name   ||'').toLowerCase();
-      const common = (r.common_label ||'').toLowerCase();
-      const reg    = (r.registration_no||'').toLowerCase();
-      return brand.includes(q) || common.includes(q) || reg.includes(q);
+      const hay = normalize([
+        r.company_name,      // ชื่อบริษัท
+        r.brand_name,        // ชื่อการค้า
+        r.common_label,      // ชื่อสามัญ/สูตร
+        r.registration_no,   // เลขทะเบียน  ✅
+        r.license_no,        // เลขใบอนุญาต ✅ (รวมครอบครอง/ผลิตถ้ามี)
+        r.renewed_status,    // สถานะ
+        r.renewed_note       // หมายเหตุ
+      ].join(' '));
+
+      // ทุก token ต้องพบในข้อความรวม
+      return tokens.every(t => hay.includes(t));
     });
   }
+
   render(raw);
 }
+
+
+
 
 /* ============ โหลดข้อมูลด้วยรหัสลูกค้า ============ */
 async function loadCompanyByCode(){
