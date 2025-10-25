@@ -201,15 +201,18 @@ function highlightHazard2(text){
 function hasHazard2(text){
   return /(วัตถุอันตราย\s*ชนิด\s*ที่\s*[2๒])/i.test(String(text||''));
 }
-// ฟังก์ชันเช็กว่าเป็นใบอนุญาตครอบครองไหม
-function isPossessionLicense(row){
-  const s = String(row.license_no || '').trim();
-  if(!s) return false;
-  const digits = (s.match(/\d/g) || []).length;
-  if(digits >= 16) return true;     // ถ้าเลขใบอนุญาตยาวเกิน 16 ตัว
-  return /ครอบครอง/.test(s);      // หรือมีคำว่า "ครอบครอง"
+// ตรวจว่าเป็น “ใบอนุญาตครอบครอง” จากช่อง license_no (ไม่สนเลข)
+function hasPossession(lic){
+  const s = String(lic || '').toLowerCase();
+  // ครอบคลุมคำสะกด/ช่องไฟหลากหลาย
+  return /(ใบ\s*อนุญาต\s*ครอบครอง|ครอบครอง)/i.test(s);
 }
 
+// ถ้าต้องการโชว์รายละเอียดเลขใบครอบครองในโมดัล (ตอนกด "ดูหมายเหตุ")
+function possessionLabel(lic){
+  if(!hasPossession(lic)) return '';
+  return ` (เลข: ${escapeHtml(String(lic))})`;
+}
 
 
 function fmtDateBE(d){
@@ -260,11 +263,7 @@ function render(q=''){
         <td>${escapeHtml(r.brand_name||'-')}</td>
         <td>${escapeHtml(r.common_label||'-')}</td>
         <td>${escapeHtml(r.registration_no||'-')}</td>
-        <div class="kv"><b>ใบอนุญาต:</b>
-  ${escapeHtml(r.license_no||'-')}
-  ${isPossessionLicense(r) ? '<span class="possession-flag">ใบอนุญาตครอบครอง</span>' : ''}
-</div>
-
+        <td>${escapeHtml(r.license_no||'-')}</td>
         <td>${fmtDateBE(r.expiry_date)}</td>
      <td>
   ${statusBadge(r)}
