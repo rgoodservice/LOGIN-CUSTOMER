@@ -113,6 +113,18 @@
   line-height:1.2;
   margin-left:6px;
 }
+/* กล่องสีชมพูอ่อน สำหรับใบทะเบียน */
+.reg-flag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #fde8ef;         /* ชมพูอ่อน */
+  border: 1px solid #f9a8d4;    /* ขอบชมพู */
+  color: #9d174d;               /* ชมพูเข้มอ่านง่าย */
+  font-weight: 700;
+  line-height: 1.2;
+  margin-left: 6px;
+}
 
 </style>
 </head>
@@ -219,6 +231,10 @@ function hasPossession(note, licenseNo){
   const digitCount = (lic.match(/\d/g)||[]).length;
   return digitCount >= 16;
 }
+// ตรวจว่าในหมายเหตุพูดถึง "ใบทะเบียน/เลขทะเบียน" ไหม
+function hasRegistration(note){
+  return /(ใบ\s*ทะเบียน|เลข\s*ทะเบียน)/i.test(String(note||''));
+}
 
 // ใช้ในโมดัล: ไฮไลท์สองแบบรวมกัน
 function highlightAllNotes(text){
@@ -226,6 +242,7 @@ function highlightAllNotes(text){
   let out = escapeHtml(text);
   out = out.replace(/(วัตถุอันตราย\s*ชนิด\s*ที่\s*[2๒])/gi, m=>`<span class="hazard-flag">⚠️ ${m}</span>`);
   out = out.replace(/(ใบ\s*อนุญาต\s*ครอบครอง|ครอบครอง)/gi,       m=>`<span class="possession-flag">📘 ${m}</span>`);
+  out = out.replace(/(ใบ\s*ทะเบียน|เลข\s*ทะเบียน)/gi,                m=>`<span class="reg-flag">📑 ${m}</span>`);
   return out;
 }
 
@@ -284,6 +301,8 @@ function render(q=''){
   ${statusBadge(r)}
   ${hasPossession(r.renewed_note, r.license_no) ? `<span class="possession-flag">📘 ใบอนุญาตครอบครอง</span>` : ``}
   ${hasHazard2(r.renewed_note) ? `<span class="hazard-flag">⚠️ วัตถุอันตรายชนิดที่ 2</span>` : ``}
+  <!-- ⬇️ กล่อง "ใบทะเบียน" (ชมพู) แบบเดียวกับสองอันบน -->
+  ${hasRegistration(r.renewed_note) ? `<span class="reg-flag">📑 ใบทะเบียน</span>` : ``}
   ${(r.renewed_status || r.renewed_note) ? `<br><button class="btn-note" data-index="${i}">ดูหมายเหตุ</button>` : ``}
 </td>
 
@@ -387,7 +406,6 @@ function showNote(row){
   $('noteBrand').textContent  = `ชื่อการค้า: ${row?.brand_name || '-'}`;
   $('noteStatus').textContent = `สถานะ: ${row?.renewed_status || row?.status_text || '-'}`;
    $('noteText').innerHTML = `หมายเหตุ: ${ row?.renewed_note ? highlightAllNotes(row.renewed_note) : '-' }`;
-
   $('noteModal').style.display='flex';
 }
 
