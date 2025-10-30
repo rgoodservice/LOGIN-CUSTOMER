@@ -279,6 +279,39 @@ function statusBadge(row){
   if(diff <= WARNING_DAYS) return `<span class="badge warn">เหลือ ${diff} วัน</span>`;
   return `<span class="badge ok">ปกติ</span>`;
 }
+function getStickyFlags(row){
+  const key = `flags:${row.registration_no||row.brand_name||''}`; // คีย์อิงเลขทะเบียนก่อน
+  let saved = {};
+  try{ saved = JSON.parse(localStorage.getItem(key) || '{}'); }catch(e){}
+
+  // ตรวจจากข้อมูลปัจจุบัน (เหมือนเดิม)
+  const now = {
+    possession: hasPossession(row.renewed_note, row.license_no),
+    hazard2:    hasHazard2(row.renewed_note),
+    reg:        hasRegistration ? hasRegistration(row.renewed_note) : /(ใบ\s*ทะเบียน|เลข\s*ทะเบียน)/i.test(String(row.renewed_note||'')),
+  };
+
+  // เสริมเงื่อนไขที่ไม่พึ่งหมายเหตุ: ครอบครองจากเลข/ความยาว, ชนิดที่2 จากชื่อ/สูตร
+  if (!now.possession) {
+    const lic = String(row.license_no||'');
+    const digitCount = (lic.match(/\d/g)||[]).length;
+    if (digitCount >= 16 || /ครอบครอง/i.test(lic)) now.possession = true;
+  }
+  if (!now.hazard2) {
+    const text = `${row.common_label||''} ${row.registration_no||''}`;
+    if (/(ชนิด\s*ที่\s*[2๒]|type\s*2)/i.test(text)) now.hazard2 = true;
+  }
+
+  // รวมกับของเดิม (ครั้งก่อนๆ)
+  const merged = {
+    possession: saved.possession || now.possession,
+    hazard2:    saved.hazard2    || now.hazard2,
+    reg:        saved.reg        || now.reg
+  };
+
+  localStorage.setItem(key, JSON.stringify(merged));
+  return merged;
+}
 
 /* ============ Render ตาราง ============ */
 /* ใช้ data-index เพื่อผูกปุ่มหมายเหตุให้ตรงกับแถวเสมอ (หายสลับชื่อแน่นอน) */
@@ -299,10 +332,14 @@ function render(q=''){
         <td>${fmtDateBE(r.expiry_date)}</td>
      <td>
   ${statusBadge(r)}
-  ${hasPossession(r.renewed_note, r.license_no) ? `<span class="possession-flag">📘 ใบอนุญาตครอบครอง</span>` : ``}
-  ${hasHazard2(r.renewed_note) ? `<span class="hazard-flag">⚠️ วัตถุอันตรายชนิดที่ 2</span>` : ``}
-  <!-- ⬇️ กล่อง "ใบทะเบียน" (ชมพู) แบบเดียวกับสองอันบน -->
-  ${hasRegistration(r.renewed_note) ? `<span class="reg-flag">📑 ใบทะเบียน</span>` : ``}
+  ${(() => {
+      const f = getStickyFlags(r);
+      let chips = '';
+      if (f.possession) chips += `<span class="possession-flag">📘 ใบอนุญาตครอบครอง</span>`;
+      if (f.hazard2)    chips += `<span class="hazard-flag">⚠️ วัตถุอันตรายชนิดที่ 2</span>`;
+      if (f.reg)        chips += `<span class="reg-flag">📑 ใบทะเบียน</span>`;
+      return chips;
+  })()}
   ${(r.renewed_status || r.renewed_note) ? `<br><button class="btn-note" data-index="${i}">ดูหมายเหตุ</button>` : ``}
 </td>
 
