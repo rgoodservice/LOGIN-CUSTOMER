@@ -160,6 +160,12 @@
       <button class="btn" id="refreshBtn">รีเฟรช</button>
       <button class="btn" id="toSummaryBtn">ดูสรุปสถานะทั้งหมด</button>
     </div>
+    <div class="row" style="margin-top: 10px; gap: 8px;">
+        <div class="mut" style="font-weight: 600;">ค้นหาด่วน:</div>
+        <button class="btn-ghost shortcut" data-q="ใบอนุญาตครอบครอง">📘 ใบอนุญาตครอบครอง</button>
+        <button class="btn-ghost shortcut" data-q="วัตถุอันตรายชนิดที่ 2 -ครอบครอง">⚠️ ใบรับแจ้งวัตถุอันตรายชนิดที่2</button>
+        <button class="btn-ghost shortcut" data-q="ใบทะเบียน">📑 ใบทะเบียน</button>
+    </div>
     <div class="mut" id="count" style="margin-top:8px">—</div>
 
     <table>
@@ -428,29 +434,39 @@ function normalize(s){
 
 // แทนที่ applyFilter เดิมทั้งหมดด้วยอันนี้
 function applyFilter(){
-  const raw = $('q').value || '';
-  const tokens = tokenize(raw).map(normalize);
+  const raw = $('q').value || '';
+  // แยก Token เป็นสองกลุ่ม: include (ค้นหาคำนี้) และ exclude (ยกเว้นคำนี้)
+  // เช่น: "วัตถุอันตรายชนิดที่ 2 -ครอบครอง" -> include: ["วัตถุอันตรายชนิดที่ 2"], exclude: ["ครอบครอง"]
+  
+  const rawTokens = (raw||'').trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const includeTokens = rawTokens.filter(t => !t.startsWith('-')).map(normalize);
+  const excludeTokens = rawTokens.filter(t => t.startsWith('-')).map(t => normalize(t.substring(1))); // ลบเครื่องหมาย '-' ออก
 
-  if(tokens.length === 0){
-    FILTERED = [...FULL_ROWS];
-  }else{
-    FILTERED = FULL_ROWS.filter(r=>{
-      const hay = normalize([
-        r.company_name,      // ชื่อบริษัท
-        r.brand_name,        // ชื่อการค้า
-        r.common_label,      // ชื่อสามัญ/สูตร
-        r.registration_no,   // เลขทะเบียน  ✅
-        r.license_no,        // เลขใบอนุญาต ✅ (รวมครอบครอง/ผลิตถ้ามี)
-        r.renewed_status,    // สถานะ
-        r.renewed_note       // หมายเหตุ
-      ].join(' '));
+  if(includeTokens.length === 0 && excludeTokens.length === 0){
+    FILTERED = [...FULL_ROWS];
+  }else{
+    FILTERED = FULL_ROWS.filter(r=>{
+      const hay = normalize([
+        r.company_name,      // ชื่อบริษัท
+        r.brand_name,        // ชื่อการค้า
+        r.common_label,      // ชื่อสามัญ/สูตร
+        r.registration_no,   // เลขทะเบียน  
+        r.license_no,        // เลขใบอนุญาต
+        r.renewed_status,    // สถานะ
+        r.renewed_note       // หมายเหตุ
+      ].join(' '));
 
-      // ทุก token ต้องพบในข้อความรวม
-      return tokens.every(t => hay.includes(t));
-    });
-  }
+      // 1. ตรวจสอบเงื่อนไข "ต้องมี" (Include)
+      const passesInclude = includeTokens.every(t => hay.includes(t));
+      
+      // 2. ตรวจสอบเงื่อนไข "ต้องไม่มี" (Exclude)
+      const passesExclude = excludeTokens.every(t => !hay.includes(t));
 
-  render(raw);
+      return passesInclude && passesExclude;
+    });
+  }
+
+  render(raw);
 }
 
 
@@ -549,8 +565,24 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const code = ($('code').value || '').trim().toUpperCase();
     if(!code){ alert('กรุณาใส่รหัสลูกค้าก่อน'); return; }
     location.href = `summary.html?code=${encodeURIComponent(code)}`;
+    });
+  // ✅ ส่วนที่เพิ่ม: ผูกเหตุการณ์ปุ่มคีย์ลัด
+  document.querySelectorAll('.shortcut').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const query = e.currentTarget.getAttribute('data-q');
+      
+      if ($('q').value === query) {
+        // ถ้าคลิกปุ่มเดิมซ้ำ ให้ล้างค่าค้นหา
+        $('q').value = '';
+      } else {
+        // ตั้งค่าค้นหาใหม่
+        $('q').value = query;
+      }
+      applyFilter();
+    });
+  });
   });
-});
+
 </script>
 </body>
 </html>
