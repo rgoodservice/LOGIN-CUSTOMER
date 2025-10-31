@@ -433,11 +433,11 @@ function normalize(s){
 }
 
 // แทนที่ applyFilter เดิมทั้งหมดด้วยอันนี้
+// ... โค้ดส่วนอื่นๆ ...
+
 function applyFilter(){
   const raw = $('q').value || '';
   // แยก Token เป็นสองกลุ่ม: include (ค้นหาคำนี้) และ exclude (ยกเว้นคำนี้)
-  // เช่น: "วัตถุอันตรายชนิดที่ 2 -ครอบครอง" -> include: ["วัตถุอันตรายชนิดที่ 2"], exclude: ["ครอบครอง"]
-  
   const rawTokens = (raw||'').trim().toLowerCase().split(/\s+/).filter(Boolean);
   const includeTokens = rawTokens.filter(t => !t.startsWith('-')).map(normalize);
   const excludeTokens = rawTokens.filter(t => t.startsWith('-')).map(t => normalize(t.substring(1))); // ลบเครื่องหมาย '-' ออก
@@ -446,14 +446,22 @@ function applyFilter(){
     FILTERED = [...FULL_ROWS];
   }else{
     FILTERED = FULL_ROWS.filter(r=>{
+        // ⭐️ ส่วนที่เพิ่ม: คำนวณสถานะ (Flags) และเพิ่มเป็นคำค้นหา
+        const flags = getStickyFlags(r);
+        const derivedKeywords = [];
+        if (flags.possession) derivedKeywords.push('ใบอนุญาตครอบครอง'); // ⬅️ เพิ่มคำนี้ถ้าเป็นครอบครอง
+        if (flags.hazard2) derivedKeywords.push('วัตถุอันตรายชนิดที่ 2');
+        if (flags.reg) derivedKeywords.push('ใบทะเบียน');
+
       const hay = normalize([
-        r.company_name,      // ชื่อบริษัท
-        r.brand_name,        // ชื่อการค้า
-        r.common_label,      // ชื่อสามัญ/สูตร
-        r.registration_no,   // เลขทะเบียน  
-        r.license_no,        // เลขใบอนุญาต
-        r.renewed_status,    // สถานะ
-        r.renewed_note       // หมายเหตุ
+        r.company_name,
+        r.brand_name,
+        r.common_label,
+        r.registration_no,
+        r.license_no,
+        r.renewed_status,
+        r.renewed_note,
+        ...derivedKeywords // ⭐️ เพิ่มคำที่ได้จากสถานะ Flags เข้าไปในข้อความค้นหา
       ].join(' '));
 
       // 1. ตรวจสอบเงื่อนไข "ต้องมี" (Include)
