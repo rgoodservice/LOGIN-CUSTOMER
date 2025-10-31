@@ -206,6 +206,7 @@ let CURRENT_CODE = '';
 let FULL_ROWS = [];
 let FILTERED = [];
 
+/* ===================================== */
 // มีแค่ตัวเดียว ห้ามซ้ำ
 function escapeHtml(s){
   return String(s ?? '').replace(/[&<>"']/g, m=>({
@@ -227,15 +228,16 @@ function highlightHazard2(text){
 
 // ใบอนุญาตครอบครอง (เช็คจากหมายเหตุหรือเลขใน license_no)
 function hasPossession(note, licenseNo){
-  const re = /(ใบ\s*อนุญาต\s*ครอบครอง|ครอบครอง)/i;
-  const txt = String(note||'');
-  const lic = String(licenseNo||'');
+  // ตรวจสอบว่ามีคำว่า "ครอบครอง" หรือ "ใบอนุญาตครอบครอง" อยู่ในหมายเหตุหรือเลขที่ใบอนุญาตหรือไม่
+  const re = /(ใบ\s*อนุญาต\s*ครอบครอง|ครอบครอง)/i;
+  const txt = String(note||'');
+  const lic = String(licenseNo||'');
 
-  if (re.test(txt) || re.test(lic)) return true;
+  // ถ้าพบคำว่า "ครอบครอง" ก็ถือว่าเป็นใบอนุญาตครอบครอง
+  if (re.test(txt) || re.test(lic)) return true;
 
-  // เผื่อเคสเลขครอบครองยาวๆ (มัก >=16 หลัก)
-  const digitCount = (lic.match(/\d/g)||[]).length;
-  return digitCount >= 16;
+  // *** ลบการตรวจสอบความยาว >= 16 หลักออกเพื่อไม่ให้เกิดความซ้ำซ้อน ***
+  return false; // หากไม่พบคำว่า "ครอบครอง" ก็คืนค่า false
 }
 // ตรวจว่าในหมายเหตุพูดถึง "ใบทะเบียน/เลขทะเบียน" ไหม
 function hasRegistration(note){
@@ -286,37 +288,28 @@ function statusBadge(row){
   return `<span class="badge ok">ปกติ</span>`;
 }
 function getStickyFlags(row){
-  const key = `flags:${row.registration_no||row.brand_name||''}`; // คีย์อิงเลขทะเบียนก่อน
-  let saved = {};
-  try{ saved = JSON.parse(localStorage.getItem(key) || '{}'); }catch(e){}
+  // ตรวจจากข้อมูลปัจจุบันเท่านั้น
+  const now = {
+    possession: hasPossession(row.renewed_note, row.license_no),
+    hazard2:    hasHazard2(row.renewed_note),
+    reg:        hasRegistration ? hasRegistration(row.renewed_note) : /(ใบ\s*ทะเบียน|เลข\s*ทะเบียน)/i.test(String(row.renewed_note||'')),
+  };
 
-  // ตรวจจากข้อมูลปัจจุบัน (เหมือนเดิม)
-  const now = {
-    possession: hasPossession(row.renewed_note, row.license_no),
-    hazard2:    hasHazard2(row.renewed_note),
-    reg:        hasRegistration ? hasRegistration(row.renewed_note) : /(ใบ\s*ทะเบียน|เลข\s*ทะเบียน)/i.test(String(row.renewed_note||'')),
-  };
-
-  // เสริมเงื่อนไขที่ไม่พึ่งหมายเหตุ: ครอบครองจากเลข/ความยาว, ชนิดที่2 จากชื่อ/สูตร
-  if (!now.possession) {
-    const lic = String(row.license_no||'');
-    const digitCount = (lic.match(/\d/g)||[]).length;
-    if (digitCount >= 16 || /ครอบครอง/i.test(lic)) now.possession = true;
-  }
-  if (!now.hazard2) {
-    const text = `${row.common_label||''} ${row.registration_no||''}`;
-    if (/(ชนิด\s*ที่\s*[2๒]|type\s*2)/i.test(text)) now.hazard2 = true;
-  }
-
-  // รวมกับของเดิม (ครั้งก่อนๆ)
-  const merged = {
-    possession: saved.possession || now.possession,
-    hazard2:    saved.hazard2    || now.hazard2,
-    reg:        saved.reg        || now.reg
-  };
-
-  localStorage.setItem(key, JSON.stringify(merged));
-  return merged;
+  // เสริมเงื่อนไขที่ไม่พึ่งหมายเหตุ: ครอบครองจากเลข/ความยาว, ชนิดที่2 จากชื่อ/สูตร
+  if (!now.possession) {
+    const lic = String(row.license_no||'');
+    const digitCount = (lic.match(/\d/g)||[]).length;
+    // ถ้าเลขอนุญาตยาว >=16 หลัก (มักเป็นเลขครอบครอง) หรือมีคำว่า 'ครอบครอง' ใน license_no
+    if (digitCount >= 16 || /ครอบครอง/i.test(lic)) now.possession = true; 
+  }
+  if (!now.hazard2) {
+    const text = `${row.common_label||''} ${row.registration_no||''}`;
+    // ถ้ามีคำว่า 'ชนิด 2' หรือ 'type 2' ในชื่อสามัญ/เลขทะเบียน
+    if (/(ชนิด\s*ที่\s*[2๒]|type\s*2)/i.test(text)) now.hazard2 = true;
+  }
+  
+  // คืนค่าเฉพาะข้อมูลปัจจุบัน (ไม่มีการ "จำ" ค่าใดๆ ใน LocalStorage อีกต่อไป)
+  return now;
 }
 function isInProgress(row){
   const s = String(row?.renewed_status || row?.status_text || '')
@@ -387,7 +380,7 @@ function render(q=''){
         <td>${escapeHtml(r.brand_name||'-')}</td>
         <td>${escapeHtml(r.common_label||'-')}</td>
         <td>${escapeHtml(r.registration_no||'-')}</td>
-        <td>${escapeHtml(r.license_no||'-')}</td>
+        <td>${escapeHtml(r.license_no||'-')}</td>
         <td>${fmtDateBE(r.expiry_date)}</td>
      <td>
   ${statusBadge(r)}
@@ -484,11 +477,11 @@ async function loadCompanyByCode(){
   }
 
   FULL_ROWS = (res.data || []).map(x=>({
-    ...x,
-    // กันกรณีฟังก์ชันหลังบ้านยังคืน renewed_until แบบเดิม
-    // แต่เราจะใช้ renewed_status/renewed_note เป็นหลัก
-    renewed_status: x.renewed_status || (x.renewed_until ? 'ดำเนินการแล้ว' : null)
-  }));
+    ...x,
+    // กันกรณีฟังก์ชันหลังบ้านยังคืน renewed_until แบบเดิม
+    // แต่เราจะใช้ renewed_status/renewed_note เป็นหลัก
+    renewed_status: x.renewed_status || (x.renewed_until ? 'ดำเนินการแล้ว' : null)
+  }));
 
   $('err').textContent = '';
   $('dataCard').style.display = 'block';
@@ -499,12 +492,29 @@ async function loadCompanyByCode(){
   applyFilter();
 }
 
-/* ============ Modal หมายเหตุ ============ */
+/* ============ Modal หมายเหตุ (แสดงหมายเหตุรวมแยกบรรทัด) - FINAL FIX ============ */
 function showNote(row){
-  $('noteBrand').textContent  = `ชื่อการค้า: ${row?.brand_name || '-'}`;
-  $('noteStatus').textContent = `สถานะ: ${row?.renewed_status || row?.status_text || '-'}`;
-   $('noteText').innerHTML = `หมายเหตุ: ${ row?.renewed_note ? highlightAllNotes(row.renewed_note) : '-' }`;
-  $('noteModal').style.display='flex';
+  $('noteBrand').textContent  = `ชื่อการค้า: ${row?.brand_name || '-'}`;
+  $('noteStatus').textContent = `สถานะ: ${row?.renewed_status || row?.status_text || '-'}`;
+  
+  const rawNote = row?.renewed_note || '';
+  // แยกหมายเหตุด้วยตัวแบ่ง '---' ที่เพิ่มเข้ามาจาก deduplicateLicenses
+  const notes = rawNote.split(/\s*---\s*/).filter(n => n.trim() !== '');
+
+  let noteHtml = '';
+  if (notes.length > 0) {
+    // ใช้ <p> และไฮไลท์หมายเหตุแต่ละบรรทัด (เพิ่ม inline CSS เพื่อการจัดรูปแบบใน Modal)
+    noteHtml = notes.map(n => 
+      `<p style="margin: 4px 0; padding: 8px; background: #f7feff; border-radius: 4px; border-left: 3px solid var(--accent);">${highlightAllNotes(n)}</p>`
+    ).join('');
+    // เพิ่มหัวข้อ
+    noteHtml = `<div style="margin: 10px 0 6px; font-size: 17px; font-weight: 700; color: var(--accent);">หมายเหตุทั้งหมด (รวมใบอนุญาตย่อย):</div>` + noteHtml;
+  } else {
+    noteHtml = 'หมายเหตุ: -'; 
+  }
+
+  $('noteText').innerHTML = noteHtml;
+  $('noteModal').style.display='flex';
 }
 
 /* ============ Events ============ */
