@@ -130,22 +130,88 @@
   line-height: 1.1;
   margin-left: 4px;
 }
+/* ในส่วน <style> */
 
+/* --- สไตล์สำหรับหน้าต้อนรับ (Welcome Card) --- */
+.welcome-card {
+  padding: 0; /* ลบ padding เดิมออกเพื่อใช้สำหรับ header ใหม่ */
+  overflow: hidden; /* ซ่อนขอบกล่องเมื่อมีสี background */
+}
+
+.welcome-header {
+  /* ใช้สีอ่อนๆ หรือ Gradient เพื่อให้ดูนุ่มนวลและเป็นกันเอง */
+  background: linear-gradient(135deg, #f0f9ff, #f6fffe); /* สีฟ้าอ่อน/เขียวอ่อน */
+  padding: 25px 22px 18px; /* ปรับ padding ให้กว้างขึ้น */
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.welcome-title {
+  font-size: 28px; /* ตัวใหญ่ขึ้น */
+  font-weight: 700;
+  color: #0d9488; /* สีเขียวเข้มเข้ากับธีม */
+  margin: 10px 0 0;
+}
+
+.welcome-message {
+  color: var(--mut);
+  font-size: 17px;
+  margin: 4px 0 0;
+}
+
+.avatar {
+  font-size: 32px;
+  width: 50px;
+  height: 50px;
+  line-height: 50px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #99f6e4;
+  margin: 0 auto 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 8px rgba(0,0,0,.08);
+}
+
+.input-section {
+  padding: 18px; /* ใส่ padding กลับคืนมาสำหรับส่วนกรอกรหัส */
+}
+/* ------------------------------------------- */
+
+/* เพิ่ม Transition ให้กับ input ที่เราใช้ใน card นี้ */
+.input-code:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px #0ea5a530; 
+  outline: none;
+  transition: all 0.2s ease;
+}
 
 </style>
 </head>
 <body>
 <div class="wrap">
   <!-- กล่องกรอกรหัส -->
-  <div class="card">
-    <h2>เข้าสู่พอร์ทัลลูกค้า</h2>
-    <p class="mut" style="margin:0 0 10px">กรอกรหัสที่ได้รับจากเจ้าหน้าที่ (ไม่ต้องใช้อีเมล)</p>
+  <div class="card welcome-card">
+  <div class="welcome-header">
+    <div class="avatar">🍯</div> 
+    <h2 class="welcome-title">สวัสดีค่ะลูกค้า 👋</h2>
+    <p class="welcome-message">แอดมินน้ำผึ้ง 🍯 ยินดีให้บริการค่ะ</p>
+  </div>
+  <div class="input-section">
+    <p class="mut" style="margin:0 0 10px; font-weight: 500; line-height: 1.5;">
+      เว็บไซต์นี้ช่วยให้ท่านสามารถตรวจสอบวันหมดอายุของ ใบอนุญาตผลิต และ ใบอนุญาตครอบครอง ได้อย่างสะดวกสบายค่ะ
+    </p>
     <div class="row">
-      <input id="code" placeholder="ใส่รหัสลูกค้า เช่น RG-1234" autocomplete="one-time-code" inputmode="text">
+      <input id="code" placeholder="ใส่รหัสลูกค้า เช่น RG-1234" autocomplete="one-time-code" inputmode="text" class="input-code">
       <button class="btn" id="enterBtn">เข้าดูข้อมูล</button>
     </div>
-    <div id="err" class="mut" style="color:#b91c1c;margin-top:8px"></div>
   </div>
+  <div id="loading" class="mut" style="margin-top:8px; display:none; color:var(--accent); font-weight:600;">
+    <span class="spinner"></span> กำลังดึงข้อมูล... กรุณารอสักครู่
+  </div>
+  <div id="err" class="mut" style="color:#b91c1c;margin-top:8px"></div>
+</div>
 
   <!-- กล่องข้อมูลบริษัท + ค้นหา + ปุ่มสรุป -->
   <div class="card" id="dataCard" style="display:none">
