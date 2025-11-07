@@ -109,6 +109,21 @@
 
   <div class="card" id="tab-inprog" style="display:none">
     <h2>อยู่ระหว่างดำเนินการ</h2>
+    
+    <div class="row" style="margin-bottom:10px">
+        <div id="inprog-filters">
+            <button id="filterInprogNoteBtn1" class="btn-ghost" data-filter-key="note-filter-received">
+                แสดงเฉพาะ: 📄 รับเอกสารจากลูกค้า / รอการต่ออายุ
+            </button>
+            <button id="filterInprogNoteBtn2" class="btn-ghost" data-filter-key="note-filter-waiting-reply">
+                แสดงเฉพาะ: 💬 แจ้งลูกค้าแล้วรอการตอบกลับจากลูกค้า
+            </button>
+            <button id="clearInprogFilterBtn" class="btn-ghost" style="display:none">
+                ล้างการกรอง
+            </button>
+        </div>
+    </div>
+
     <div id="list-inprog" class="list"></div>
   </div>
 
@@ -215,11 +230,19 @@ function inNearBucket(row){
 }
 
 
+// Global State (ประกาศตัวแปรสำคัญทั้งหมด)
 let FULL = [];
 let FILTER_Q = '';
+let NOTE_FILTER_KEY = null; // **ตัวแปรสถานะการกรองหมายเหตุ (ใหม่)**
 let GROUPS = { near:[], inprog:[], stopped:[], done:[] };
 let REALTIME_CH = null;       // ช่อง realtime
 let COMPANY_CODE_REAL = null; // code จริงของบริษัท (จาก v2 RPC)
+
+// Keywords สำหรับการกรองหมายเหตุในแท็บ 'inprog' (ใหม่)
+const NOTE_FILTER_KEYWORDS = {
+  'note-filter-received': ['รับเอกสารจากลูกค้า','ยื่นต่ออายุ','ยื่นคำขอ'], 
+  'note-filter-waiting-reply': ['แจ้งลูกค้าแล้ว','รอตอบกลับ','รอการตอบกลับ','ติดต่อลูกค้าแล้ว'] 
+};
 
 function applyFilterAndGroup(){
   const q = FILTER_Q.toLowerCase();
@@ -265,7 +288,21 @@ function applyFilterAndGroup(){
   GROUPS.stopped = rows.filter(r=> r._bucket === 'stopped');
   GROUPS.done    = rows.filter(r=> r._bucket === 'done');
   GROUPS.near    = rows.filter(r=> r._bucket === 'near');
-
+if (NOTE_FILTER_KEY && GROUPS.inprog.length > 0) {
+      const norm = (s) => String(s || '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, '').toLowerCase();
+      
+      const keywords = NOTE_FILTER_KEYWORDS[NOTE_FILTER_KEY] || [];
+      const keywordSet = keywords.map(norm);
+      
+      if (keywordSet.length > 0) {
+          GROUPS.inprog = GROUPS.inprog.filter(r => {
+              // ตรวจสอบใน renewed_status, status_text, และ renewed_note
+              const allText = norm(r.renewed_status) + '|' + norm(r.status_text) + '|' + norm(r.renewed_note);
+              // ต้องมีคำสำคัญอย่างน้อยหนึ่งคำ
+              return keywordSet.some(k => allText.includes(k));
+          });
+      }
+  }
   // 4) อัปเดตตัวเลข/สรุป
   $('cnt-near').textContent    = GROUPS.near.length.toLocaleString('th-TH');
   $('cnt-inprog').textContent  = GROUPS.inprog.length.toLocaleString('th-TH');
@@ -380,37 +417,92 @@ function switchTab(key){
   $('tab-done').style.display    = (key==='done')?'block':'none';
 }
 
+function filterAndUpdateLists() {
+    applyFilterAndGroup();
+    renderList('list-near',    GROUPS.near);
+    renderList('list-inprog',  GROUPS.inprog);
+    renderList('list-stopped', GROUPS.stopped);
+    renderList('list-done',    GROUPS.done);
+}
+
 document.addEventListener('DOMContentLoaded', ()=>{
   loadData();
 
+  // ปุ่มกรองใหม่
+  const filterBtn1 = $('filterInprogNoteBtn1');
+  const filterBtn2 = $('filterInprogNoteBtn2');
+  const clearFilterBtn = $('clearInprogFilterBtn');
+
+  // ฟังก์ชันช่วยจัดการการแสดงผลปุ่ม
+  function updateInprogFilterButtons(activeKey = null) {
+      if (filterBtn1 && filterBtn2 && clearFilterBtn) {
+          if (activeKey) {
+              // มีการกรอง: ซ่อนปุ่มกรองทั้งหมด (ยกเว้นปุ่มล้าง)
+              filterBtn1.style.display = 'none';
+              filterBtn2.style.display = 'none';
+              clearFilterBtn.style.display = 'inline-block';
+          } else {
+              // ไม่มีการกรอง: แสดงปุ่มกรองทั้งหมด (ซ่อนปุ่มล้าง)
+              filterBtn1.style.display = 'inline-block';
+              filterBtn2.style.display = 'inline-block';
+              clearFilterBtn.style.display = 'none';
+          }
+      }
+  }
+  
+  // Event สำหรับการเปลี่ยนแท็บ
   document.querySelectorAll('.pill').forEach(btn=>{
-    btn.addEventListener('click', ()=> switchTab(btn.dataset.tab));
+      btn.addEventListener('click', ()=> {
+          const newTab = btn.dataset.tab;
+          switchTab(newTab);
+          // เมื่อเปลี่ยนไปแท็บอื่น ให้รีเซ็ตตัวกรองหมายเหตุ
+          if (newTab !== 'inprog' && NOTE_FILTER_KEY !== null) {
+              NOTE_FILTER_KEY = null;
+              updateInprogFilterButtons(NOTE_FILTER_KEY);
+          } else if (newTab === 'inprog') {
+              // ถ้าเข้าแท็บ inprog ให้ปรับสถานะปุ่ม
+              updateInprogFilterButtons(NOTE_FILTER_KEY);
+          }
+      });
   });
 
-  $('q').addEventListener('input', ()=>{
-    FILTER_Q = $('q').value.trim();
-    applyFilterAndGroup();
-    renderList('list-near',    GROUPS.near);
-    renderList('list-inprog',  GROUPS.inprog);
-    renderList('list-stopped', GROUPS.stopped);
-    renderList('list-done',    GROUPS.done);
-  });
-
+  // Event สำหรับการกรองคำค้นหาหลัก (Q)
+  $('q').addEventListener('input', filterAndUpdateLists);
   $('clearBtn').addEventListener('click', ()=>{
-    $('q').value=''; FILTER_Q='';
-    applyFilterAndGroup();
-    renderList('list-near',    GROUPS.near);
-    renderList('list-inprog',  GROUPS.inprog);
-    renderList('list-stopped', GROUPS.stopped);
-    renderList('list-done',    GROUPS.done);
+      $('q').value=''; FILTER_Q='';
+      filterAndUpdateLists();
   });
-
   $('refreshBtn').addEventListener('click', loadData);
-});
 
-// เคลียร์ realtime channel ตอนออกจากหน้า
-window.addEventListener('beforeunload', ()=>{
-  if(REALTIME_CH) sb.removeChannel(REALTIME_CH);
+  // Event Listener สำหรับปุ่มกรองที่ 1
+  if (filterBtn1) {
+    filterBtn1.addEventListener('click', () => {
+        NOTE_FILTER_KEY = filterBtn1.dataset.filterKey; // 'note-filter-received'
+        updateInprogFilterButtons(NOTE_FILTER_KEY);
+        filterAndUpdateLists();
+    });
+  }
+  
+  // Event Listener สำหรับปุ่มกรองที่ 2
+  if (filterBtn2) {
+    filterBtn2.addEventListener('click', () => {
+        NOTE_FILTER_KEY = filterBtn2.dataset.filterKey; // 'note-filter-waiting-reply'
+        updateInprogFilterButtons(NOTE_FILTER_KEY);
+        filterAndUpdateLists();
+    });
+  }
+  
+  // Event Listener สำหรับปุ่มล้างการกรอง
+  if (clearFilterBtn) {
+    clearFilterBtn.addEventListener('click', () => {
+        NOTE_FILTER_KEY = null;
+        updateInprogFilterButtons(NOTE_FILTER_KEY);
+        filterAndUpdateLists();
+    });
+  }
+
+  // กำหนดสถานะปุ่มเริ่มต้น
+  updateInprogFilterButtons(NOTE_FILTER_KEY);
 });
 </script>
 </body>
