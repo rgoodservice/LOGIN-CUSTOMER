@@ -467,9 +467,26 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 
   // Event สำหรับการกรองคำค้นหาหลัก (Q)
-  $('q').addEventListener('input', filterAndUpdateLists);
+  $('q').addEventListener('input', ()=>{
+      FILTER_Q = $('q').value.trim();
+
+      // **แก้ไข: ล้างตัวกรองปุ่ม (NOTE_FILTER_KEY) เมื่อมีการพิมพ์ค้นหาหลัก**
+      if (NOTE_FILTER_KEY !== null && typeof updateInprogFilterButtons === 'function') {
+          NOTE_FILTER_KEY = null;
+          // ต้องแน่ใจว่าฟังก์ชัน updateInprogFilterButtons ถูกประกาศและสามารถเรียกใช้ได้
+          updateInprogFilterButtons(NOTE_FILTER_KEY); 
+      }
+      filterAndUpdateLists();
+  });
+  
+  // Event สำหรับปุ่มล้างค้นหาหลัก
   $('clearBtn').addEventListener('click', ()=>{
       $('q').value=''; FILTER_Q='';
+      // ล้างตัวกรองปุ่มเมื่อกดปุ่ม "ล้าง"
+      if (NOTE_FILTER_KEY !== null && typeof updateInprogFilterButtons === 'function') {
+          NOTE_FILTER_KEY = null;
+          updateInprogFilterButtons(NOTE_FILTER_KEY);
+      }
       filterAndUpdateLists();
   });
   $('refreshBtn').addEventListener('click', loadData);
