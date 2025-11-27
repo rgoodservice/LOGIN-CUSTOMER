@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Customer Portal (รหัสลูกค้า)</title>
 
-<!-- Supabase UMD: รองรับมือถือ/อินแอปเบราว์เซอร์ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
@@ -191,7 +190,6 @@
 </head>
 <body>
 <div class="wrap">
-  <!-- กล่องกรอกรหัส -->
   <div class="card welcome-card">
   <div class="welcome-header">
     <div class="avatar">🍯</div> 
@@ -213,7 +211,6 @@
   <div id="err" class="mut" style="color:#b91c1c;margin-top:8px"></div>
 </div>
 
-  <!-- กล่องข้อมูลบริษัท + ค้นหา + ปุ่มสรุป -->
   <div class="card" id="dataCard" style="display:none">
     <div class="row" style="justify-content:space-between">
       <div>
@@ -227,11 +224,12 @@
       <button class="btn" id="toSummaryBtn">ดูสรุปสถานะทั้งหมด</button>
     </div>
     <div class="row" style="margin-top: 10px; gap: 8px;">
-        <div class="mut" style="font-weight: 600;">ค้นหาด่วน:</div>
-        <button class="btn-ghost shortcut" data-q="ใบอนุญาตครอบครอง">📘 ใบอนุญาตครอบครอง</button>
-        <button class="btn-ghost shortcut" data-q="วัตถุอันตรายชนิดที่ 2 -ครอบครอง">⚠️ ใบรับแจ้งวัตถุอันตรายชนิดที่2</button>
-        
-    </div>
+    <div class="mut" style="font-weight: 600;">กรองตามชนิดใบอนุญาต:</div> 
+    <button class="btn-ghost filter-btn" data-filter="ผลิต" data-q="">✅ ใบอนุญาตผลิต (หลัก)</button>
+    <button class="btn-ghost filter-btn" data-filter="ครอบครอง" data-q="">📘 ใบอนุญาตครอบครอง</button>
+    <button class="btn-ghost filter-btn" data-filter="วัตถุอันตรายชนิดที่ 2" data-q="">⚠️ ใบรับแจ้งชนิดที่2</button>
+    <button class="btn-ghost filter-btn" data-filter="ติดปัญหา" data-q="">🚧 ตัวที่ติดปัญหา</button>
+</div>
     <div class="mut" id="count" style="margin-top:8px">—</div>
 
     <table>
@@ -254,7 +252,6 @@
   </div>
 </div>
 
-<!-- Modal: หมายเหตุ -->
 <div id="noteModal" aria-hidden="true">
   <div id="noteBox" role="dialog" aria-modal="true" aria-label="รายละเอียดหมายเหตุ">
     <h3>รายละเอียดหมายเหตุ</h3>
@@ -276,6 +273,7 @@ const WARNING_DAYS = 90;
 
 let CURRENT_CODE = '';
 let FULL_ROWS = [];
+let CURRENT_FILTER = null; 
 let FILTERED = [];
 
 /* ===================================== */
@@ -300,16 +298,16 @@ function highlightHazard2(text){
 
 // ใบอนุญาตครอบครอง (เช็คจากหมายเหตุหรือเลขใน license_no)
 function hasPossession(note, licenseNo){
-  // ตรวจสอบว่ามีคำว่า "ครอบครอง" หรือ "ใบอนุญาตครอบครอง" อยู่ในหมายเหตุหรือเลขที่ใบอนุญาตหรือไม่
-  const re = /(ใบ\s*อนุญาต\s*ครอบครอง|ครอบครอง)/i;
-  const txt = String(note||'');
-  const lic = String(licenseNo||'');
+  // ตรวจสอบว่ามีคำว่า "ครอบครอง" หรือ "ใบอนุญาตครอบครอง" อยู่ในหมายเหตุหรือเลขที่ใบอนุญาตหรือไม่
+  const re = /(ใบ\s*อนุญาต\s*ครอบครอง|ครอบครอง)/i;
+  const txt = String(note||'');
+  const lic = String(licenseNo||'');
 
-  // ถ้าพบคำว่า "ครอบครอง" ก็ถือว่าเป็นใบอนุญาตครอบครอง
-  if (re.test(txt) || re.test(lic)) return true;
+  // ถ้าพบคำว่า "ครอบครอง" ก็ถือว่าเป็นใบอนุญาตครอบครอง
+  if (re.test(txt) || re.test(lic)) return true;
 
-  // *** ลบการตรวจสอบความยาว >= 16 หลักออกเพื่อไม่ให้เกิดความซ้ำซ้อน ***
-  return false; // หากไม่พบคำว่า "ครอบครอง" ก็คืนค่า false
+  // *** ลบการตรวจสอบความยาว >= 16 หลักออกเพื่อไม่ให้เกิดความซ้ำซ้อน ***
+  return false; // หากไม่พบคำว่า "ครอบครอง" ก็คืนค่า false
 }
 // ตรวจว่าในหมายเหตุพูดถึง "ใบทะเบียน/เลขทะเบียน" ไหม
 function hasRegistration(note){
@@ -322,7 +320,7 @@ function highlightAllNotes(text){
   let out = escapeHtml(text);
   out = out.replace(/(วัตถุอันตราย\s*ชนิด\s*ที่\s*[2๒])/gi, m=>`<span class="hazard-flag">⚠️ ${m}</span>`);
   out = out.replace(/(ใบ\s*อนุญาต\s*ครอบครอง|ครอบครอง)/gi,       m=>`<span class="possession-flag">📘 ${m}</span>`);
-  out = out.replace(/(ใบ\s*ทะเบียน|เลข\s*ทะเบียน)/gi,                m=>`<span class="reg-flag">📑 ${m}</span>`);
+  out = out.replace(/(ใบ\s*ทะเบียน|เลข\s*ทะเบียน)/gi,                 m=>`<span class="reg-flag">📑 ${m}</span>`);
   return out;
 }
 
@@ -360,28 +358,28 @@ function statusBadge(row){
   return `<span class="badge ok">ปกติ</span>`;
 }
 function getStickyFlags(row){
-  // ตรวจจากข้อมูลปัจจุบันเท่านั้น
-  const now = {
-    possession: hasPossession(row.renewed_note, row.license_no),
-    hazard2:    hasHazard2(row.renewed_note),
-    reg:        hasRegistration ? hasRegistration(row.renewed_note) : /(ใบ\s*ทะเบียน|เลข\s*ทะเบียน)/i.test(String(row.renewed_note||'')),
-  };
+  // ตรวจจากข้อมูลปัจจุบันเท่านั้น
+  const now = {
+    possession: hasPossession(row.renewed_note, row.license_no),
+    hazard2:    hasHazard2(row.renewed_note),
+    reg:        hasRegistration ? hasRegistration(row.renewed_note) : /(ใบ\s*ทะเบียน|เลข\s*ทะเบียน)/i.test(String(row.renewed_note||'')),
+  };
 
-  // เสริมเงื่อนไขที่ไม่พึ่งหมายเหตุ: ครอบครองจากเลข/ความยาว, ชนิดที่2 จากชื่อ/สูตร
-  if (!now.possession) {
-    const lic = String(row.license_no||'');
-    const digitCount = (lic.match(/\d/g)||[]).length;
-    // ถ้าเลขอนุญาตยาว >=16 หลัก (มักเป็นเลขครอบครอง) หรือมีคำว่า 'ครอบครอง' ใน license_no
-    if (digitCount >= 16 || /ครอบครอง/i.test(lic)) now.possession = true; 
-  }
-  if (!now.hazard2) {
-    const text = `${row.common_label||''} ${row.registration_no||''}`;
-    // ถ้ามีคำว่า 'ชนิด 2' หรือ 'type 2' ในชื่อสามัญ/เลขทะเบียน
-    if (/(ชนิด\s*ที่\s*[2๒]|type\s*2)/i.test(text)) now.hazard2 = true;
-  }
-  
-  // คืนค่าเฉพาะข้อมูลปัจจุบัน (ไม่มีการ "จำ" ค่าใดๆ ใน LocalStorage อีกต่อไป)
-  return now;
+  // เสริมเงื่อนไขที่ไม่พึ่งหมายเหตุ: ครอบครองจากเลข/ความยาว, ชนิดที่2 จากชื่อ/สูตร
+  if (!now.possession) {
+    const lic = String(row.license_no||'');
+    const digitCount = (lic.match(/\d/g)||[]).length;
+    // ถ้าเลขอนุญาตยาว >=16 หลัก (มักเป็นเลขครอบครอง) หรือมีคำว่า 'ครอบครอง' ใน license_no
+    if (digitCount >= 16 || /ครอบครอง/i.test(lic)) now.possession = true; 
+  }
+  if (!now.hazard2) {
+    const text = `${row.common_label||''} ${row.registration_no||''}`;
+    // ถ้ามีคำว่า 'ชนิด 2' หรือ 'type 2' ในชื่อสามัญ/เลขทะเบียน
+    if (/(ชนิด\s*ที่\s*[2๒]|type\s*2)/i.test(text)) now.hazard2 = true;
+  }
+  
+  // คืนค่าเฉพาะข้อมูลปัจจุบัน (ไม่มีการ "จำ" ค่าใดๆ ใน LocalStorage อีกต่อไป)
+  return now;
 }
 function isInProgress(row){
   const s = String(row?.renewed_status || row?.status_text || '')
@@ -452,17 +450,28 @@ function render(q=''){
         <td>${escapeHtml(r.brand_name||'-')}</td>
         <td>${escapeHtml(r.common_label||'-')}</td>
         <td>${escapeHtml(r.registration_no||'-')}</td>
-        <td>${escapeHtml(r.license_no||'-')}</td>
+        <td>${escapeHtml(r.license_no||'-')}</td>
         <td>${fmtDateBE(r.expiry_date)}</td>
-     <td>
+       <td>
   ${statusBadge(r)}
-  ${isInProgress(r) ? countdownBadge(r) : ''}   <!-- ✅ แสดงตัวนับวันเฉพาะ in-progress -->
-  ${(() => {
+  ${isInProgress(r) ? countdownBadge(r) : ''}   ${(() => {
       const f = getStickyFlags(r);
       let chips = '';
-      if (f.possession) chips += `<span class="possession-flag">📘 ใบอนุญาตครอบครอง</span>`;
-      if (f.hazard2)    chips += `<span class="hazard-flag">⚠️ วัตถุอันตรายชนิดที่ 2</span>`;
-      if (f.reg)        chips += `<span class="reg-flag">📑 ใบทะเบียน</span>`;
+      
+      // ⭐️ ตรรกะใหม่: ครอบครองมีลำดับความสำคัญสูงสุด
+      if (f.possession) {
+        // แสดงป้ายครอบครอง ไม่ว่าจะเป็นแบบทั่วไปหรือแบบคู่กับวัตถุอันตรายทางการเกษตร
+        chips += `<span class="possession-flag">📘 ใบอนุญาตครอบครอง</span>`;
+      } 
+      // ⚠️ เงื่อนไข else if: แสดง 'ชนิดที่ 2' ก็ต่อเมื่อ "ไม่มี" ครอบครองเท่านั้น
+      if (f.hazard2) { 
+        chips += `<span class="hazard-flag">⚠️ วัตถุอันตรายชนิดที่ 2</span>`;
+      }
+      
+      // นำเข้าและทะเบียนแสดงแยกกันได้ (ไม่มีผลกระทบต่อลำดับความสำคัญของ ครอบครอง/ชนิดที่ 2)
+      if (f.import)     chips += `<span class="possession-flag" style="background:#f2f7ff; border-color:#c8d9f1; color:#2160a0; margin-top: 4px;">🚢 ใบอนุญาตนำเข้า</span>`;
+      if (f.reg)        chips += `<span class="reg-flag" style="margin-top: 4px;">📑 ใบทะเบียน</span>`;
+      
       return chips;
   })()}
   ${(r.renewed_status || r.renewed_note) ? `<br><button class="btn-note" data-index="${i}">ดูหมายเหตุ</button>` : ``}
@@ -499,52 +508,71 @@ function normalize(s){
 }
 
 // แทนที่ applyFilter เดิมทั้งหมดด้วยอันนี้
-// ... โค้ดส่วนอื่นๆ ...
-
 function applyFilter(){
-  const raw = $('q').value || '';
-  // แยก Token เป็นสองกลุ่ม: include (ค้นหาคำนี้) และ exclude (ยกเว้นคำนี้)
-  const rawTokens = (raw||'').trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const includeTokens = rawTokens.filter(t => !t.startsWith('-')).map(normalize);
-  const excludeTokens = rawTokens.filter(t => t.startsWith('-')).map(t => normalize(t.substring(1))); // ลบเครื่องหมาย '-' ออก
+    const raw = $('q').value || '';
+    // แยก Token เป็นสองกลุ่ม: include (ค้นหาคำนี้) และ exclude (ยกเว้นคำนี้)
+    const rawTokens = (raw||'').trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const includeTokens = rawTokens.filter(t => !t.startsWith('-')).map(normalize);
+    const excludeTokens = rawTokens.filter(t => t.startsWith('-')).map(t => normalize(t.substring(1))); // ลบเครื่องหมาย '-' ออก
 
-  if(includeTokens.length === 0 && excludeTokens.length === 0){
-    FILTERED = [...FULL_ROWS];
-  }else{
-    FILTERED = FULL_ROWS.filter(r=>{
-        // ⭐️ ส่วนที่เพิ่ม: คำนวณสถานะ (Flags) และเพิ่มเป็นคำค้นหา
+    // ⭐️ ตรรกะการกรองจากปุ่ม (CURRENT_FILTER)
+    FILTERED = FULL_ROWS.filter(r=>{
         const flags = getStickyFlags(r);
         const derivedKeywords = [];
-        if (flags.possession) derivedKeywords.push('ใบอนุญาตครอบครอง'); // ⬅️ เพิ่มคำนี้ถ้าเป็นครอบครอง
+        if (flags.possession) derivedKeywords.push('ใบอนุญาตครอบครอง');
         if (flags.hazard2) derivedKeywords.push('วัตถุอันตรายชนิดที่ 2');
         if (flags.reg) derivedKeywords.push('ใบทะเบียน');
+        if (flags.import) derivedKeywords.push('ใบอนุญาตนำเข้า'); 
 
-      const hay = normalize([
-        r.company_name,
-        r.brand_name,
-        r.common_label,
-        r.registration_no,
-        r.license_no,
-        r.renewed_status,
-        r.renewed_note,
-        ...derivedKeywords // ⭐️ เพิ่มคำที่ได้จากสถานะ Flags เข้าไปในข้อความค้นหา
-      ].join(' '));
+        // 2. ตรวจสอบเงื่อนไข **การกรองจากปุ่ม (Filter Button)**
+        let passesFilter = true;
+        if (CURRENT_FILTER) {
+            switch(CURRENT_FILTER) {
+                case 'ผลิต':
+                    // ผลิตหลัก: ต้องไม่มี ครอบครอง, ไม่มี ชนิด2, ไม่มี นำเข้า
+                    passesFilter = !flags.possession && !flags.hazard2 && !flags.import;
+                    break;
+                case 'ครอบครอง':
+                    // ⭐️ ถือเป็น 'ครอบครอง' ทันที (ไม่ว่าจะเป็นแบบทั่วไปหรือแบบคู่)
+                    passesFilter = flags.possession; 
+                    break;
+                case 'วัตถุอันตรายชนิดที่ 2':
+                    // ⭐️ ถือเป็น 'ชนิดที่ 2' ก็ต่อเมื่อ "ไม่มี" สถานะครอบครอง (Possession) เลย
+                    passesFilter = flags.hazard2 && !flags.possession;
+                    break;
+                case 'ติดปัญหา':
+                    // รวมข้อความจาก สถานะ และ หมายเหตุ เพื่อหาคำว่า "ปัญหา"
+                    const checkTxt = (r.status_text||'') + (r.renewed_status||'') + (r.renewed_note||'');
+                    passesFilter = checkTxt.includes('ปัญหา');
+                    break;
+            }
+        }
+        if (!passesFilter) return false;
 
-      // 1. ตรวจสอบเงื่อนไข "ต้องมี" (Include)
-      const passesInclude = includeTokens.every(t => hay.includes(t));
-      
-      // 2. ตรวจสอบเงื่อนไข "ต้องไม่มี" (Exclude)
-      const passesExclude = excludeTokens.every(t => !hay.includes(t));
+        // 3. ตรวจสอบเงื่อนไข **การค้นหา (Text Search)**
+        const hay = normalize([
+            r.company_name,
+            r.brand_name,
+            r.common_label,
+            r.registration_no,
+            r.license_no,
+            r.renewed_status,
+            r.renewed_note,
+            ...derivedKeywords 
+        ].join(' '));
 
-      return passesInclude && passesExclude;
-    });
-  }
+        // ตรวจสอบเงื่อนไข "ต้องมี" (Include)
+        const passesInclude = includeTokens.every(t => hay.includes(t));
 
-  render(raw);
+        // ตรวจสอบเงื่อนไข "ต้องไม่มี" (Exclude)
+        const passesExclude = excludeTokens.every(t => !hay.includes(t));
+
+        // ต้องผ่านทั้งการกรองปุ่มและการค้นหา
+        return passesFilter && passesInclude && passesExclude;
+    });
+
+    render(raw);
 }
-
-
-
 
 /* ============ โหลดข้อมูลด้วยรหัสลูกค้า ============ */
 async function loadCompanyByCode(){
@@ -567,11 +595,11 @@ async function loadCompanyByCode(){
   }
 
   FULL_ROWS = (res.data || []).map(x=>({
-    ...x,
-    // กันกรณีฟังก์ชันหลังบ้านยังคืน renewed_until แบบเดิม
-    // แต่เราจะใช้ renewed_status/renewed_note เป็นหลัก
-    renewed_status: x.renewed_status || (x.renewed_until ? 'ดำเนินการแล้ว' : null)
-  }));
+    ...x,
+    // กันกรณีฟังก์ชันหลังบ้านยังคืน renewed_until แบบเดิม
+    // แต่เราจะใช้ renewed_status/renewed_note เป็นหลัก
+    renewed_status: x.renewed_status || (x.renewed_until ? 'ดำเนินการแล้ว' : null)
+  }));
 
   $('err').textContent = '';
   $('dataCard').style.display = 'block';
@@ -584,27 +612,27 @@ async function loadCompanyByCode(){
 
 /* ============ Modal หมายเหตุ (แสดงหมายเหตุรวมแยกบรรทัด) - FINAL FIX ============ */
 function showNote(row){
-  $('noteBrand').textContent  = `ชื่อการค้า: ${row?.brand_name || '-'}`;
-  $('noteStatus').textContent = `สถานะ: ${row?.renewed_status || row?.status_text || '-'}`;
-  
-  const rawNote = row?.renewed_note || '';
-  // แยกหมายเหตุด้วยตัวแบ่ง '---' ที่เพิ่มเข้ามาจาก deduplicateLicenses
-  const notes = rawNote.split(/\s*---\s*/).filter(n => n.trim() !== '');
+  $('noteBrand').textContent  = `ชื่อการค้า: ${row?.brand_name || '-'}`;
+  $('noteStatus').textContent = `สถานะ: ${row?.renewed_status || row?.status_text || '-'}`;
+  
+  const rawNote = row?.renewed_note || '';
+  // แยกหมายเหตุด้วยตัวแบ่ง '---' ที่เพิ่มเข้ามาจาก deduplicateLicenses
+  const notes = rawNote.split(/\s*---\s*/).filter(n => n.trim() !== '');
 
-  let noteHtml = '';
-  if (notes.length > 0) {
-    // ใช้ <p> และไฮไลท์หมายเหตุแต่ละบรรทัด (เพิ่ม inline CSS เพื่อการจัดรูปแบบใน Modal)
-    noteHtml = notes.map(n => 
-      `<p style="margin: 4px 0; padding: 8px; background: #f7feff; border-radius: 4px; border-left: 3px solid var(--accent);">${highlightAllNotes(n)}</p>`
-    ).join('');
-    // เพิ่มหัวข้อ
-    noteHtml = `<div style="margin: 10px 0 6px; font-size: 17px; font-weight: 700; color: var(--accent);">หมายเหตุทั้งหมด (รวมใบอนุญาตย่อย):</div>` + noteHtml;
-  } else {
-    noteHtml = 'หมายเหตุ: -'; 
-  }
+  let noteHtml = '';
+  if (notes.length > 0) {
+    // ใช้ <p> และไฮไลท์หมายเหตุแต่ละบรรทัด (เพิ่ม inline CSS เพื่อการจัดรูปแบบใน Modal)
+    noteHtml = notes.map(n => 
+      `<p style="margin: 4px 0; padding: 8px; background: #f7feff; border-radius: 4px; border-left: 3px solid var(--accent);">${highlightAllNotes(n)}</p>`
+    ).join('');
+    // เพิ่มหัวข้อ
+    noteHtml = `<div style="margin: 10px 0 6px; font-size: 17px; font-weight: 700; color: var(--accent);">หมายเหตุทั้งหมด (รวมใบอนุญาตย่อย):</div>` + noteHtml;
+  } else {
+    noteHtml = 'หมายเหตุ: -'; 
+  }
 
-  $('noteText').innerHTML = noteHtml;
-  $('noteModal').style.display='flex';
+  $('noteText').innerHTML = noteHtml;
+  $('noteModal').style.display='flex';
 }
 
 /* ============ Events ============ */
@@ -640,23 +668,32 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(!code){ alert('กรุณาใส่รหัสลูกค้าก่อน'); return; }
     location.href = `summary.html?code=${encodeURIComponent(code)}`;
     });
-  // ✅ ส่วนที่เพิ่ม: ผูกเหตุการณ์ปุ่มคีย์ลัด
-  document.querySelectorAll('.shortcut').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const query = e.currentTarget.getAttribute('data-q');
-      
-      if ($('q').value === query) {
-        // ถ้าคลิกปุ่มเดิมซ้ำ ให้ล้างค่าค้นหา
-        $('q').value = '';
-      } else {
-        // ตั้งค่าค้นหาใหม่
-        $('q').value = query;
-      }
-      applyFilter();
-    });
-  });
-  });
+  // ⭐️ ส่วนที่เพิ่ม: ผูกเหตุการณ์ปุ่มกรอง (Filter Button)
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const filterType = e.currentTarget.getAttribute('data-filter');
+        const isActive = e.currentTarget.classList.contains('btn'); // ตรวจสอบว่าปุ่มถูกเลือกอยู่หรือไม่
 
+        // 1. ปรับสถานะปุ่ม
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('btn', 'btn-ghost'));
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.add('btn-ghost'));
+
+        if (isActive) {
+            // ถ้าคลิกซ้ำ: ล้างการกรอง
+            CURRENT_FILTER = null;
+            // ไม่มีการเปลี่ยน class เพราะถูกลบไปแล้วข้างบน
+        } else {
+            // ถ้าคลิกปุ่มใหม่: ตั้งค่าการกรอง
+            CURRENT_FILTER = filterType;
+            e.currentTarget.classList.remove('btn-ghost');
+            e.currentTarget.classList.add('btn'); // เปลี่ยนเป็นปุ่มสีเข้ม/Accent เพื่อเน้น
+        }
+
+        // 2. ค้นหา/กรอง
+        applyFilter();
+    });
+});
+});
 </script>
 </body>
 </html>
