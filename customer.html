@@ -23,7 +23,7 @@
     radial-gradient(900px 450px at 110% 0%, #e8fff6 0%, transparent 60%),
     #f6fbff;
   }
-  .wrap{max-width:1150px;margin:22px auto;padding:0 14px}
+  .wrap{max-width:1200px;margin:22px auto;padding:0 14px}
   .card{
     background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
     padding:18px; box-shadow:0 8px 28px rgba(10,30,60,.06); margin-bottom:14px
@@ -37,6 +37,12 @@
   .btn-ghost{background:#fff; color:#0e7490; border:1px solid #94d5e5; cursor:pointer;}
   .btn-summary{background:#f0fdfa; color:#0f766e; border:1px solid #5eead4; cursor:pointer; font-weight:700;}
 
+  /* Dashboard Counters */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: #fff; padding: 15px; border-radius: 14px; border: 1px solid var(--border); text-align: center; }
+  .stat-val { font-size: 24px; font-weight: 700; color: var(--accent); display: block; }
+  .stat-label { font-size: 13px; color: var(--mut); font-weight: 600; }
+
   table{width:100%; border-collapse:collapse; margin-top:10px; background:#fff; border-radius:12px; overflow:hidden}
   th,td{padding:12px 14px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; font-size:15px}
   th{background:linear-gradient(180deg,#f7fbff,#f2f8ff); color:#0b3a4f; font-weight:700; position:sticky; top:0; z-index:1}
@@ -46,7 +52,7 @@
   .warn{ color:var(--warn); background:var(--warnbg); border:1px solid #fde68a80;}
   .exp{ color:var(--exp); background:var(--expbg); border:1px solid #fecaca90;}
 
-  .flag-base { display: inline-block; padding: 2px 8px; border-radius: 6px; font-weight: 600; font-size: 12px; margin: 2px; border: 1px solid; }
+  .flag-base { display: inline-block; padding: 3px 10px; border-radius: 6px; font-weight: 600; font-size: 12px; margin: 2px; border: 1px solid; }
   .flag-combined { background: #f5f3ff; color: #5b21b6; border-color: #ddd6fe; } 
   .flag-possession { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; } 
   .flag-hazard { background: #fffbeb; color: #92400e; border-color: #fde68a; } 
@@ -71,39 +77,48 @@
     <div id="err" style="color:#b91c1c; margin-top:8px"></div>
   </div>
 
-  <div class="card" id="dataCard" style="display:none">
-    <div class="row">
-      <div>
-        <div class="mut">บริษัทของคุณ</div>
-        <div id="companyName" style="font-weight:700; font-size:20px"></div>
+  <div id="dataCard" style="display:none">
+    <div class="stat-grid">
+      <div class="stat-card"><span class="stat-label">✅ ใบอนุญาตผลิต (หลัก)</span><span id="count-ผลิต" class="stat-val">0</span></div>
+      <div class="stat-card"><span class="stat-label">📘 ใบอนุญาตครอบครอง</span><span id="count-ครอบครอง" class="stat-val">0</span></div>
+      <div class="stat-card"><span class="stat-label">⚠️ วัตถุอันตรายชนิดที่ 2</span><span id="count-ชนิด2" class="stat-val">0</span></div>
+      <div class="stat-card"><span class="stat-label">🟣 ใบอนุญาตครอบครอง วอ. ชนิดที่ 2</span><span id="count-รวม" class="stat-val">0</span></div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div>
+          <div class="mut">บริษัทของคุณ</div>
+          <div id="companyName" style="font-weight:700; font-size:20px"></div>
+        </div>
+        <div class="spacer"></div>
+        <input id="q" placeholder="ค้นหาชื่อสินค้า/เลขทะเบียน..." style="min-width:260px">
+        <button class="btn" id="refreshBtn">รีเฟรช</button>
+        <button class="btn-summary" id="toSummaryBtn">ดูสรุปสถานะทั้งหมด</button>
       </div>
-      <div class="spacer"></div>
-      <input id="q" placeholder="ค้นหาชื่อสินค้า/เลขทะเบียน..." style="min-width:260px">
-      <button class="btn" id="refreshBtn">รีเฟรช</button>
-      <button class="btn-summary" id="toSummaryBtn">ดูสรุปสถานะทั้งหมด</button>
-    </div>
 
-    <div class="row" style="margin-top:15px; gap:8px">
-      <div class="mut" style="font-weight:600">กรองข้อมูล:</div>
-      <button class="btn-ghost filter-btn" data-filter="ผลิต">✅ ใบผลิตหลัก</button>
-      <button class="btn-ghost filter-btn" data-filter="ครอบครอง">📘 ครอบครอง</button>
-      <button class="btn-ghost filter-btn" data-filter="ชนิด2">⚠️ ชนิดที่ 2</button>
-      <button class="btn-ghost filter-btn" data-filter="รวม">🟣 ครอบครองชนิดที่ 2</button>
-      <button class="btn-ghost filter-btn" data-filter="ปัญหา">🚧 ติดปัญหา</button>
-    </div>
+      <div class="row" style="margin-top:15px; gap:8px">
+        <div class="mut" style="font-weight:600">กรองข้อมูล:</div>
+        <button class="btn-ghost filter-btn" data-filter="ผลิต">✅ ใบผลิตหลัก</button>
+        <button class="btn-ghost filter-btn" data-filter="ครอบครอง">📘 ใบครอบครอง</button>
+        <button class="btn-ghost filter-btn" data-filter="ชนิด2">⚠️ วัตถุอันตรายชนิดที่ 2</button>
+        <button class="btn-ghost filter-btn" data-filter="รวม">🟣 ครอบครอง วอ. ชนิดที่ 2</button>
+        <button class="btn-ghost filter-btn" data-filter="ปัญหา">🚧 ติดปัญหา</button>
+      </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th>ลำดับ</th>
-          <th>ชื่อการค้า / ชื่อสามัญ</th>
-          <th>ทะเบียน / ใบอนุญาต</th>
-          <th>หมดอายุเดิม</th>
-          <th>สถานะและหมายเหตุ</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
+      <table>
+        <thead>
+          <tr>
+            <th>ลำดับ</th>
+            <th>ชื่อการค้า / ชื่อสามัญ</th>
+            <th>ทะเบียน / ใบอนุญาต</th>
+            <th>วันหมดอายุ</th>
+            <th>สถานะและหมายเหตุ</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -132,6 +147,18 @@ function getCategory(row){
   return 'ผลิต';
 }
 
+function updateCounters(){
+  const counts = { ผลิต:0, ครอบครอง:0, ชนิด2:0, รวม:0 };
+  FULL_ROWS.forEach(r => {
+    const cat = getCategory(r);
+    if(counts[cat] !== undefined) counts[cat]++;
+  });
+  $('count-ผลิต').textContent = counts.ผลิต;
+  $('count-ครอบครอง').textContent = counts.ครอบครอง;
+  $('count-ชนิด2').textContent = counts.ชนิด2;
+  $('count-รวม').textContent = counts.รวม;
+}
+
 function statusBadge(row){
   if(row.renewed_status?.includes('ดำเนินการแล้ว')) return '<span class="badge ok">ดำเนินการแล้ว</span>';
   if(row.renewed_status?.includes('ระหว่าง')) return '<span class="badge warn">อยู่ระหว่างดำเนินการ</span>';
@@ -148,7 +175,7 @@ function render(){
   tb.innerHTML = FILTERED.map((r,i)=>{
     const cat = getCategory(r);
     let chips = '';
-    if(cat === 'รวม') chips = '<span class="flag-base flag-combined">📘⚠️ ใบอนุญาตครอบครองวัตถุอันตรายชนิดที่ 2</span>';
+    if(cat === 'รวม') chips = '<span class="flag-base flag-combined">🟣 ใบอนุญาตครอบครอง วอ. ชนิดที่ 2</span>';
     else if(cat === 'ครอบครอง') chips = '<span class="flag-base flag-possession">📘 ใบอนุญาตครอบครอง</span>';
     else if(cat === 'ชนิด2') chips = '<span class="flag-base flag-hazard">⚠️ วัตถุอันตรายชนิดที่ 2</span>';
 
@@ -186,7 +213,7 @@ function applyFilter(){
 }
 
 async function loadData(){
-  const code = $('code').value.trim().toUpperCase();
+  const code = ($('code').value || '').trim().toUpperCase();
   if(!code) return ($('err').textContent = 'กรุณากรอกรหัสลูกค้า');
   
   const { data: name } = await sb.rpc('get_company_name_by_code', { p_plain_code: code });
@@ -197,10 +224,10 @@ async function loadData(){
   FULL_ROWS = data || [];
   $('dataCard').style.display = 'block';
   $('err').textContent = '';
+  updateCounters();
   applyFilter();
 }
 
-// ผูกฟังก์ชันปุ่มกรอง
 document.querySelectorAll('.filter-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
     const f = e.target.dataset.filter;
@@ -211,7 +238,6 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
   });
 });
 
-// ไปหน้าสรุปสถานะ
 $('toSummaryBtn').addEventListener('click', () => {
   const code = ($('code').value || '').trim().toUpperCase();
   if(!code) return alert('กรุณาใส่รหัสลูกค้าก่อน');
