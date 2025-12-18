@@ -209,15 +209,33 @@ function highlightTokens(text, tokens){
   return out + escapeHtml(s.slice(last));
 }
 
-/* ===== สถานะ (done ถ้า renewed_status=ดำเนินการแล้ว หรือมี renewed_until) ===== */
 function classify(expiry, renewed_until, renewedStatus){
-  if(renewedStatus === 'ดำเนินการแล้ว' || renewed_until){
-    return {cls:'', badge:`<span class="badge ok">ดำเนินการแล้ว</span>`, order:3, statusText:'ดำเนินการแล้ว'};
+  // 1. กลุ่มที่ดำเนินการเสร็จสมบูรณ์ หรือ รอลงนาม (ใช้สีเขียว)
+  if(renewedStatus === 'ดำเนินการแล้ว' || renewedStatus === 'รอลงนาม' || renewed_until){
+    let label = renewedStatus || 'ดำเนินการแล้ว';
+    return {cls:'', badge:`<span class="badge ok">${label}</span>`, order:3, statusText: label};
   }
+  
+  // 2. สถานะแจ้งปัญหา (ใช้สีแดง)
+  if(renewedStatus === 'มีปัญหา'){
+    return {cls:'expired', badge:`<span class="badge expired">⚠️ มีปัญหา</span>`, order:0, statusText:'มีปัญหา'};
+  }
+  
+  // 3. สถานะรอการตรวจสอบ (ใช้สีน้ำเงิน/ม่วง)
+  if(renewedStatus === 'รอการตรวจสอบ'){
+    return {cls:'warning', badge:`<span class="badge warning" style="background:#e0e7ff; color:#4338ca; border:1px solid #c7d2fe">🔍 รอตรวจสอบ</span>`, order:2, statusText:'รอการตรวจสอบ'};
+  }
+  
+  // 4. อยู่ระหว่างดำเนินการ
+  if(renewedStatus === 'อยู่ระหว่างดำเนินการ'){
+    return {cls:'warning', badge:`<span class="badge warning">⏳ กำลังดำเนินการ</span>`, order:2, statusText:'อยู่ระหว่างดำเนินการ'};
+  }
+
+  // 5. เงื่อนไขวันหมดอายุเดิม (ปกติ/หมดอายุ)
   const eff = expiry ? new Date(expiry) : null;
   if(!eff || isNaN(eff)) return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3, statusText:'ปกติ'};
   const diff = Math.ceil((eff - new Date())/86400000);
-  if(diff < 0)  return {cls:'expired',  badge:`<span class="badge expired">หมดอายุ</span>`,        order:1, statusText:'หมดอายุ'};
+  if(diff < 0)  return {cls:'expired',  badge:`<span class="badge expired">หมดอายุ</span>`, order:1, statusText:'หมดอายุ'};
   if(diff <= WARNING_DAYS) return {cls:'warning', badge:`<span class="badge warning">เหลือ ${diff} วัน</span>`, order:2, statusText:`เหลือ ${diff} วัน`};
   return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3, statusText:'ปกติ'};
 }
@@ -266,21 +284,22 @@ function renderTable(q=''){
       <td>${r.renewed_on ? fmtDateBE(r.renewed_on) : (r.renewed_status || (r.renewed_until ? 'ดำเนินการแล้ว' : ''))}</td>
 
       <td>${r.badge}</td>
+<td style="white-space:nowrap; display:flex; gap:6px; flex-wrap:wrap">
+  <button class="btn btn-secondary btn-small" onclick="setStatusWithNote('${r.id}','อยู่ระหว่างดำเนินการ','แจ้งลูกค้าแล้วรอการตอบกลับจากลูกค้า')">อยู่ระหว่างดำเนินการ (แจ้งลูกค้า)</button>
+  <button class="btn btn-outline btn-small" onclick="setStatusWithNote('${r.id}','อยู่ระหว่างดำเนินการ','ได้รับเอกสารแล้วรอการต่ออายุ')">ได้รับเอกสารแล้ว</button>
+  
+  <div style="width:100%; border-top:1px solid #eee; margin:2px 0"></div> <button class="btn btn-primary btn-small" onclick="setStatus('${r.id}','ดำเนินการแล้ว')">ดำเนินการแล้ว</button>
+  
+  <button class="btn btn-danger btn-small" style="background:#f43f5e" onclick="setStatus('${r.id}','มีปัญหา')">มีปัญหา</button>
+  <button class="btn btn-secondary btn-small" style="background:#6366f1; color:white" onclick="setStatus('${r.id}','รอการตรวจสอบ')">รอการตรวจสอบ</button>
+  <button class="btn btn-outline btn-small" onclick="setStatus('${r.id}','รอลงนาม')">รอลงนาม</button>
 
-      <td style="white-space:nowrap; display:flex; gap:6px; flex-wrap:wrap">
-        <button class="btn btn-secondary btn-small" onclick="setStatus('${r.id}','อยู่ระหว่างดำเนินการ')">อยู่ระหว่างดำเนินการ</button>
-        <button class="btn btn-primary   btn-small" onclick="setStatus('${r.id}','ดำเนินการแล้ว')">ดำเนินการแล้ว</button>
-        <button class="btn btn-outline  btn-small" onclick="setStatus('${r.id}','ไม่ต่ออายุแล้ว')">ไม่ต่ออายุแล้ว</button>
+  <div style="width:100%; border-top:1px solid #eee; margin:2px 0"></div>
 
-        <!-- แก้บั๊ก onclick: ใช้ single quote รอบ attribute, double quote รอบ id และ JSON.stringify สำหรับ note -->
-        <button class="btn btn-outline  btn-small" onclick='editNote("${r.id}", ${JSON.stringify(r.renewed_note||"")})'>📝 หมายเหตุ</button>
-
-        <button class="btn btn-outline  btn-small" onclick="clearRenewal('${r.id}')">ล้างต่ออายุ</button>
-        <button class="btn btn-danger   btn-small" onclick="clearRenewalAll('${r.id}')">ล้างทั้งหมด</button>
-
-        <button class="btn btn-danger   btn-small" onclick="delDoc('${r.id}')">ลบ</button>
-      </td>
-    </tr>
+  <button class="btn btn-outline btn-small" onclick='editNote("${r.id}", ${JSON.stringify(r.renewed_note||"")})'>📝 หมายเหตุ</button>
+  <button class="btn btn-danger btn-small" onclick="delDoc('${r.id}')">ลบ</button>
+</td>
+</tr>
   `).join('');
 
   $('adminCount').textContent =
@@ -370,7 +389,8 @@ $('addForm').addEventListener('submit', async (e)=>{
 
 /* ===== ปุ่มสถานะ (one-click) — ไม่แตะหมายเหตุ ===== */
 async function setStatus(id, statusText){
-  const allowed = ['อยู่ระหว่างดำเนินการ','ดำเนินการแล้ว','ไม่ต่ออายุแล้ว'];
+  // เพิ่มรายการสถานะที่อนุญาตให้ครบตามปุ่มที่มี
+  const allowed = ['อยู่ระหว่างดำเนินการ', 'ดำเนินการแล้ว', 'ไม่ต่ออายุแล้ว', 'มีปัญหา', 'รอการตรวจสอบ', 'รอลงนาม'];
   if(!allowed.includes(statusText)) return alert('สถานะไม่ถูกต้อง');
 
   const patch = {
@@ -815,6 +835,41 @@ $('btnClearRenewAllSel').addEventListener('click', async ()=>{
   selectedIds.clear();
   loadDocs(currentCompany);
 });
+// เพิ่มฟังก์ชันนี้ต่อจาก setStatus เดิม
+async function setStatusWithNote(id, statusText, noteText) {
+  const patch = {
+    renewed_status: statusText,
+    renewed_note: noteText,
+    renewed_on: new Date().toISOString()
+  };
+
+  const { error } = await sb
+    .from('product_registrations')
+    .update(patch)
+    .eq('id', id);
+
+  if (error) return alert(error.message);
+  toast(`อัปเดตเป็น: ${noteText} ✓`);
+  loadDocs(currentCompany);
+}
+
+// และปรับปรุงฟังก์ชัน setStatus เดิมให้รองรับสถานะใหม่ๆ ที่เพิ่มเข้ามา
+async function setStatus(id, statusText){
+  // เพิ่มรายชื่อสถานะใหม่เข้าไปในรายการที่อนุญาต (ถ้ามีการเช็ค)
+  const patch = {
+    renewed_status: statusText,
+    renewed_on: new Date().toISOString()
+  };
+
+  const { error } = await sb
+    .from('product_registrations')
+    .update(patch)
+    .eq('id', id);
+
+  if(error) return alert(error.message);
+  toast(`อัปเดตสถานะเป็น "${statusText}" แล้ว ✓`);
+  loadDocs(currentCompany);
+}
 </script>
   
 </body>
