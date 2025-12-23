@@ -211,15 +211,55 @@ function highlightTokens(text, tokens){
 
 /* ===== สถานะ (done ถ้า renewed_status=ดำเนินการแล้ว หรือมี renewed_until) ===== */
 function classify(expiry, renewed_until, renewedStatus){
+  // 1. ถ้าดำเนินการเสร็จแล้ว -> แสดงป้ายเดียว และหยุดนับวัน
   if(renewedStatus === 'ดำเนินการแล้ว' || renewed_until){
-    return {cls:'', badge:`<span class="badge ok">ดำเนินการแล้ว</span>`, order:3, statusText:'ดำเนินการแล้ว'};
+    return {
+      cls:'', 
+      badge:`<span class="badge ok">ดำเนินการแล้ว</span>`, 
+      order:4, 
+      statusText:'ดำเนินการแล้ว'
+    };
   }
+  
+  // เตรียมส่วนของการนับวันหมดอายุ (ป้ายแจ้งเตือนเรื่องวัน)
+  let dayBadge = '';
+  let rowClass = '';
   const eff = expiry ? new Date(expiry) : null;
-  if(!eff || isNaN(eff)) return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3, statusText:'ปกติ'};
-  const diff = Math.ceil((eff - new Date())/86400000);
-  if(diff < 0)  return {cls:'expired',  badge:`<span class="badge expired">หมดอายุ</span>`,        order:1, statusText:'หมดอายุ'};
-  if(diff <= WARNING_DAYS) return {cls:'warning', badge:`<span class="badge warning">เหลือ ${diff} วัน</span>`, order:2, statusText:`เหลือ ${diff} วัน`};
-  return {cls:'', badge:`<span class="badge ok">ปกติ</span>`, order:3, statusText:'ปกติ'};
+  
+  if (eff && !isNaN(eff)) {
+    const diff = Math.ceil((eff - new Date())/86400000);
+    if(diff < 0) {
+      dayBadge = `<span class="badge expired">หมดอายุ</span>`;
+      rowClass = 'expired';
+    } else if(diff <= WARNING_DAYS) {
+      dayBadge = `<span class="badge warning">เหลือ ${diff} วัน</span>`;
+      rowClass = 'warning';
+    } else {
+      dayBadge = `<span class="badge ok">ปกติ</span>`;
+    }
+  } else {
+    dayBadge = `<span class="badge ok">ปกติ</span>`;
+  }
+
+  // 2. ถ้าเป็นสถานะ "รอการตอบกลับ" -> แสดงป้ายสีส้ม คู่กับป้ายนับวัน
+  if(renewedStatus === 'รอการตอบกลับจากลูกค้า'){
+    const sBadge = `<span class="badge warning" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d">📢 รอการตอบกลับ</span>`;
+    return {cls: rowClass, badge: `${sBadge} ${dayBadge}`, order:2, statusText:renewedStatus};
+  }
+  
+  // 3. ถ้าเป็นสถานะ "ได้รับเอกสารแล้ว" -> แสดงป้ายสีฟ้า คู่กับป้ายนับวัน
+  if(renewedStatus === 'ได้รับเอกสารแล้ว รอการต่ออายุ'){
+    const sBadge = `<span class="badge ok" style="background:#e0f2fe; color:#075985; border:1px solid #bae6fd">📄 ได้รับเอกสารแล้ว</span>`;
+    return {cls: rowClass, badge: `${sBadge} ${dayBadge}`, order:2, statusText:renewedStatus};
+  }
+
+  // 4. กรณีสถานะอื่นๆ (เช่น อยู่ระหว่างดำเนินการ หรือยังไม่ได้ระบุ) -> แสดงป้ายนับวันตามปกติ
+  return {
+    cls: rowClass, 
+    badge: dayBadge, 
+    order: (rowClass === 'expired' ? 1 : 3), 
+    statusText: 'ปกติ'
+  };
 }
 function toast(msg, ok=true){ $('msg').textContent = msg; $('msg').style.color = ok ? '#065f46' : '#b91c1c'; setTimeout(()=>{$('msg').textContent='';}, 4000); }
 
@@ -267,19 +307,33 @@ function renderTable(q=''){
 
       <td>${r.badge}</td>
 
-      <td style="white-space:nowrap; display:flex; gap:6px; flex-wrap:wrap">
-        <button class="btn btn-secondary btn-small" onclick="setStatus('${r.id}','อยู่ระหว่างดำเนินการ')">อยู่ระหว่างดำเนินการ</button>
-        <button class="btn btn-primary   btn-small" onclick="setStatus('${r.id}','ดำเนินการแล้ว')">ดำเนินการแล้ว</button>
-        <button class="btn btn-outline  btn-small" onclick="setStatus('${r.id}','ไม่ต่ออายุแล้ว')">ไม่ต่ออายุแล้ว</button>
+  
 
-        <!-- แก้บั๊ก onclick: ใช้ single quote รอบ attribute, double quote รอบ id และ JSON.stringify สำหรับ note -->
-        <button class="btn btn-outline  btn-small" onclick='editNote("${r.id}", ${JSON.stringify(r.renewed_note||"")})'>📝 หมายเหตุ</button>
+<td style="white-space:nowrap; display:flex; gap:6px; flex-wrap:wrap">
+  <button class="btn btn-secondary btn-small" onclick="setStatus('${r.id}','อยู่ระหว่างดำเนินการ')">อยู่ระหว่างดำเนินการ</button>
+  <button class="btn btn-primary   btn-small" onclick="setStatus('${r.id}','ดำเนินการแล้ว')">ดำเนินการแล้ว</button>
+  <button class="btn btn-outline  btn-small" onclick="setStatus('${r.id}','ไม่ต่ออายุแล้ว')">ไม่ต่ออายุแล้ว</button>
 
-        <button class="btn btn-outline  btn-small" onclick="clearRenewal('${r.id}')">ล้างต่ออายุ</button>
-        <button class="btn btn-danger   btn-small" onclick="clearRenewalAll('${r.id}')">ล้างทั้งหมด</button>
+  <div style="width:100%; height:1px; border-bottom:1px dashed #ddd; margin:2px 0"></div>
 
-        <button class="btn btn-danger   btn-small" onclick="delDoc('${r.id}')">ลบ</button>
-      </td>
+  <button class="btn btn-small" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d;" 
+    onclick="setStatus('${r.id}','รอการตอบกลับจากลูกค้า')">📢 รอการตอบกลับ</button>
+  
+  <button class="btn btn-small" style="background:#e0f2fe; color:#075985; border:1px solid #bae6fd;" 
+    onclick="setStatus('${r.id}','ได้รับเอกสารแล้ว รอการต่ออายุ')">📄 ได้รับเอกสารแล้ว</button>
+
+  <button class="btn btn-small" style="background:#f5f3ff; color:#5b21b6; border:1px solid #ddd6fe;" 
+    onclick="addSpecificNote('${r.id}', 'กำลังตรวจสอบจากเจ้าหน้าที่')">🔍 กำลังตรวจสอบ</button>
+  
+  <button class="btn btn-small" style="background:#fdf2f8; color:#9d174d; border:1px solid #fbcfe8;" 
+    onclick="addSpecificNote('${r.id}', 'รอลงนามจากเจ้าหน้าที่')">✍️ รอลงนาม</button>
+
+  <div style="width:100%; height:1px; border-bottom:1px dashed #ddd; margin:2px 0"></div>
+
+  <button class="btn btn-outline  btn-small" onclick='editNote("${r.id}", ${JSON.stringify(r.renewed_note||"")})'>📝 หมายเหตุ</button>
+  <button class="btn btn-outline  btn-small" onclick="clearRenewal('${r.id}')">ล้าง</button>
+  <button class="btn btn-danger   btn-small" onclick="delDoc('${r.id}')">ลบ</button>
+</td>
     </tr>
   `).join('');
 
@@ -368,26 +422,33 @@ $('addForm').addEventListener('submit', async (e)=>{
   loadDocs(currentCompany);
 });
 
-/* ===== ปุ่มสถานะ (one-click) — ไม่แตะหมายเหตุ ===== */
 async function setStatus(id, statusText){
-  const allowed = ['อยู่ระหว่างดำเนินการ','ดำเนินการแล้ว','ไม่ต่ออายุแล้ว'];
+  const allowed = [
+    'อยู่ระหว่างดำเนินการ',
+    'รอการตอบกลับจากลูกค้า', 
+    'ได้รับเอกสารแล้ว รอการต่ออายุ',
+    'ดำเนินการแล้ว', 
+    'ไม่ต่ออายุแล้ว'
+  ];
+  
   if(!allowed.includes(statusText)) return alert('สถานะไม่ถูกต้อง');
-
-  const patch = {
-    renewed_status: statusText,
-    renewed_on: new Date().toISOString()
-  };
 
   const { error } = await sb
     .from('product_registrations')
-    .update(patch)
+    .update({
+      renewed_status: statusText,
+      renewed_on: new Date().toISOString()
+    })
     .eq('id', id);
 
-  if(error) return alert(error.message);
-  toast(`อัปเดตสถานะเป็น "${statusText}" แล้ว ✓`);
-  loadDocs(currentCompany);
+  if(error) {
+    alert(error.message);
+  } else {
+    toast(`อัปเดตเป็น "${statusText}" แล้ว ✓`);
+    // สำคัญ: ต้องเรียก loadDocs เพื่อให้ classify ทำงานใหม่และ Badge เปลี่ยนสี
+    loadDocs(currentCompany); 
+  }
 }
-
 /* ===== แก้หมายเหตุเฉพาะ (ไม่แตะสถานะ) ===== */
 async function editNote(id, currentNote=''){
   const note = prompt('แก้ไขหมายเหตุ (จะบันทึกทันที):', String(currentNote||''));
@@ -815,6 +876,29 @@ $('btnClearRenewAllSel').addEventListener('click', async ()=>{
   selectedIds.clear();
   loadDocs(currentCompany);
 });
+
+async function addSpecificNote(id, noteText) {
+  const currentRow = cachedRows.find(r => r.id === id);
+  const oldNote = currentRow ? (currentRow.renewed_note || '') : '';
+  
+  // ต่อท้ายหมายเหตุเดิม
+  const finalNote = oldNote ? `${oldNote}\n${noteText}` : noteText;
+
+  const { error } = await sb
+    .from('product_registrations')
+    .update({ 
+      renewed_note: finalNote,
+      renewed_on: new Date().toISOString()
+    })
+    .eq('id', id);
+
+  if (error) {
+    alert(error.message);
+  } else {
+    toast(`บันทึกลงหมายเหตุเรียบร้อย ✓`);
+    loadDocs(currentCompany);
+  }
+}
 </script>
   
 </body>
