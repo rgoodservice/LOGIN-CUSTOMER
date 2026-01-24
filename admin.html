@@ -156,6 +156,7 @@
             <th>หมดอายุเดิม (พ.ศ.)</th>
             <th>ต่อแล้ววันที่ (พ.ศ.)</th>
             <th>สถานะ</th>
+            <th>หมายเหตุ</th>
             <th>จัดการ</th>
           </tr>
         </thead>
@@ -297,14 +298,16 @@ function renderTable(q=''){
       <td class="editable" data-id="${r.id}" data-field="common_label" style="min-width:240px">${highlightTokens(r.common_label||'', tokens)}</td>
       <td class="editable" data-id="${r.id}" data-field="registration_no">${highlightTokens(r.registration_no||'', tokens)}</td>
       <td class="editable" data-id="${r.id}" data-field="license_no">${highlightTokens(r.license_no||'', tokens)}</td>
-
+      
       <td class="editable" data-id="${r.id}" data-field="expiry_date" data-raw="${r.expiry_date ? toISO(r.expiry_date) : ''}">
         ${r.expiry_date ? fmtDateBE(r.expiry_date) : ''}
       </td>
 
       <!-- ต่อแล้ววันที่ (พ.ศ.) จาก renewed_on ถ้ามี -->
       <td>${r.renewed_on ? fmtDateBE(r.renewed_on) : (r.renewed_status || (r.renewed_until ? 'ดำเนินการแล้ว' : ''))}</td>
-
+      <td class="editable" data-id="${r.id}" data-field="renewed_note" style="color:var(--muted); font-size:13px; max-width:180px;">
+  ${highlightTokens(r.renewed_note || '-', tokens)}
+</td>
       <td>${r.badge}</td>
 
   
