@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Customer Portal (รหัสลูกค้า)</title>
+<title>Customer Portal (ข้อมูลลูกค้า)</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
@@ -37,7 +37,6 @@
   .btn-ghost{background:#fff; color:#0e7490; border:1px solid #94d5e5; cursor:pointer;}
   .btn-summary{background:#f0fdfa; color:#0f766e; border:1px solid #5eead4; cursor:pointer; font-weight:700;}
 
-  /* Dashboard Counters */
   .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; }
   .stat-card { background: #fff; padding: 15px; border-radius: 14px; border: 1px solid var(--border); text-align: center; }
   .stat-val { font-size: 24px; font-weight: 700; color: var(--accent); display: block; }
@@ -66,7 +65,7 @@
     <div class="row">
       <div style="font-size:32px">🍯</div>
       <div>
-        <h2 style="margin:0">สวัสดีค่ะลูกค้า 👋</h2>
+        <h2 style="margin:0">สวัสดีค่ะคุณ <span id="headerName">ลูกค้า</span> 👋</h2>
         <p class="mut" style="margin:0">แอดมินน้ำผึ้ง 🍯 ยินดีให้บริการค่ะ</p>
       </div>
     </div>
@@ -160,11 +159,8 @@ function updateCounters(){
 
 function statusBadge(row){
   const st = row.renewed_status || '';
-  
-  // 1. ถ้าดำเนินการแล้ว
   if(st.includes('ดำเนินการแล้ว')) return '<span class="badge ok">ดำเนินการแล้ว</span>'; 
 
-  // เตรียมป้ายนับวัน
   let dayBadge = '';
   if(row.expiry_date) {
     const diff = Math.ceil((new Date(row.expiry_date) - new Date())/86400000);
@@ -175,17 +171,12 @@ function statusBadge(row){
     dayBadge = '<span class="badge ok">ปกติ</span>';
   }
 
-  // 2. แสดงสถานะใหม่คู่กับป้ายวัน
   if(st === 'รอการตอบกลับจากลูกค้า'){
-    const sBadge = '<span class="badge warn" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d">📢 รอการตอบกลับ</span>';
-    return `${sBadge} ${dayBadge}`;
+    return `<span class="badge warn" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d">📢 รอการตอบกลับ</span> ${dayBadge}`;
   }
-  
   if(st === 'ได้รับเอกสารแล้ว รอการต่ออายุ'){
-    const sBadge = '<span class="badge ok" style="background:#e0f2fe; color:#075985; border:1px solid #bae6fd">📄 ได้รับเอกสารแล้ว</span>';
-    return `${sBadge} ${dayBadge}`;
+    return `<span class="badge ok" style="background:#e0f2fe; color:#075985; border:1px solid #bae6fd">📄 ได้รับเอกสารแล้ว</span> ${dayBadge}`;
   }
-
   return dayBadge;
 }
 
@@ -205,11 +196,11 @@ function render(){
         <td>ทบ: ${r.registration_no||'-'}<br><small style="color:var(--accent)">ใบอนุญาต: ${r.license_no||'-'}</small></td>
         <td>${fmtDateBE(r.expiry_date)}</td>
         <td>
-  ${statusBadge(r)} ${chips}
-  <div class="note-section" style="white-space: pre-line; ${r.renewed_status?.includes('ดำเนินการแล้ว') ? 'color:#059669; font-weight:600;' : ''}">
-    ${r.renewed_note ? r.renewed_note.split('\n').map(line => `<div>• ${line.trim()}</div>`).join('') : '<span class="mut" style="font-size:11px;">ไม่มีหมายเหตุ</span>'}
-  </div>
-</td>
+          ${statusBadge(r)} ${chips}
+          <div class="note-section" style="white-space: pre-line; ${r.renewed_status?.includes('ดำเนินการแล้ว') ? 'color:#059669; font-weight:600;' : ''}">
+            ${r.renewed_note ? r.renewed_note.split('\n').map(line => `<div>• ${line.trim()}</div>`).join('') : '<span class="mut" style="font-size:11px;">ไม่มีหมายเหตุ</span>'}
+          </div>
+        </td>
       </tr>
     `;
   }).join('');
@@ -230,26 +221,27 @@ function applyFilter(){
   render();
 }
 
+// --- จุดที่แก้ไข: ปรับปรุงการโหลดข้อมูล ---
 async function loadData(){
   const code = ($('code').value || '').trim().toUpperCase();
   if(!code) return ($('err').textContent = 'กรุณากรอกรหัสลูกค้า');
   
   $('err').textContent = 'กำลังตรวจสอบรหัส...';
-  const { data: name, error: nameErr } = await sb.rpc('get_company_name_by_code', { p_plain_code: code });
   
-  if(!name || nameErr) {
-    $('err').textContent = 'ไม่พบรหัสลูกค้านี้ หรือรหัสไม่ถูกต้อง';
+  // เรียกข้อมูล Portal มาก่อน
+  const { data, error: dataErr } = await sb.rpc('get_company_portal', { p_plain_code: code });
+  
+  if(dataErr || !data || data.length === 0) {
+    $('err').textContent = 'ไม่พบรหัสลูกค้านี้ หรือยังไม่มีข้อมูลชื่อบริษัทในระบบ';
     $('dataCard').style.display = 'none';
     return;
   }
-  
-  $('companyName').textContent = name;
-  const { data, error: dataErr } = await sb.rpc('get_company_portal', { p_plain_code: code });
-  
-  if(dataErr) {
-    $('err').textContent = 'เกิดข้อผิดพลาดในการดึงข้อมูล';
-    return;
-  }
+
+  // ดึงชื่อบริษัทจาก column company_name (ที่เราแก้ SQL ให้เป็น name_text แล้ว)
+  const realName = data[0].company_name || "ไม่พบชื่อบริษัท";
+
+  $('companyName').textContent = realName;
+  $('headerName').textContent = realName; // แสดงชื่อตรงคำทักทายข้างบนด้วย
 
   FULL_ROWS = data || [];
   $('dataCard').style.display = 'block';
