@@ -228,16 +228,31 @@ function render(){
 async function loadData(){
   const params = new URLSearchParams(location.search);
   const code = (params.get('code')||'').trim().toUpperCase();
-  if(!code) return;
+  
+  if(!code) {
+    $('companyName').textContent = "กรุณาระบุรหัสลูกค้าใน URL";
+    return;
+  }
 
-  const { data: name } = await sb.rpc('get_company_name_by_code_v2', { p_plain_code: code });
-  $('companyName').textContent = name || `รหัสลูกค้า: ${code}`;
+  // 1. ดึงข้อมูลรายการทั้งหมดมาเก็บไว้ก่อน
+  const { data, error } = await sb.rpc('get_company_portal_v2', { p_plain_code: code });
+  
+  if (error || !data || data.length === 0) {
+    // กรณีโหลดไม่สำเร็จ หรือไม่พบข้อมูล
+    $('companyName').textContent = `รหัสลูกค้า: ${code}`;
+    FULL_ROWS = [];
+  } else {
+    // 2. ดึงชื่อบริษัทจากแถวแรกของข้อมูลที่ดึงมาได้ (คอลัมน์ company_name)
+    // ถ้าไม่มีให้แสดงรหัสลูกค้าแทน
+    const realName = data[0].company_name || `ข้อมูลบริษัท (${code})`;
+    $('companyName').textContent = realName;
+    
+    FULL_ROWS = data;
+  }
 
-  const { data } = await sb.rpc('get_company_portal_v2', { p_plain_code: code });
-  FULL_ROWS = data || [];
+  // 3. สั่ง Render หน้าจอ
   render();
 }
-
 document.querySelectorAll('.pill').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
