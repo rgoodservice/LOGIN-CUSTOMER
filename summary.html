@@ -226,33 +226,38 @@ function render(){
 }
 
 async function loadData(){
+  // 1. ดึงรหัสลูกค้าจาก URL (เช่น ?code=RG-1234)
   const params = new URLSearchParams(location.search);
-  const code = (params.get('code')||'').trim().toUpperCase();
+  const code = (params.get('code') || '').trim().toUpperCase();
   
   if(!code) {
-    $('companyName').textContent = "กรุณาระบุรหัสลูกค้าใน URL";
+    $('companyName').textContent = "ไม่พบรหัสลูกค้า (URL Parameter Missing)";
     return;
   }
 
-  // 1. ดึงข้อมูลรายการทั้งหมดมาเก็บไว้ก่อน
-  const { data, error } = await sb.rpc('get_company_portal_v2', { p_plain_code: code });
+  $('companyName').textContent = "กำลังโหลดข้อมูล...";
+
+  // 2. เรียกข้อมูลจาก RPC ตัวที่หน้าแรกใช้สำเร็จ
+  const { data, error: dataErr } = await sb.rpc('get_company_portal', { p_plain_code: code });
   
-  if (error || !data || data.length === 0) {
-    // กรณีโหลดไม่สำเร็จ หรือไม่พบข้อมูล
-    $('companyName').textContent = `รหัสลูกค้า: ${code}`;
-    FULL_ROWS = [];
-  } else {
-    // 2. ดึงชื่อบริษัทจากแถวแรกของข้อมูลที่ดึงมาได้ (คอลัมน์ company_name)
-    // ถ้าไม่มีให้แสดงรหัสลูกค้าแทน
-    const realName = data[0].company_name || `ข้อมูลบริษัท (${code})`;
-    $('companyName').textContent = realName;
-    
-    FULL_ROWS = data;
+  if(dataErr || !data || data.length === 0) {
+    $('companyName').textContent = "ไม่พบข้อมูลสำหรับรหัส: " + code;
+    console.error("Fetch Error:", dataErr);
+    return;
   }
+
+  // 3. ดึงชื่อบริษัทมาแสดง (อิงจากคอลัมน์เดียวกับหน้าแรก)
+  const realName = data[0].company_name || `ข้อมูลบริษัท (${code})`;
+  $('companyName').textContent = realName;
+
+  // 4. เก็บข้อมูลและประมวลผลหน้าจอ
+  FULL_ROWS = data;
+  render();
+}
 
   // 3. สั่ง Render หน้าจอ
   render();
-}
+
 document.querySelectorAll('.pill').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
