@@ -80,8 +80,8 @@
     <div class="stat-grid">
       <div class="stat-card"><span class="stat-label">✅ ใบอนุญาตผลิต</span><span id="count-ผลิต" class="stat-val">0</span></div>
       <div class="stat-card"><span class="stat-label">📘 ใบอนุญาตครอบครอง</span><span id="count-ครอบครอง" class="stat-val">0</span></div>
-      <div class="stat-card"><span class="stat-label">⚠️ ใบรับแจ้งผลิต</span><span id="count-ชนิด2" class="stat-val">0</span></div>
-      <div class="stat-card"><span class="stat-label">🟣 ใบรับแจ้งครอบครอง</span><span id="count-รวม" class="stat-val">0</span></div>
+      <div class="stat-card"><span class="stat-label">⚠️ ใบรับแจ้งผลิต ชนิดที่ 2</span><span id="count-ชนิด2" class="stat-val">0</span></div>
+      <div class="stat-card"><span class="stat-label">🟣 ใบรับแจ้งครอบครอง ชนิดที่2</span><span id="count-รวม" class="stat-val">0</span></div>
     </div>
 
     <div class="card">
@@ -100,8 +100,8 @@
         <div class="mut" style="font-weight:600">กรองข้อมูล:</div>
         <button class="btn-ghost filter-btn" data-filter="ผลิต">✅ ใบอนุญาตผลิต</button>
         <button class="btn-ghost filter-btn" data-filter="ครอบครอง">📘 ใบอนุญาตครอบครอง</button>
-        <button class="btn-ghost filter-btn" data-filter="ชนิด2">⚠️ ใบรับแจ้งผลิต</button>
-        <button class="btn-ghost filter-btn" data-filter="รวม">🟣 ใบรับแจ้งครอบครอง</button>
+        <button class="btn-ghost filter-btn" data-filter="ชนิด2">⚠️ ใบรับแจ้งผลิต ชนิดที่2</button>
+        <button class="btn-ghost filter-btn" data-filter="รวม">🟣 ใบรับแจ้งครอบครอง ชนิดที่2</button>
         <button class="btn-ghost filter-btn" data-filter="ปัญหา">🚧 ติดปัญหา</button>
       </div>
 
@@ -185,9 +185,9 @@ function render(){
   tb.innerHTML = FILTERED.map((r,i)=>{
     const cat = getCategory(r);
     let chips = '';
-    if(cat === 'รวม') chips = '<span class="flag-base flag-combined">ใบรับแจ้งครอบครอง</span>';
+    if(cat === 'รวม') chips = '<span class="flag-base flag-combined">ใบรับแจ้งครอบครอง ชนิดที่ 2</span>';
     else if(cat === 'ครอบครอง') chips = '<span class="flag-base flag-possession">📘 ใบอนุญาตครอบครอง</span>';
-    else if(cat === 'ชนิด2') chips = '<span class="flag-base flag-hazard">ใบรับแจ้งผลิต</span>';
+    else if(cat === 'ชนิด2') chips = '<span class="flag-base flag-hazard">ใบรับแจ้งผลิต ชนิดที่ 2</span>';
 
     return `
       <tr>
