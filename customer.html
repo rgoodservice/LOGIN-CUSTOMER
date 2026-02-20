@@ -6,7 +6,7 @@
 <title>Customer Portal (ข้อมูลลูกค้า)</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -94,6 +94,7 @@
         <input id="q" placeholder="ค้นหาชื่อสินค้า/เลขทะเบียน..." style="min-width:260px">
         <button class="btn" id="refreshBtn">รีเฟรช</button>
         <button class="btn-summary" id="toSummaryBtn">ดูสรุปสถานะทั้งหมด</button>
+      <button class="btn-ghost" id="exportBtn" style="border-color:#10b981; color:#059669;">📥 ดาวน์โหลด Excel</button>
       </div>
 
       <div class="row" style="margin-top:15px; gap:8px">
@@ -122,11 +123,11 @@
 </div>
 
 <script>
+
 const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-const $ = (id)=> document.getElementById(id);
+const $ = (id) => document.getElementById(id);
 let FULL_ROWS = [], FILTERED = [], CURRENT_FILTER = null;
 
 function fmtDateBE(d){
@@ -269,6 +270,33 @@ $('toSummaryBtn').addEventListener('click', () => {
 $('enterBtn').addEventListener('click', loadData);
 $('refreshBtn').addEventListener('click', loadData);
 $('q').addEventListener('input', applyFilter);
+$('exportBtn').addEventListener('click', () => {
+  if (FULL_ROWS.length === 0) return alert('ไม่มีข้อมูลให้ดาวน์โหลด');
+
+  // 1. เตรียมข้อมูลที่จะใส่ใน Excel (เลือกเฉพาะคอลัมน์ที่ต้องการ)
+  const excelData = FULL_ROWS.map((r, index) => ({
+    "ลำดับ": index + 1,
+    "ชื่อการค้า": r.brand_name,
+    "ชื่อสามัญ": r.common_label,
+    "เลขทะเบียน": r.registration_no || '-',
+    "เลขใบอนุญาต": r.license_no || '-',
+    "วันหมดอายุ": fmtDateBE(r.expiry_date),
+    "ประเภทใบอนุญาต": getCategory(r),
+    "สถานะ": r.renewed_status || 'ปกติ',
+    "หมายเหตุ": r.renewed_note || '-'
+  }));
+
+  // 2. สร้าง Workbook และ Worksheet
+  const worksheet = XLSX.utils.json_to_sheet(excelData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Customer_Data");
+
+  // 3. กำหนดชื่อไฟล์ (ใช้ชื่อบริษัท + วันที่)
+  const fileName = `ข้อมูลลูกค้า_${$('companyName').textContent}_${new Date().toLocaleDateString('th-TH')}.xlsx`;
+
+  // 4. สั่งดาวน์โหลด
+  XLSX.writeFile(workbook, fileName);
+});
 </script>
 </body>
 </html>
