@@ -123,19 +123,21 @@
 </div>
 
 <script>
-
 const SUPABASE_URL = "https://qmugpalgcktfwixqepti.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtdWdwYWxnY2t0ZndpeHFlcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4NzI3NjcsImV4cCI6MjA3NDQ0ODc2N30.cIOCbJAr8_Gbg8d5IxpTQZKVRgl1ETN1hyBgL2_LveA";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = (id) => document.getElementById(id);
+
 let FULL_ROWS = [], FILTERED = [], CURRENT_FILTER = null;
 
+// ฟังก์ชันจัดรูปแบบวันที่ พ.ศ.
 function fmtDateBE(d){
   if(!d) return '-';
   const t = new Date(d);
   return t.toLocaleDateString('th-TH-u-ca-buddhist', { year:'numeric', month:'long', day:'numeric' });
 }
 
+// แยกประเภทใบอนุญาต
 function getCategory(row){
   const text = (row.renewed_note || '').toLowerCase() + ' ' + (row.license_no || '').toLowerCase();
   const hasPossession = text.includes('ครอบครอง');
@@ -146,6 +148,7 @@ function getCategory(row){
   return 'ผลิต';
 }
 
+// อัปเดตตัวเลขสรุปด้านบน
 function updateCounters(){
   const counts = { ผลิต:0, ครอบครอง:0, ชนิด2:0, รวม:0 };
   FULL_ROWS.forEach(r => {
@@ -158,6 +161,7 @@ function updateCounters(){
   $('count-รวม').textContent = counts.รวม;
 }
 
+// จัดการ Badge สถานะ
 function statusBadge(row){
   const st = row.renewed_status || '';
   if(st.includes('ดำเนินการแล้ว')) return '<span class="badge ok">ดำเนินการแล้ว</span>'; 
@@ -165,9 +169,13 @@ function statusBadge(row){
   let dayBadge = '';
   if(row.expiry_date) {
     const diff = Math.ceil((new Date(row.expiry_date) - new Date())/86400000);
-    if(diff < 0) dayBadge = '<span class="badge exp">หมดอายุ</span>';
-    else if(diff <= 90) dayBadge = `<span class="badge warn">เหลือ ${diff} วัน</span>`;
-    else dayBadge = '<span class="badge ok">ปกติ</span>';
+    if(diff < 0) {
+      dayBadge = `<span class="badge exp">หมดอายุ (${Math.abs(diff)} วัน)</span>`;
+    } else if(diff <= 90) {
+      dayBadge = `<span class="badge warn">ใกล้หมดอายุ (เหลือ ${diff} วัน)</span>`;
+    } else {
+      dayBadge = '<span class="badge ok">ปกติ</span>'; 
+    }
   } else {
     dayBadge = '<span class="badge ok">ปกติ</span>';
   }
@@ -181,6 +189,7 @@ function statusBadge(row){
   return dayBadge;
 }
 
+// วาดตาราง
 function render(){
   const tb = $('tbody');
   tb.innerHTML = FILTERED.map((r,i)=>{
@@ -207,9 +216,11 @@ function render(){
   }).join('');
 }
 
+// ค้นหา กรอง และเรียงลำดับ
 function applyFilter(){
   const search = ($('q').value || '').toLowerCase();
-  FILTERED = FULL_ROWS.filter(r => {
+  
+  let result = FULL_ROWS.filter(r => {
     const cat = getCategory(r);
     const text = (r.brand_name + r.common_label + r.registration_no + r.license_no + (r.renewed_note||'')).toLowerCase();
     let passFilter = true;
@@ -219,37 +230,57 @@ function applyFilter(){
     }
     return passFilter && text.includes(search);
   });
+
+  // การเรียงลำดับ (เหมือนหน้าเว็บ)
+  result.sort((a, b) => {
+    const getPriority = (row) => {
+      const st = row.renewed_status || '';
+      const diff = row.expiry_date ? Math.ceil((new Date(row.expiry_date) - new Date())/86400000) : 999;
+      if (diff < 0) return 1; // หมดอายุ
+      if (diff <= 90) return 2; // ใกล้หมดอายุ
+      if (st === 'รอการตอบกลับจากลูกค้า' || (row.renewed_note && row.renewed_note.includes('ปัญหา'))) return 3; 
+      if (st.includes('ดำเนินการแล้ว')) return 5; // ท้ายสุด
+      return 4; // ปกติ
+    };
+    return getPriority(a) - getPriority(b);
+  });
+
+  FILTERED = result;
   render();
 }
 
-// --- จุดที่แก้ไข: ปรับปรุงการโหลดข้อมูล ---
+// โหลดข้อมูล
 async function loadData(){
   const code = ($('code').value || '').trim().toUpperCase();
   if(!code) return ($('err').textContent = 'กรุณากรอกรหัสลูกค้า');
-  
-  $('err').textContent = 'กำลังตรวจสอบรหัส...';
-  
-  // เรียกข้อมูล Portal มาก่อน
-  const { data, error: dataErr } = await sb.rpc('get_company_portal', { p_plain_code: code });
-  
-  if(dataErr || !data || data.length === 0) {
-    $('err').textContent = 'ไม่พบรหัสลูกค้านี้ หรือยังไม่มีข้อมูลชื่อบริษัทในระบบ';
-    $('dataCard').style.display = 'none';
-    return;
+  $('err').textContent = 'กำลังตรวจสอบรหัส... ⏳';
+  try {
+    const { data, error: dataErr } = await sb.rpc('get_company_portal', { p_plain_code: code });
+    if(dataErr) throw dataErr;
+    if(!data || data.length === 0) {
+      $('err').textContent = '❌ ไม่พบรหัสลูกค้านี้';
+      $('dataCard').style.display = 'none';
+      return;
+    }
+    const realName = data[0].company_name || "ไม่พบชื่อบริษัท";
+    $('companyName').textContent = realName;
+    $('headerName').textContent = realName;
+    FULL_ROWS = data;
+    $('dataCard').style.display = 'block';
+    $('err').textContent = '';
+    updateCounters();
+    applyFilter();
+  } catch (err) {
+    console.error(err);
+    $('err').textContent = 'เกิดข้อผิดพลาดในการดึงข้อมูล';
   }
-
-  // ดึงชื่อบริษัทจาก column company_name (ที่เราแก้ SQL ให้เป็น name_text แล้ว)
-  const realName = data[0].company_name || "ไม่พบชื่อบริษัท";
-
-  $('companyName').textContent = realName;
-  $('headerName').textContent = realName; // แสดงชื่อตรงคำทักทายข้างบนด้วย
-
-  FULL_ROWS = data || [];
-  $('dataCard').style.display = 'block';
-  $('err').textContent = '';
-  updateCounters();
-  applyFilter();
 }
+
+// --- ผูกปุ่มเข้ากับฟังก์ชัน (Event Listeners) ---
+$('enterBtn').addEventListener('click', loadData);
+$('refreshBtn').addEventListener('click', loadData);
+$('q').addEventListener('input', applyFilter);
+$('code').addEventListener('keypress', (e) => { if (e.key === 'Enter') loadData(); });
 
 document.querySelectorAll('.filter-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
@@ -267,34 +298,40 @@ $('toSummaryBtn').addEventListener('click', () => {
   location.href = `summary.html?code=${encodeURIComponent(code)}`;
 });
 
-$('enterBtn').addEventListener('click', loadData);
-$('refreshBtn').addEventListener('click', loadData);
-$('q').addEventListener('input', applyFilter);
+// ฟังก์ชัน Export Excel (ที่ปรับปรุงแล้ว)
 $('exportBtn').addEventListener('click', () => {
-  if (FULL_ROWS.length === 0) return alert('ไม่มีข้อมูลให้ดาวน์โหลด');
+  if (FILTERED.length === 0) return alert('ไม่มีข้อมูลให้ดาวน์โหลด');
+  const excelData = FILTERED.map((r, index) => {
+    let dayStatusText = 'ปกติ';
+    if (r.expiry_date) {
+      const diff = Math.ceil((new Date(r.expiry_date) - new Date()) / 86400000);
+      if (diff < 0) dayStatusText = `หมดอายุแล้ว (${Math.abs(diff)} วัน)`;
+      else if (diff <= 90) dayStatusText = `ใกล้หมดอายุ (เหลือ ${diff} วัน)`;
+      else dayStatusText = `ปกติ`;
+    }
+    let finalStatus = (r.renewed_status && r.renewed_status.includes('ดำเนินการแล้ว')) 
+      ? "ดำเนินการแล้ว" 
+      : (r.renewed_status && r.renewed_status !== 'ปกติ') 
+        ? `${r.renewed_status} / ${dayStatusText}` 
+        : dayStatusText;
 
-  // 1. เตรียมข้อมูลที่จะใส่ใน Excel (เลือกเฉพาะคอลัมน์ที่ต้องการ)
-  const excelData = FULL_ROWS.map((r, index) => ({
-    "ลำดับ": index + 1,
-    "ชื่อการค้า": r.brand_name,
-    "ชื่อสามัญ": r.common_label,
-    "เลขทะเบียน": r.registration_no || '-',
-    "เลขใบอนุญาต": r.license_no || '-',
-    "วันหมดอายุ": fmtDateBE(r.expiry_date),
-    "ประเภทใบอนุญาต": getCategory(r),
-    "สถานะ": r.renewed_status || 'ปกติ',
-    "หมายเหตุ": r.renewed_note || '-'
-  }));
-
-  // 2. สร้าง Workbook และ Worksheet
+    return {
+      "ลำดับ": index + 1,
+      "ชื่อการค้า": r.brand_name,
+      "ชื่อสามัญ": r.common_label,
+      "เลขทะเบียน": r.registration_no || '-',
+      "เลขใบอนุญาต": r.license_no || '-',
+      "วันหมดอายุ": fmtDateBE(r.expiry_date),
+      "ประเภทใบอนุญาต": getCategory(r),
+      "สถานะปัจจุบัน": finalStatus,
+      "หมายเหตุ": r.renewed_note || '-'
+    };
+  });
   const worksheet = XLSX.utils.json_to_sheet(excelData);
+  worksheet['!cols'] = [{wch: 5}, {wch: 25}, {wch: 25}, {wch: 18}, {wch: 18}, {wch: 20}, {wch: 20}, {wch: 35}, {wch: 30}];
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Customer_Data");
-
-  // 3. กำหนดชื่อไฟล์ (ใช้ชื่อบริษัท + วันที่)
-  const fileName = `ข้อมูลลูกค้า_${$('companyName').textContent}_${new Date().toLocaleDateString('th-TH')}.xlsx`;
-
-  // 4. สั่งดาวน์โหลด
+  const fileName = `ข้อมูลลูกค้า_${$('companyName').textContent}_${new Date().toLocaleDateString('th-TH').replace(/\//g, '-')}.xlsx`;
   XLSX.writeFile(workbook, fileName);
 });
 </script>
