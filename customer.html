@@ -94,7 +94,7 @@
         <input id="q" placeholder="ค้นหาชื่อสินค้า/เลขทะเบียน..." style="min-width:260px">
         <button class="btn" id="refreshBtn">รีเฟรช</button>
         <button class="btn-summary" id="toSummaryBtn">ดูสรุปสถานะทั้งหมด</button>
-      <button class="btn-ghost" id="exportBtn" style="border-color:#10b981; color:#059669;">📥 ดาวน์โหลด Excel</button>
+        <button class="btn-ghost" id="exportBtn" style="border-color:#10b981; color:#059669;">📥 ดาวน์โหลด Excel</button>
       </div>
 
       <div class="row" style="margin-top:15px; gap:8px">
@@ -106,18 +106,20 @@
         <button class="btn-ghost filter-btn" data-filter="ปัญหา">🚧 ติดปัญหา</button>
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>ลำดับ</th>
-            <th>ชื่อการค้า / ชื่อสามัญ</th>
-            <th>ทะเบียน / ใบอนุญาต</th>
-            <th>วันหมดอายุ</th>
-            <th>สถานะและหมายเหตุ</th>
-          </tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-      </table>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>ลำดับ</th>
+              <th>ชื่อการค้า / ชื่อสามัญ</th>
+              <th>ทะเบียน / ใบอนุญาต</th>
+              <th>วันหมดอายุ</th>
+              <th>สถานะและหมายเหตุ</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -130,14 +132,12 @@ const $ = (id) => document.getElementById(id);
 
 let FULL_ROWS = [], FILTERED = [], CURRENT_FILTER = null;
 
-// ฟังก์ชันจัดรูปแบบวันที่ พ.ศ.
 function fmtDateBE(d){
   if(!d) return '-';
   const t = new Date(d);
   return t.toLocaleDateString('th-TH-u-ca-buddhist', { year:'numeric', month:'long', day:'numeric' });
 }
 
-// แยกประเภทใบอนุญาต
 function getCategory(row){
   const text = (row.renewed_note || '').toLowerCase() + ' ' + (row.license_no || '').toLowerCase();
   const hasPossession = text.includes('ครอบครอง');
@@ -148,7 +148,6 @@ function getCategory(row){
   return 'ผลิต';
 }
 
-// อัปเดตตัวเลขสรุปด้านบน
 function updateCounters(){
   const counts = { ผลิต:0, ครอบครอง:0, ชนิด2:0, รวม:0 };
   FULL_ROWS.forEach(r => {
@@ -161,7 +160,6 @@ function updateCounters(){
   $('count-รวม').textContent = counts.รวม;
 }
 
-// จัดการ Badge สถานะ
 function statusBadge(row){
   const st = row.renewed_status || '';
   if(st.includes('ดำเนินการแล้ว')) return '<span class="badge ok">ดำเนินการแล้ว</span>'; 
@@ -169,27 +167,18 @@ function statusBadge(row){
   let dayBadge = '';
   if(row.expiry_date) {
     const diff = Math.ceil((new Date(row.expiry_date) - new Date())/86400000);
-    if(diff < 0) {
-      dayBadge = `<span class="badge exp">หมดอายุ (${Math.abs(diff)} วัน)</span>`;
-    } else if(diff <= 90) {
-      dayBadge = `<span class="badge warn">ใกล้หมดอายุ (เหลือ ${diff} วัน)</span>`;
-    } else {
-      dayBadge = '<span class="badge ok">ปกติ</span>'; 
-    }
+    if(diff < 0) dayBadge = `<span class="badge exp">หมดอายุ (${Math.abs(diff)} วัน)</span>`;
+    else if(diff <= 90) dayBadge = `<span class="badge warn">ใกล้หมดอายุ (เหลือ ${diff} วัน)</span>`;
+    else dayBadge = '<span class="badge ok">ปกติ</span>'; 
   } else {
     dayBadge = '<span class="badge ok">ปกติ</span>';
   }
 
-  if(st === 'รอการตอบกลับจากลูกค้า'){
-    return `<span class="badge warn" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d">📢 รอการตอบกลับ</span> ${dayBadge}`;
-  }
-  if(st === 'ได้รับเอกสารแล้ว รอการต่ออายุ'){
-    return `<span class="badge ok" style="background:#e0f2fe; color:#075985; border:1px solid #bae6fd">📄 ได้รับเอกสารแล้ว</span> ${dayBadge}`;
-  }
+  if(st === 'รอการตอบกลับจากลูกค้า') return `<span class="badge warn" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d">📢 รอการตอบกลับ</span> ${dayBadge}`;
+  if(st === 'ได้รับเอกสารแล้ว รอการต่ออายุ') return `<span class="badge ok" style="background:#e0f2fe; color:#075985; border:1px solid #bae6fd">📄 ได้รับเอกสารแล้ว</span> ${dayBadge}`;
   return dayBadge;
 }
 
-// วาดตาราง
 function render(){
   const tb = $('tbody');
   tb.innerHTML = FILTERED.map((r,i)=>{
@@ -199,8 +188,10 @@ function render(){
     else if(cat === 'ครอบครอง') chips = '<span class="flag-base flag-possession">📘 ใบอนุญาตครอบครอง</span>';
     else if(cat === 'ชนิด2') chips = '<span class="flag-base flag-hazard">ใบรับแจ้งผลิต ชนิดที่ 2</span>';
 
+    const rowColor = r.renewed_note?.includes('ปัญหา') ? 'style="background-color:#fff1f2"' : '';
+
     return `
-      <tr>
+      <tr ${rowColor}>
         <td>${i+1}</td>
         <td><b>${r.brand_name}</b><br><small class="mut">${r.common_label}</small></td>
         <td>ทบ: ${r.registration_no||'-'}<br><small style="color:var(--accent)">ใบอนุญาต: ${r.license_no||'-'}</small></td>
@@ -216,10 +207,8 @@ function render(){
   }).join('');
 }
 
-// ค้นหา กรอง และเรียงลำดับ
 function applyFilter(){
   const search = ($('q').value || '').toLowerCase();
-  
   let result = FULL_ROWS.filter(r => {
     const cat = getCategory(r);
     const text = (r.brand_name + r.common_label + r.registration_no + r.license_no + (r.renewed_note||'')).toLowerCase();
@@ -231,25 +220,31 @@ function applyFilter(){
     return passFilter && text.includes(search);
   });
 
-  // การเรียงลำดับ (เหมือนหน้าเว็บ)
+  // การเรียงลำดับใหม่: รอการตอบกลับขึ้นก่อน
   result.sort((a, b) => {
     const getPriority = (row) => {
       const st = row.renewed_status || '';
+      const note = row.renewed_note || '';
       const diff = row.expiry_date ? Math.ceil((new Date(row.expiry_date) - new Date())/86400000) : 999;
-      if (diff < 0) return 1; // หมดอายุ
-      if (diff <= 90) return 2; // ใกล้หมดอายุ
-      if (st === 'รอการตอบกลับจากลูกค้า' || (row.renewed_note && row.renewed_note.includes('ปัญหา'))) return 3; 
-      if (st.includes('ดำเนินการแล้ว')) return 5; // ท้ายสุด
-      return 4; // ปกติ
+
+      if (st === 'รอการตอบกลับจากลูกค้า') return 1;
+      if (diff < 0) return 2;
+      if (diff <= 90 || note.includes('ปัญหา')) return 3;
+      if (st.includes('ดำเนินการแล้ว')) return 5;
+      return 4;
     };
-    return getPriority(a) - getPriority(b);
+    const priA = getPriority(a);
+    const priB = getPriority(b);
+    if (priA !== priB) return priA - priB;
+    const dateA = a.expiry_date ? new Date(a.expiry_date).getTime() : Infinity;
+    const dateB = b.expiry_date ? new Date(b.expiry_date).getTime() : Infinity;
+    return dateA - dateB;
   });
 
   FILTERED = result;
   render();
 }
 
-// โหลดข้อมูล
 async function loadData(){
   const code = ($('code').value || '').trim().toUpperCase();
   if(!code) return ($('err').textContent = 'กรุณากรอกรหัสลูกค้า');
@@ -276,7 +271,6 @@ async function loadData(){
   }
 }
 
-// --- ผูกปุ่มเข้ากับฟังก์ชัน (Event Listeners) ---
 $('enterBtn').addEventListener('click', loadData);
 $('refreshBtn').addEventListener('click', loadData);
 $('q').addEventListener('input', applyFilter);
@@ -286,8 +280,14 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
     const f = e.target.dataset.filter;
     CURRENT_FILTER = (CURRENT_FILTER === f) ? null : f;
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.replace('btn', 'btn-ghost'));
-    if(CURRENT_FILTER) e.target.classList.replace('btn-ghost', 'btn');
+    document.querySelectorAll('.filter-btn').forEach(b => {
+      b.classList.remove('btn');
+      b.classList.add('btn-ghost');
+    });
+    if(CURRENT_FILTER) {
+      e.target.classList.remove('btn-ghost');
+      e.target.classList.add('btn');
+    }
     applyFilter();
   });
 });
@@ -298,7 +298,6 @@ $('toSummaryBtn').addEventListener('click', () => {
   location.href = `summary.html?code=${encodeURIComponent(code)}`;
 });
 
-// ฟังก์ชัน Export Excel (ที่ปรับปรุงแล้ว)
 $('exportBtn').addEventListener('click', () => {
   if (FILTERED.length === 0) return alert('ไม่มีข้อมูลให้ดาวน์โหลด');
   const excelData = FILTERED.map((r, index) => {
@@ -309,12 +308,7 @@ $('exportBtn').addEventListener('click', () => {
       else if (diff <= 90) dayStatusText = `ใกล้หมดอายุ (เหลือ ${diff} วัน)`;
       else dayStatusText = `ปกติ`;
     }
-    let finalStatus = (r.renewed_status && r.renewed_status.includes('ดำเนินการแล้ว')) 
-      ? "ดำเนินการแล้ว" 
-      : (r.renewed_status && r.renewed_status !== 'ปกติ') 
-        ? `${r.renewed_status} / ${dayStatusText}` 
-        : dayStatusText;
-
+    let finalStatus = (r.renewed_status && r.renewed_status.includes('ดำเนินการแล้ว')) ? "ดำเนินการแล้ว" : (r.renewed_status || dayStatusText);
     return {
       "ลำดับ": index + 1,
       "ชื่อการค้า": r.brand_name,
@@ -328,11 +322,9 @@ $('exportBtn').addEventListener('click', () => {
     };
   });
   const worksheet = XLSX.utils.json_to_sheet(excelData);
-  worksheet['!cols'] = [{wch: 5}, {wch: 25}, {wch: 25}, {wch: 18}, {wch: 18}, {wch: 20}, {wch: 20}, {wch: 35}, {wch: 30}];
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Customer_Data");
-  const fileName = `ข้อมูลลูกค้า_${$('companyName').textContent}_${new Date().toLocaleDateString('th-TH').replace(/\//g, '-')}.xlsx`;
-  XLSX.writeFile(workbook, fileName);
+  XLSX.writeFile(workbook, `ข้อมูลลูกค้า_${$('companyName').textContent}.xlsx`);
 });
 </script>
 </body>
