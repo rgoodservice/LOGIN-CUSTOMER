@@ -93,8 +93,8 @@
         </label>
       </div>
       <div class="note" style="margin-top:8px">
-        หัวคอลัมน์สำหรับนำเข้า: “ชื่อการค้า / brand_name”, “ชื่อสามัญ/สูตร / common_label”, “ทะเบียน / registration_no”, 
-        “ใบอนุญาต / license_no”, “หมดอายุเดิม / expiry_date”, “ต่อถึง / renewed_until (ไม่บังคับ)”, “ต่อแล้ววันที่ / renewed_on (ไม่บังคับ)”.<br/>
+        หัวคอลัมน์สำหรับนำเข้า: "ชื่อการค้า / brand_name", "ชื่อสามัญ/สูตร / common_label", "ทะเบียน / registration_no", 
+        "ใบอนุญาต / license_no", "หมดอายุเดิม / expiry_date", "ต่อถึง / renewed_until (ไม่บังคับ)", "ต่อแล้ววันที่ / renewed_on (ไม่บังคับ)".<br/>
         ป้อนเป็น YYYY-MM-DD, วันที่แบบ Excel, หรือ พ.ศ./ค.ศ. ได้ (ระบบจะแปลงอัตโนมัติ)
       </div>
     </div>
@@ -196,7 +196,7 @@ function fmtDateBE(d){
 }
 function toISO(d){ if(!d) return ''; const t=new Date(d); return isNaN(t)?'':t.toISOString().slice(0,10); }
 function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
-function escapeRegExp(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&'); }
+function escapeRegExp(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function tokenize(q){ return (q||'').trim().toLowerCase().split(/\s+/).filter(Boolean); }
 function highlightTokens(text, tokens){
   const s = String(text ?? '');
@@ -210,58 +210,62 @@ function highlightTokens(text, tokens){
   return out + escapeHtml(s.slice(last));
 }
 
-/* ===== สถานะ (done ถ้า renewed_status=ดำเนินการแล้ว หรือมี renewed_until) ===== */
+/* ===== สถานะ ===== */
 function classify(expiry, renewed_until, renewedStatus){
-  // 1. ถ้าดำเนินการเสร็จแล้ว -> แสดงป้ายเดียว และหยุดนับวัน
+  // 1. ดำเนินการแล้ว
   if(renewedStatus === 'ดำเนินการแล้ว' || renewed_until){
     return {
-      cls:'', 
-      badge:`<span class="badge ok">ดำเนินการแล้ว</span>`, 
-      order:4, 
+      cls:'',
+      badge:`<span class="badge ok">ดำเนินการแล้ว</span>`,
+      order:4,
       statusText:'ดำเนินการแล้ว'
     };
   }
-  
-  // เตรียมส่วนของการนับวันหมดอายุ (ป้ายแจ้งเตือนเรื่องวัน)
-  let dayBadge = '';
-  let rowClass = '';
+
+  // คำนวณวันหมดอายุ
+  let dayBadge = '', rowClass = '', statusText = 'ปกติ';
   const eff = expiry ? new Date(expiry) : null;
-  
-  if (eff && !isNaN(eff)) {
-    const diff = Math.ceil((eff - new Date())/86400000);
-    if(diff < 0) {
-      dayBadge = `<span class="badge expired">หมดอายุ</span>`;
-      rowClass = 'expired';
-    } else if(diff <= WARNING_DAYS) {
-      dayBadge = `<span class="badge warning">เหลือ ${diff} วัน</span>`;
-      rowClass = 'warning';
+
+  if(eff && !isNaN(eff)){
+    const diff = Math.ceil((eff - new Date()) / 86400000);
+    if(diff < 0){
+      dayBadge   = `<span class="badge expired">หมดอายุ</span>`;
+      rowClass   = 'expired';
+      statusText = 'หมดอายุ';
+    } else if(diff <= WARNING_DAYS){
+      dayBadge   = `<span class="badge warning">เหลือ ${diff} วัน</span>`;
+      rowClass   = 'warning';
+      statusText = `เหลือ ${diff} วัน`;
     } else {
-      dayBadge = `<span class="badge ok">ปกติ</span>`;
+      dayBadge   = `<span class="badge ok">ปกติ</span>`;
+      statusText = 'ปกติ';
     }
   } else {
-    dayBadge = `<span class="badge ok">ปกติ</span>`;
+    dayBadge   = `<span class="badge ok">ปกติ</span>`;
+    statusText = 'ปกติ';
   }
 
-  // 2. ถ้าเป็นสถานะ "รอการตอบกลับ" -> แสดงป้ายสีส้ม คู่กับป้ายนับวัน
+  // 2. รอการตอบกลับ
   if(renewedStatus === 'รอการตอบกลับจากลูกค้า'){
     const sBadge = `<span class="badge warning" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d">📢 รอการตอบกลับ</span>`;
-    return {cls: rowClass, badge: `${sBadge} ${dayBadge}`, order:2, statusText:renewedStatus};
-  }
-  
-  // 3. ถ้าเป็นสถานะ "ได้รับเอกสารแล้ว" -> แสดงป้ายสีฟ้า คู่กับป้ายนับวัน
-  if(renewedStatus === 'ได้รับเอกสารแล้ว รอการต่ออายุ'){
-    const sBadge = `<span class="badge ok" style="background:#e0f2fe; color:#075985; border:1px solid #bae6fd">📄 ได้รับเอกสารแล้ว</span>`;
-    return {cls: rowClass, badge: `${sBadge} ${dayBadge}`, order:2, statusText:renewedStatus};
+    return { cls: rowClass, badge: `${sBadge} ${dayBadge}`, order:2, statusText:`รอการตอบกลับ | ${statusText}` };
   }
 
-  // 4. กรณีสถานะอื่นๆ (เช่น อยู่ระหว่างดำเนินการ หรือยังไม่ได้ระบุ) -> แสดงป้ายนับวันตามปกติ
+  // 3. ได้รับเอกสารแล้ว
+  if(renewedStatus === 'ได้รับเอกสารแล้ว รอการต่ออายุ'){
+    const sBadge = `<span class="badge ok" style="background:#e0f2fe; color:#075985; border:1px solid #bae6fd">📄 ได้รับเอกสารแล้ว</span>`;
+    return { cls: rowClass, badge: `${sBadge} ${dayBadge}`, order:2, statusText:`ได้รับเอกสารแล้ว | ${statusText}` };
+  }
+
+  // 4. กรณีอื่นๆ
   return {
-    cls: rowClass, 
-    badge: dayBadge, 
-    order: (rowClass === 'expired' ? 1 : 3), 
-    statusText: 'ปกติ'
+    cls: rowClass,
+    badge: dayBadge,
+    order: (rowClass === 'expired' ? 1 : 3),
+    statusText
   };
 }
+
 function toast(msg, ok=true){ $('msg').textContent = msg; $('msg').style.color = ok ? '#065f46' : '#b91c1c'; setTimeout(()=>{$('msg').textContent='';}, 4000); }
 
 /* ===== Auth ===== */
@@ -280,7 +284,7 @@ async function loadCompanies(){
 function renderTable(q=''){
   const tb = $('tbody');
   if(!filteredRows.length){
-    tb.innerHTML = `<tr><td colspan="11" style="color:var(--muted)">ไม่พบรายการที่ตรงกับ “${escapeHtml(q)}”</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="11" style="color:var(--muted)">ไม่พบรายการที่ตรงกับ "${escapeHtml(q)}"</td></tr>`;
     $('adminCount').textContent = '';
     $('chkAllPage').checked = false;
     $('chkAllVisible').checked = false;
@@ -298,45 +302,42 @@ function renderTable(q=''){
       <td class="editable" data-id="${r.id}" data-field="common_label" style="min-width:240px">${highlightTokens(r.common_label||'', tokens)}</td>
       <td class="editable" data-id="${r.id}" data-field="registration_no">${highlightTokens(r.registration_no||'', tokens)}</td>
       <td class="editable" data-id="${r.id}" data-field="license_no">${highlightTokens(r.license_no||'', tokens)}</td>
-      
+
       <td class="editable" data-id="${r.id}" data-field="expiry_date" data-raw="${r.expiry_date ? toISO(r.expiry_date) : ''}">
         ${r.expiry_date ? fmtDateBE(r.expiry_date) : ''}
       </td>
 
-      <!-- ต่อแล้ววันที่ (พ.ศ.) จาก renewed_on ถ้ามี -->
       <td>${r.renewed_on ? fmtDateBE(r.renewed_on) : (r.renewed_status || (r.renewed_until ? 'ดำเนินการแล้ว' : ''))}</td>
       <td class="editable" data-id="${r.id}" data-field="renewed_note" style="color:var(--muted); font-size:13px; max-width:180px;">
-  ${highlightTokens(r.renewed_note || '-', tokens)}
-</td>
+        ${highlightTokens(r.renewed_note || '-', tokens)}
+      </td>
       <td>${r.badge}</td>
 
-  
+      <td style="white-space:nowrap; display:flex; gap:6px; flex-wrap:wrap">
+        <button class="btn btn-secondary btn-small" onclick="setStatus('${r.id}','อยู่ระหว่างดำเนินการ')">อยู่ระหว่างดำเนินการ</button>
+        <button class="btn btn-primary   btn-small" onclick="setStatus('${r.id}','ดำเนินการแล้ว')">ดำเนินการแล้ว</button>
+        <button class="btn btn-outline  btn-small" onclick="setStatus('${r.id}','ไม่ต่ออายุแล้ว')">ไม่ต่ออายุแล้ว</button>
 
-<td style="white-space:nowrap; display:flex; gap:6px; flex-wrap:wrap">
-  <button class="btn btn-secondary btn-small" onclick="setStatus('${r.id}','อยู่ระหว่างดำเนินการ')">อยู่ระหว่างดำเนินการ</button>
-  <button class="btn btn-primary   btn-small" onclick="setStatus('${r.id}','ดำเนินการแล้ว')">ดำเนินการแล้ว</button>
-  <button class="btn btn-outline  btn-small" onclick="setStatus('${r.id}','ไม่ต่ออายุแล้ว')">ไม่ต่ออายุแล้ว</button>
+        <div style="width:100%; height:1px; border-bottom:1px dashed #ddd; margin:2px 0"></div>
 
-  <div style="width:100%; height:1px; border-bottom:1px dashed #ddd; margin:2px 0"></div>
+        <button class="btn btn-small" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d;"
+          onclick="setStatus('${r.id}','รอการตอบกลับจากลูกค้า')">📢 รอการตอบกลับ</button>
 
-  <button class="btn btn-small" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d;" 
-    onclick="setStatus('${r.id}','รอการตอบกลับจากลูกค้า')">📢 รอการตอบกลับ</button>
-  
-  <button class="btn btn-small" style="background:#e0f2fe; color:#075985; border:1px solid #bae6fd;" 
-    onclick="setStatus('${r.id}','ได้รับเอกสารแล้ว รอการต่ออายุ')">📄 ได้รับเอกสารแล้ว</button>
+        <button class="btn btn-small" style="background:#e0f2fe; color:#075985; border:1px solid #bae6fd;"
+          onclick="setStatus('${r.id}','ได้รับเอกสารแล้ว รอการต่ออายุ')">📄 ได้รับเอกสารแล้ว</button>
 
-  <button class="btn btn-small" style="background:#f5f3ff; color:#5b21b6; border:1px solid #ddd6fe;" 
-    onclick="addSpecificNote('${r.id}', 'กำลังตรวจสอบจากเจ้าหน้าที่')">🔍 กำลังตรวจสอบ</button>
-  
-  <button class="btn btn-small" style="background:#fdf2f8; color:#9d174d; border:1px solid #fbcfe8;" 
-    onclick="addSpecificNote('${r.id}', 'รอลงนามจากเจ้าหน้าที่')">✍️ รอลงนาม</button>
+        <button class="btn btn-small" style="background:#f5f3ff; color:#5b21b6; border:1px solid #ddd6fe;"
+          onclick="addSpecificNote('${r.id}', 'กำลังตรวจสอบจากเจ้าหน้าที่')">🔍 กำลังตรวจสอบ</button>
 
-  <div style="width:100%; height:1px; border-bottom:1px dashed #ddd; margin:2px 0"></div>
+        <button class="btn btn-small" style="background:#fdf2f8; color:#9d174d; border:1px solid #fbcfe8;"
+          onclick="addSpecificNote('${r.id}', 'รอลงนามจากเจ้าหน้าที่')">✍️ รอลงนาม</button>
 
-  <button class="btn btn-outline  btn-small" onclick='editNote("${r.id}", ${JSON.stringify(r.renewed_note||"")})'>📝 หมายเหตุ</button>
-  <button class="btn btn-outline  btn-small" onclick="clearRenewal('${r.id}')">ล้าง</button>
-  <button class="btn btn-danger   btn-small" onclick="delDoc('${r.id}')">ลบ</button>
-</td>
+        <div style="width:100%; height:1px; border-bottom:1px dashed #ddd; margin:2px 0"></div>
+
+        <button class="btn btn-outline  btn-small" onclick='editNote("${r.id}", ${JSON.stringify(r.renewed_note||"")})'>📝 หมายเหตุ</button>
+        <button class="btn btn-outline  btn-small" onclick="clearRenewal('${r.id}')">ล้าง</button>
+        <button class="btn btn-danger   btn-small" onclick="delDoc('${r.id}')">ลบ</button>
+      </td>
     </tr>
   `).join('');
 
@@ -428,82 +429,56 @@ $('addForm').addEventListener('submit', async (e)=>{
 async function setStatus(id, statusText){
   const allowed = [
     'อยู่ระหว่างดำเนินการ',
-    'รอการตอบกลับจากลูกค้า', 
+    'รอการตอบกลับจากลูกค้า',
     'ได้รับเอกสารแล้ว รอการต่ออายุ',
-    'ดำเนินการแล้ว', 
+    'ดำเนินการแล้ว',
     'ไม่ต่ออายุแล้ว'
   ];
-  
+
   if(!allowed.includes(statusText)) return alert('สถานะไม่ถูกต้อง');
 
   const { error } = await sb
     .from('product_registrations')
-    .update({
-      renewed_status: statusText,
-      renewed_on: new Date().toISOString()
-    })
+    .update({ renewed_status: statusText, renewed_on: new Date().toISOString() })
     .eq('id', id);
 
-  if(error) {
-    alert(error.message);
-  } else {
+  if(error){ alert(error.message); } else {
     toast(`อัปเดตเป็น "${statusText}" แล้ว ✓`);
-    // สำคัญ: ต้องเรียก loadDocs เพื่อให้ classify ทำงานใหม่และ Badge เปลี่ยนสี
-    loadDocs(currentCompany); 
+    loadDocs(currentCompany);
   }
 }
-/* ===== แก้หมายเหตุเฉพาะ (ไม่แตะสถานะ) ===== */
+
 async function editNote(id, currentNote=''){
   const note = prompt('แก้ไขหมายเหตุ (จะบันทึกทันที):', String(currentNote||''));
-  if(note === null) return; // ยกเลิก
-  const { error } = await sb
-    .from('product_registrations')
-    .update({ renewed_note: note })
-    .eq('id', id);
+  if(note === null) return;
+  const { error } = await sb.from('product_registrations').update({ renewed_note: note }).eq('id', id);
   if(error) return alert(error.message);
   toast('บันทึกหมายเหตุแล้ว ✓');
   loadDocs(currentCompany);
 }
 
-/* ===== ล้างต่ออายุ (เก็บหมายเหตุ) — per row ===== */
 async function clearRenewal(id){
-  if(!confirm('ล้างข้อมูลการต่ออายุของรายการนี้? (จะคง “หมายเหตุ” ไว้)')) return;
-
+  if(!confirm('ล้างข้อมูลการต่ออายุของรายการนี้? (จะคง "หมายเหตุ" ไว้)')) return;
   const {error} = await sb.from('product_registrations')
-    .update({ 
-      renewed_status: null,
-      // เก็บ renewed_note ไว้ตามต้องการ
-      renewed_until: null, 
-      renewed_on: null 
-    })
+    .update({ renewed_status: null, renewed_until: null, renewed_on: null })
     .eq('id', id);
-
   if(error) return alert(error.message);
   toast('ล้างต่ออายุ (เก็บหมายเหตุ) ✓');
   loadDocs(currentCompany);
 }
 
-/* ===== ล้างทั้งหมด (รวมหมายเหตุ) — per row — confirm 2 ชั้น ===== */
 async function clearRenewalAll(id){
   if(!confirm('ล้างสถานะ/วันที่/ต่อถึง/หมายเหตุ ของรายการนี้ทั้งหมด?')) return;
-  if(!confirm('ยืนยันอีกครั้ง: ต้องการ “ล้างทั้งหมด” จริง ๆ ใช่ไหม')) return;
-
+  if(!confirm('ยืนยันอีกครั้ง: ต้องการ "ล้างทั้งหมด" จริง ๆ ใช่ไหม')) return;
   const { error } = await sb
     .from('product_registrations')
-    .update({
-      renewed_status: null,
-      renewed_note: null,     // ลบหมายเหตุด้วย
-      renewed_until: null,
-      renewed_on: null
-    })
+    .update({ renewed_status: null, renewed_note: null, renewed_until: null, renewed_on: null })
     .eq('id', id);
-
   if(error) return alert(error.message);
   toast('ล้างทั้งหมดเรียบร้อย ✓');
   loadDocs(currentCompany);
 }
 
-/* ===== ลบรายการ ===== */
 async function delDoc(id){
   if(!confirm('ลบรายการนี้?')) return;
   const {error} = await sb.from('product_registrations').delete().eq('id', id);
@@ -515,18 +490,14 @@ async function delDoc(id){
 $('copyCodeBtn').addEventListener('click', async ()=>{
   const code = $('cust_code').value.trim().toUpperCase();
   if(!code) return alert('ยังไม่มีรหัสให้คัดลอก');
-  await navigator.clipboard.writeText(code);  // แก้บั๊กตัวแปร
+  await navigator.clipboard.writeText(code);
   toast('คัดลอกรหัสแล้ว ✓');
 });
 $('setCodeBtn').addEventListener('click', async ()=>{
   if(!currentCompany) return alert('โปรดเลือกบริษัทก่อน');
   const code = $('cust_code').value.trim();
   if(!code) return alert('กรุณากรอกรหัสลูกค้า');
-
-  const {error} = await sb.rpc('set_customer_code', {
-    p_company_code: currentCompany,
-    p_plain_code: code
-  });
+  const {error} = await sb.rpc('set_customer_code', { p_company_code: currentCompany, p_plain_code: code });
   if(error){ alert(error.message); return; }
   toast(`ตั้ง/เปลี่ยนรหัสลูกค้าสำหรับ "${currentCompany}" เรียบร้อย ✓`);
 });
@@ -685,7 +656,7 @@ function exportExcel(){
       r.expiry_date ? fmtDateBE(r.expiry_date) : '',
       r.renewed_until ? fmtDateBE(r.renewed_until) : '',
       r.renewed_on ? fmtDateBE(r.renewed_on) : '',
-      r.statusText || ''
+      r.statusText || ''   // ← plain text แล้ว ไม่มี HTML
     ]);
   });
   const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -701,8 +672,8 @@ function exportExcel(){
   tb.addEventListener('dblclick', (e)=>{
     const td = e.target.closest('td.editable');
     if(!td) return;
-
     if(td.classList.contains('editing')) return;
+
     const id = td.getAttribute('data-id');
     const field = td.getAttribute('data-field');
     const oldText = td.textContent;
@@ -748,8 +719,7 @@ function exportExcel(){
       }else if(field === 'registration_no' || field === 'license_no'){
         payload[field] = val.trim() || null;
       }else if(field === 'expiry_date'){
-        const raw = val.trim();
-        payload[field] = raw || null;
+        payload[field] = val.trim() || null;
       }
 
       try{
@@ -796,11 +766,9 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 $('btnDeleteSel').addEventListener('click', async ()=>{
   if (selectedIds.size === 0) return alert('กรุณาเลือกรายการก่อน');
   if (!confirm(`ต้องการลบ ${selectedIds.size} รายการที่เลือกหรือไม่?`)) return;
-
   const ids = Array.from(selectedIds);
   const { error } = await sb.from('product_registrations').delete().in('id', ids);
   if (error) return alert(error.message);
-
   toast(`ลบ ${ids.length} รายการสำเร็จ ✓`);
   selectedIds.clear();
   loadDocs(currentCompany);
@@ -810,22 +778,19 @@ $('btnDeleteSel').addEventListener('click', async ()=>{
 $('btnDeleteAllCompany').addEventListener('click', async ()=>{
   if (!currentCompany) return alert('กรุณาเลือกบริษัทก่อน');
   if (!confirm(`⚠️ ต้องการลบเอกสารทั้งหมดของบริษัท ${currentCompany} ใช่หรือไม่?`)) return;
-
   const { error } = await sb.from('product_registrations').delete().eq('company_code', currentCompany);
   if (error) return alert(error.message);
-
   toast(`ลบข้อมูลทั้งหมดของบริษัท ${currentCompany} เรียบร้อย ✓`);
   loadDocs(currentCompany);
 });
 
-/* ===== ไปยังหน้า note.html (เปิดแท็บใหม่) ===== */
+/* ===== Note Page ===== */
 $('btnNotePage').addEventListener('click', ()=>{
   if(!currentCompany) return alert('กรุณาเลือกบริษัทก่อน');
-  const url = `note.html?code=${encodeURIComponent(currentCompany)}`;
-  window.open(url, '_blank');
+  window.open(`note.html?code=${encodeURIComponent(currentCompany)}`, '_blank');
 });
 
-/* ===== ตัวอย่าง handler เพิ่มเติมสำหรับ bulk (เลือกทั้งหมด/ล้างเลือก) ===== */
+/* ===== Bulk Select/Clear ===== */
 $('btnSelectAllFiltered').addEventListener('click', ()=>{
   filteredRows.forEach(r=>selectedIds.add(r.id));
   renderTable($('adminSearch').value||'');
@@ -838,71 +803,48 @@ $('btnClearSel').addEventListener('click', ()=>{
 /* ===== Bulk: ล้างต่ออายุ (เก็บหมายเหตุ) ===== */
 $('btnClearRenewSel').addEventListener('click', async ()=>{
   if(selectedIds.size === 0) return alert('กรุณาเลือกรายการก่อน');
-  if(!confirm(`ล้างต่ออายุ ${selectedIds.size} รายการที่เลือก? (จะคง “หมายเหตุ” ไว้)`)) return;
-
+  if(!confirm(`ล้างต่ออายุ ${selectedIds.size} รายการที่เลือก? (จะคง "หมายเหตุ" ไว้)`)) return;
   const ids = Array.from(selectedIds);
   const { error } = await sb
     .from('product_registrations')
-    .update({
-      renewed_status: null,
-      // คง renewed_note ไว้
-      renewed_until: null,
-      renewed_on: null
-    })
+    .update({ renewed_status: null, renewed_until: null, renewed_on: null })
     .in('id', ids);
-
   if(error) return alert(error.message);
   toast(`ล้างต่ออายุ (เก็บหมายเหตุ) ${ids.length} รายการสำเร็จ ✓`);
   selectedIds.clear();
   loadDocs(currentCompany);
 });
 
-/* ===== Bulk: ล้างทั้งหมด (รวมหมายเหตุ) — confirm 2 ชั้น ===== */
+/* ===== Bulk: ล้างทั้งหมด ===== */
 $('btnClearRenewAllSel').addEventListener('click', async ()=>{
   if(selectedIds.size === 0) return alert('กรุณาเลือกรายการก่อน');
   if(!confirm(`ล้างสถานะ/วันที่/ต่อถึง/หมายเหตุ ของ ${selectedIds.size} รายการที่เลือกทั้งหมด?`)) return;
-  if(!confirm('ยืนยันอีกครั้ง: ต้องการ “ล้างทั้งหมด” จริง ๆ ใช่ไหม')) return;
-
+  if(!confirm('ยืนยันอีกครั้ง: ต้องการ "ล้างทั้งหมด" จริง ๆ ใช่ไหม')) return;
   const ids = Array.from(selectedIds);
   const { error } = await sb
     .from('product_registrations')
-    .update({
-      renewed_status: null,
-      renewed_note: null,
-      renewed_until: null,
-      renewed_on: null
-    })
+    .update({ renewed_status: null, renewed_note: null, renewed_until: null, renewed_on: null })
     .in('id', ids);
-
   if(error) return alert(error.message);
   toast(`ล้างทั้งหมด ${ids.length} รายการสำเร็จ ✓`);
   selectedIds.clear();
   loadDocs(currentCompany);
 });
 
-async function addSpecificNote(id, noteText) {
+async function addSpecificNote(id, noteText){
   const currentRow = cachedRows.find(r => r.id === id);
   const oldNote = currentRow ? (currentRow.renewed_note || '') : '';
-  
-  // ต่อท้ายหมายเหตุเดิม
   const finalNote = oldNote ? `${oldNote}\n${noteText}` : noteText;
-
   const { error } = await sb
     .from('product_registrations')
-    .update({ 
-      renewed_note: finalNote,
-      renewed_on: new Date().toISOString()
-    })
+    .update({ renewed_note: finalNote, renewed_on: new Date().toISOString() })
     .eq('id', id);
-
-  if (error) {
-    alert(error.message);
-  } else {
-    toast(`บันทึกลงหมายเหตุเรียบร้อย ✓`);
+  if(error){ alert(error.message); } else {
+    toast('บันทึกลงหมายเหตุเรียบร้อย ✓');
     loadDocs(currentCompany);
   }
 }
 </script>
-  
+
 </body>
 </html>
